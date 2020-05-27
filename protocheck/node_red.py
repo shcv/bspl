@@ -118,7 +118,7 @@ def parameter_string(parameters, adornment=True):
 def bspl_incoming(role, parameters, sending=True):
     return {
         "id": node_id(),
-        "type": "bspl-incoming",
+        "type": "PoT-incoming",
         "name": "Check " + role + " incoming",
         "timeout": 0,
         "spec": parameter_string(parameters, adornment=False),
@@ -140,7 +140,7 @@ def bspl_outgoing(role, sent_messages, sending=True):
     name = "Check " + role.name + " outgoing"
     return {
         "id": node_id(),
-        "type": "bspl-outgoing",
+        "type": "PoT-outgoing",
         "name": name,
         "spec": "\n".join(message_specs(sent_messages)),
         "width": 50 + len(name) * 5
