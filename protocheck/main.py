@@ -1,9 +1,35 @@
-from protocheck.bspl import handle_enactability, handle_liveness, handle_safety, handle_atomicity, load_file, handle_projection, handle_json
+from protocheck.bspl import load_file, model, strip_latex
+from protocheck.sat.verification import handle_enactability, handle_liveness, handle_safety, handle_atomicity
 from protocheck.refinement import handle_refinement, path_liveness, path_safety
 from protocheck.node_red import handle_node_flow
 import configargparse
 import sys
 import re
+import json
+
+
+def handle_projection(args):
+    role_name = args.input[0]
+    spec = load_file(args.input[1])
+
+    projections = []
+    for protocol in spec.protocols.values():
+        schema = protocol.schema
+        if args.verbose:
+            print(schema)
+
+        role = protocol.roles.get(role_name)
+        if not role:
+            raise LookupError("Role not found", role_name)
+
+        projections.append(protocol.projection(role))
+
+    for p in projections:
+        print(p.format())
+
+
+def handle_json(protocol, args):
+    print(json.dumps(protocol.to_dict(), indent=args.indent))
 
 
 def handle_all(protocol, args, **kwargs):
@@ -12,6 +38,25 @@ def handle_all(protocol, args, **kwargs):
         handle_liveness(protocol, args, **kwargs)
         handle_safety(protocol, args, **kwargs)
         handle_atomicity(protocol, args, **kwargs)
+
+
+def handle_ast(args):
+    with open(args.input[0]) as file:
+        raw = file.read()
+        raw = strip_latex(raw)
+
+        spec = model.parse(raw, rule_name='document')
+
+        def remove_parseinfo(d):
+            if not isinstance(d, (dict, list)):
+                return d
+            if isinstance(d, list):
+                return [remove_parseinfo(v) for v in d]
+            return {k: remove_parseinfo(v) for k, v in d.items()
+                    if k not in {'parseinfo'}}
+
+        for p in spec:
+            print(json.dumps(remove_parseinfo(p.asjson()), indent=2))
 
 
 def check_syntax(*args):
@@ -28,7 +73,7 @@ unary_actions = {
     'atomicity': handle_atomicity,
     'syntax': check_syntax,
     'all': handle_all,
-    'json': handle_json
+    'json': handle_json,
 }
 
 # Actions with more complex argument schemes
@@ -36,6 +81,7 @@ actions = {
     'flow': handle_node_flow,
     'refinement': handle_refinement,
     'projection': handle_projection,
+    'ast': handle_ast,
 }
 
 

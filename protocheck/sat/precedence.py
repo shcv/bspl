@@ -5,7 +5,7 @@ from boolexpr import and_, impl, or_, onehot, and_s
 from itertools import combinations, permutations, chain
 import re
 import configargparse
-from protocheck import logic
+from . import logic
 
 arg_parser = configargparse.get_argument_parser()
 arg_parser.add("-t", "--tseytin", action="store_true")

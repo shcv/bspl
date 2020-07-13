@@ -150,7 +150,7 @@ def bspl_outgoing(role, sent_messages, sending=True):
 def inject(message):
     parameters = {
         p for p in message.parameters.values() if p.adornment in ["out", "in"]}
-    name = "inject " + message.shortname
+    name = "inject " + message.qualified_name
     return {
         "id": node_id(),
         "type": "inject",

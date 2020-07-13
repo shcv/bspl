@@ -1,4 +1,5 @@
-from protocheck.bspl import load_file, Message, Role
+from .bspl import load_file
+from .protocol import Message, Role
 import sys
 
 
@@ -23,7 +24,7 @@ def empty_path():
     return tuple()
 
 
-External = Role({'name': "*External*"}, None)
+External = Role("*External*")
 
 
 class Instance():
