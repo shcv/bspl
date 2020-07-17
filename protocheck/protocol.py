@@ -104,7 +104,7 @@ class Protocol(Base):
                          and p.name in parent.parameters
                          and parent.parameters[p.name].key}
         if private_parameters:
-            self.private_parameters = private_parameters or {}
+            self.private_parameters = {p.name: p for p in private_parameters}
         if references:
             self.references = {r.name: r for r in references or []}
 
@@ -232,6 +232,16 @@ class Protocol(Base):
                 reference.parameters[i+len(p.roles)].name
         p.resolve_references(spec)
         return p
+
+    def find_schema(self, payload, name=None, to=None):
+        for schema in self.messages.values():
+            if name and schema.name is not name:
+                continue
+            if to and schema.recipient is not to:
+                continue
+            # find schema with exactly the same parameters (except nils, which should not be bound)
+            if not set(schema.ins).union(schema.outs).symmetric_difference(payload.keys()):
+                return schema
 
 
 class Message(Protocol):

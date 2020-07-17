@@ -26,14 +26,18 @@ except:
         pass
 
 
-def load(definition, path):
+def parse(definition):
+    return from_ast(model.parse(definition, rule_name='document'))
+
+
+def load(definition, path=None):
     try:
-        protocols = model.parse(definition, rule_name='document')
-        return from_ast(protocols)
+        return parse(definition)
     except:  # catch *all* exceptions
         if not debug:  # suppress traceback by default
             e = sys.exc_info()[1]
-            print("Error in: ", path, file=sys.stderr)
+            if path:
+                print("Error in: ", path, file=sys.stderr)
             print(e, file=sys.stderr)
             sys.exit(1)
         else:
