@@ -18,7 +18,6 @@ except:
         with open(grammar_path, 'r', encoding='utf8') as grammar:
             bspl_parser = tatsu.to_python_sourcecode(
                 grammar.read(), 'Bspl', 'bspl_parser.py')
-            print(bspl_parser)
             with open(parser_path, 'w', encoding='utf8') as parser_file:
                 parser_file.write(bspl_parser)
     except:
