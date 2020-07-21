@@ -12,6 +12,7 @@ try:
 except:
     grammar_path = os.path.join(os.path.dirname(__file__), "bspl.gr")
     with open(grammar_path, 'r', encoding='utf8') as grammar:
+        # warning: dynamically compiled grammar is different from precompiled code
         model = tatsu.compile(grammar.read())
     try:
         parser_path = os.path.join(os.path.dirname(__file__), "bspl_parser.py")
@@ -79,7 +80,8 @@ def ast_reference(ast, parent):
 
 
 def ast_parameter(ast, parent):
-    return Parameter(ast['name'], ast["adornment"], ast["key"], parent)
+    print(ast)
+    return Parameter(ast['name'], ast.get('adornment'), ast.get('key'), parent)
 
 
 def ast_message(ast, parent):
