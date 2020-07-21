@@ -80,7 +80,6 @@ def ast_reference(ast, parent):
 
 
 def ast_parameter(ast, parent):
-    print(ast)
     return Parameter(ast['name'], ast.get('adornment'), ast.get('key'), parent)
 
 
