@@ -1,0 +1,99 @@
+version: "3.7"
+
+services:
+  host:
+    image: qoomon/docker-host
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    restart: on-failure
+    networks:
+      - bungie-net
+
+  merchant:
+    build:
+      context: ..
+      dockerfile: agent.docker
+    image: agent
+    expose:
+      - 8000/udp
+    networks:
+      - bungie-net
+    volumes:
+      - type: bind
+        source: ./merchant.py
+        target: /src/merchant.py
+        read_only: true
+      - type: bind
+        source: ./configuration.py
+        target: /src/configuration.py
+        read_only: true
+      - type: bind
+        source: ./logistics.bspl
+        target: /src/logistics.bspl
+        read_only: true
+    entrypoint: python merchant.py
+
+  wrapper:
+    image: agent
+    expose:
+      - 8001/udp
+    networks:
+      - bungie-net
+    volumes:
+      - type: bind
+        source: ./wrapper.py
+        target: /src/wrapper.py
+        read_only: true
+      - type: bind
+        source: ./configuration.py
+        target: /src/configuration.py
+        read_only: true
+      - type: bind
+        source: ./logistics.bspl
+        target: /src/logistics.bspl
+        read_only: true
+    entrypoint: python wrapper.py
+
+  labeler:
+    image: agent
+    expose:
+      - 8002/udp
+    networks:
+      - bungie-net
+    volumes:
+      - type: bind
+        source: ./labeler.py
+        target: /src/labeler.py
+        read_only: true
+      - type: bind
+        source: ./configuration.py
+        target: /src/configuration.py
+        read_only: true
+      - type: bind
+        source: ./logistics.bspl
+        target: /src/logistics.bspl
+        read_only: true
+    entrypoint: python labeler.py
+
+  packer:
+    image: agent
+    expose:
+      - 8003/udp
+    networks:
+      - bungie-net
+    volumes:
+      - type: bind
+        source: ./packer.py
+        target: /src/packer.py
+        read_only: true
+      - type: bind
+        source: ./configuration.py
+        target: /src/configuration.py
+        read_only: true
+      - type: bind
+        source: ./logistics.bspl
+        target: /src/logistics.bspl
+        read_only: true
+    entrypoint: python packer.py
+
+networks:
+  bungie-net:
