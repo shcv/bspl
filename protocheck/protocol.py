@@ -34,10 +34,6 @@ class Base():
         self.type = type
 
     @property
-    def qualified_name(self):
-        return self.parent.name + "/" + self.raw_name
-
-    @property
     def name(self):
         return self.raw_name
 
@@ -77,14 +73,15 @@ class Protocol(Base):
                  references=None,
                  parent=None,
                  private_parameters=None,
+                 type="protocol"
                  ):
-        super().__init__(name, parent, "protocol")
+        super().__init__(name, parent, type)
         self.public_parameters = {}
         self.private_parameters = {}
         self.roles = {}
         self.references = {}
-        self.configure(roles, public_parameters,
-                       references, private_parameters)
+        Protocol.configure(self, roles, public_parameters,
+                           references, private_parameters)
 
     def configure(self,
                   roles=None,
@@ -94,7 +91,13 @@ class Protocol(Base):
                   parent=None):
         parent = self.parent = getattr(self, 'parent', parent)
         if roles:
-            self.roles = {r.name: r for r in roles or []}
+            for r in roles or []:
+                if type(r) is Role:
+                    self.roles[r.name] = r
+                elif type(r) is str:
+                    self.roles[r] = Role(r, self)
+                else:
+                    raise("{} is unexpected type: {}".format(r, type(r)))
         if public_parameters:
             self.set_parameters(public_parameters or [])
             self.keys = {p.name for p in self.parameters.values()
@@ -212,8 +215,10 @@ class Protocol(Base):
         for r in self.references.values():
             protocol = spec.protocols.get(r.name)
             if protocol:
+                # protocol
                 refs[r.name] = protocol.instance(spec, self, r)
             else:
+                # message
                 refs[r.name] = r.instance(self)
         self.references = refs
 
@@ -228,8 +233,8 @@ class Protocol(Base):
             p.roles[r.name] = parent.roles.get(
                 reference.parameters[i].name)
         for i, par in enumerate(self.public_parameters.values()):
-            p.public_parameters[par.name].raw_name = \
-                reference.parameters[i+len(p.roles)].name
+            p.public_parameters[par.name] = parent.parameters[reference.parameters[i+len(
+                p.roles)].name]
         p.resolve_references(spec)
         return p
 
@@ -247,10 +252,11 @@ class Protocol(Base):
 class Message(Protocol):
     def __init__(self, name, sender=None, recipient=None, parameters=None, parent=None):
         if (sender and recipient):
-            super(Protocol, self).__init__(name, parent=parent, type="message")
+            super().__init__(name, roles=[
+                sender, recipient], parent=parent, type="message")
             self.configure(sender, recipient, parameters, parent)
         else:
-            super(Protocol, self).__init__(name, parent=parent, type="message")
+            super().__init__(name, parent=parent, type="message")
 
     def configure(self, sender=None, recipient=None, parameters=None, parent=None):
         self.idx = 1
@@ -263,7 +269,7 @@ class Message(Protocol):
                 or parent.roles.get(getattr(recipient, 'name', None))
             for p in parameters or []:
                 if p.name not in parent.parameters:
-                    raise LookupError("Undeclared parameter", p)
+                    raise LookupError("Undeclared parameter", p.name)
                 elif parent.parameters[p.name].key:
                     p.key = True
         else:
@@ -303,10 +309,16 @@ class Message(Protocol):
             if m.name == self.name:
                 msg.idx += 1
 
-        # propagate renaming from parent protocol
+        # propagate parameters from parent protocol
         for i, par in enumerate(self.public_parameters.values()):
-            msg.public_parameters[par.name].raw_name = \
-                parent.parameters[par.name].name
+            # Make a new parameter, to preserve message adornments
+            parent_parameter = parent.parameters[par.name]
+            msg.public_parameters[par.name] = Parameter(
+                parent_parameter.raw_name,
+                par.adornment,
+                par.key,
+                self
+            )
 
         return msg
 

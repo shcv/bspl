@@ -3,31 +3,33 @@ from .precedence import consistent, pairwise,     \
     reset_stats, stats, wrap, var, name, onehot
 from . import logic
 from .logic import merge, onehot0
+from functools import lru_cache, partial
+from ..protocol import Message
 
 
 @wrap(name)
-def observe(role, event):
+def observes(role, event):
     return var(role + ":" + event)
 
 
-send = observe
-recv = observe
+send = observes
+recv = observes
 
 
-def atomic(p):
-    c = p.correct
-    m = p.maximal
+def atomic(P):
+    c = correct(P)
+    m = maximal(P)
 
-    def inner(q, r):
+    def inner(Q, r):
         formula = logic.And(c, m,
-                            r.enactability,
-                            q.incomplete)
+                            enactability(r),
+                            incomplete(Q))
         return formula
     return inner
 
 
 # Role
-def minimality(self, protocol):
+def minimality(role, protocol):
     """Every parameter observed by a role must have a corresponding
     message transmission or reception"""
     sources = {}
@@ -39,8 +41,8 @@ def minimality(self, protocol):
             sources[p] = [m]
 
     outgoing = set()
-    for m in self.messages(protocol).values():
-        if m.recipient == self:
+    for m in role.messages(protocol).values():
+        if m.recipient == role:
             for p in m.ins.union(m.outs):
                 add(m, p)
         else:
@@ -51,12 +53,12 @@ def minimality(self, protocol):
 
     # keep track of 'in' parameters being sent without sources
     # unsourced parameters cannot be observed
-    unsourced = [logic.Name(~self.observe(p), p)
+    unsourced = [logic.Name(~observes(role, p), p)
                  for p in outgoing - set(sources.keys())]
 
     # sourced parameters must be received or sent to be observed
-    sourced = [logic.Name(impl(self.observe(p),
-                               or_(*[simultaneous(self.observe(m), self.observe(p))
+    sourced = [logic.Name(impl(observes(role, p),
+                               or_(*[simultaneous(observes(role, m), observes(role, p))
                                      for m in sources[p]])),
                           p)
                for p in sources]
@@ -65,7 +67,7 @@ def minimality(self, protocol):
 
 
 def nonsimultaneity(self, protocol):
-    msgs = [m.sent for m in protocol.messages.values() if m.sender == self]
+    msgs = [sent(m) for m in protocol.messages.values() if m.sender == self]
     if len(msgs) > 1:
         return ordered(*msgs)
     else:
@@ -74,27 +76,25 @@ def nonsimultaneity(self, protocol):
 # Protocol
 
 
-def is_enactable(protocol):
-    if self.enactable is None:
-        self.enactable = consistent(
-            logic.And(self.correct, self.enactability))
-    return self.enactable
+@lru_cache()
+def is_enactable(P):
+    return consistent(logic.And(correct(P), enactability(P)))
 
 
-def is_live(self):
-    return self.is_enactable() and not consistent(self.dead_end)
+def is_live(protocol):
+    return is_enactable(protocol) and not consistent(dead_end(protocol))
 
 
-def is_safe(self):
+def is_safe(P):
     # prove there are no unsafe enactments
-    return not consistent(self.unsafe)
+    return not consistent(unsafe(P))
 
 
-def recursive_property(self, prop, filter=None, verbose=None):
-    for r in self.references:
+def recursive_property(P, prop, filter=None, verbose=None):
+    for r in P.references.values():
         if filter and not filter(r):
             continue  # skip references that do not pass the filter
-        formula = prop(self, r)
+        formula = prop(P, r)
         if verbose:
             print_formula(formula)
         s = consistent(formula)
@@ -103,59 +103,57 @@ def recursive_property(self, prop, filter=None, verbose=None):
             return s, formula
         else:
             # recurse
-            s, formula = r.recursive_property(prop, filter)
+            s, formula = recursive_property(r, prop, filter)
             if s:
                 return s, formula
 
     return None, None
 
 
-def check_atomicity(self, args=None):
+def check_atomicity(P, args=None):
     def filter(ref):
         return type(ref) is not Message or ref.is_entrypoint
 
     # if args and args.exhaustive:
-    #     return self.recursive_property(atomic(self))
+    #     return P.recursive_property(atomic(P))
     # else:
-    return self.recursive_property(atomic(self), filter, verbose=args and args.verbose)
+    return recursive_property(P, atomic(P), filter, verbose=args and args.verbose)
 
 
-def is_atomic(self):
-    solution, _ = self.check_atomicity()
+def is_atomic(P):
+    solution, _ = check_atomicity(P)
     return not solution
 
 
-def p_cover(self, parameter):
+def p_cover(P, parameter):
     if type(parameter) is not str:
         parameter = parameter.name
 
     alts = []
-    for m in self.messages.values():
+    for m in P.messages.values():
         if parameter in m.parameters:
             alts.append(m)
     return alts
 
 
-@property
 @logic.named
-def cover(self):
-    return logic.And(*[logic.Name(or_(*[m.received for m in self.p_cover(p)]),
+def cover(P):
+    return logic.And(*[logic.Name(or_(*[received(m) for m in p_cover(P, p)]),
                                   p.name + "-cover")
-                       for p in self.public_parameters.values()])
+                       for p in P.public_parameters.values()])
 
 
-@property
 @logic.named
-def unsafe(self):
+def unsafe(P):
     clauses = []
-    for p in self.all_parameters:
-        sources = [m for m in self.p_cover(p)
+    for p in P.all_parameters:
+        sources = [m for m in p_cover(P, p)
                    if m.parameters[p].adornment == 'out']
         if len(sources) > 1:
             alts = []
-            for r in self.roles.values():
+            for r in P.roles.values():
                 # assume an agent can choose between alternative messages
-                msgs = [m.sent for m in sources if m.sender == r]
+                msgs = [sent(m) for m in sources if m.sender == r]
                 if msgs:
                     alts.append(or_(*msgs))
             # at most one message producing this parameter can be sent
@@ -167,176 +165,135 @@ def unsafe(self):
                     logic.Name(more_than_one, p + "-unsafe"))
     if clauses:
         # at least one conflict
-        return logic.And(self.correct, logic.Name(clauses, "unsafe"))
+        return logic.And(correct(P), logic.Name(clauses, "unsafe"))
     else:
         # no conflicting pairs; automatically safe -> not unsafe
         return bx.ZERO
 
 
-def _enactable(self):
+def enactable(P):
     "Some message must be received containing each parameter"
     clauses = []
-    for p in self.public_parameters:
-        clauses.append(or_(*[m.received for m in self.p_cover(p)]))
+    for p in P.public_parameters:
+        clauses.append(or_(*[received(m) for m in p_cover(P, p)]))
     return and_(*clauses)
 
 
-@property
 @logic.named
-def enactability(self):
-    return self._enactable()
+def enactability(P):
+    return enactable(P)
 
 
-@property
 @logic.named
-def unenactable(self):
-    return ~self._enactable()
+def dead_end(protocol):
+    return logic.And(correct(protocol), maximal(protocol), incomplete(protocol))
 
 
-@property
 @logic.named
-def dead_end(self):
-    return logic.And(self.correct, self.maximal, self.incomplete)
-
-
-@property
-@logic.named
-def correct(self):
+def correct(P):
     clauses = {}
-    msgs = self.messages.values()
-    roles = self.roles.values()
-    clauses["Emission"] = {m.name: m.emission for m in msgs}
-    clauses["Reception"] = {m.name: m.reception for m in msgs}
-    clauses["Transmission"] = {m.name: m.transmission for m in msgs}
-    clauses["Non-lossy"] = {m.name: m.non_lossy for m in msgs}
-    clauses["Non-simultaneity"] = {r.name: r.nonsimultaneity(self)
+    msgs = P.messages.values()
+    roles = P.roles.values()
+    clauses["Emission"] = {m.name: emission(m) for m in msgs}
+    clauses["Reception"] = {m.name: reception(m) for m in msgs}
+    clauses["Transmission"] = {m.name: transmission(m) for m in msgs}
+    clauses["Non-lossy"] = {m.name: non_lossy(m) for m in msgs}
+    clauses["Non-simultaneity"] = {r.name: nonsimultaneity(r, P)
                                    for r in roles}
-    clauses["Minimality"] = {r.name: r.minimality(self) for r in roles}
-    clauses["Uniqueness"] = {k: self.uniqueness(k) for k in self.keys}
+    clauses["Minimality"] = {r.name: minimality(r, P) for r in roles}
+    clauses["Uniqueness"] = {k: uniqueness(P, k) for k in P.keys}
     return clauses
 
 
-@property
 @logic.named
-def maximal(self):
+def maximal(P):
     "Each message must be sent, or it must be blocked by a prior binding"
     clauses = []
-    for m in self.messages.values():
-        clauses.append(m.sent | m.blocked)
+    for m in P.messages.values():
+        clauses.append(sent(m) | blocked(m))
     return and_(*clauses)
 
 
-@property
 @logic.named
-def begin(self):
-    return or_(*[m.sent for m in self.messages.values()])
+def begin(P):
+    return or_(*[sent(m) for m in P.messages.values()])
 
 
-def uniqueness(self, key):
+def uniqueness(P, key):
     "Bindings to key parameters uniquely identify enactments, so there should never be multiple messages with the same out key in the same enactment"
 
     candidates = set()
-    for m in self.messages.values():
+    for m in P.messages.values():
         if key in m.outs:
             candidates.add(simultaneous(
-                m.sent, observe(m.sender, key)))
+                sent(m), observes(m.sender, key)))
     if candidates:
         return onehot0(*candidates)
     else:
         return True
 
 
-def _complete(self):
+def complete(P):
     "Each out parameter must be observed by at least one role"
     clauses = []
-    for p in self.outs:
-        clauses.append(or_(*[m.received for m in self.p_cover(p)
+    for p in P.outs:
+        clauses.append(or_(*[received(m) for m in p_cover(P, p)
                              if m.parameters[p].adornment is 'out']))
     return and_(*clauses)
 
 
-@property
 @logic.named
-def complete(self):
-    return self._complete()
-
-
-@property
-@logic.named
-def incomplete(self):
-    return ~self._complete()
+def incomplete(P):
+    return ~complete(P)
 
 
 ###### Message ######
-@property
-def sent(self):
-    return send(self.sender, self.name)
+def sent(m):
+    return send(m.sender, m.qualified_name)
 
 
-@property
-def received(self):
-    return recv(self.recipient, self.name)
+def received(m):
+    return recv(m.recipient, m.qualified_name)
 
 
-@property
-@logic.named
-def enactability(self):
-    return self.received
-
-
-def check_atomicity(self):
-    return None, None
-
-
-@property
-@logic.named
-def unenactable(self):
-    return ~self.received
-
-
-@property
-def blocked(self):
-    s = partial(observe, self.sender)
-    ins = [~s(p) for p in self.ins]
-    nils = [and_(s(p), ~(sequential(s(p), self.sent) |
-                         simultaneous(s(p), self.sent))) for p in self.nils]
-    outs = [s(p) for p in self.outs]
+def blocked(msg):
+    s = partial(observes, msg.sender)
+    ins = [~s(p) for p in msg.ins]
+    nils = [and_(s(p), ~(sequential(s(p), sent(msg)) |
+                         simultaneous(s(p), sent(msg)))) for p in msg.nils]
+    outs = [s(p) for p in msg.outs]
     return or_(*(nils + outs + ins))
 
 
-@property
-def transmission(self):
+def transmission(msg):
     "Each message reception is causally preceded by its emission"
-    return impl(self.received, sequential(self.sent, self.received))
+    return impl(received(msg), sequential(sent(msg), received(msg)))
 
 
-@property
-def non_lossy(self):
+def non_lossy(msg):
     "Each message emission results in reception"
-    return impl(self.sent, self.received)
+    return impl(sent(msg), received(msg))
 
 
-@property
-def emission(self):
+def emission(msg):
     """Sending a message must be preceded by observation of its ins,
        but cannot be preceded by observation of any nils or outs"""
-    s = partial(observe, self.sender)
-    ins = [impl(self.sent, sequential(s(p), self.sent))
-           for p in self.ins]
-    nils = [impl(and_(self.sent, s(p)), sequential(self.sent, s(p)))
-            for p in self.nils]
-    outs = [impl(self.sent, simultaneous(s(p), self.sent))
-            for p in self.outs]
+    s = partial(observes, msg.sender)
+    ins = [impl(sent(msg), sequential(s(p), sent(msg)))
+           for p in msg.ins]
+    nils = [impl(and_(sent(msg), s(p)), sequential(sent(msg), s(p)))
+            for p in msg.nils]
+    outs = [impl(sent(msg), simultaneous(s(p), sent(msg)))
+            for p in msg.outs]
     return and_(*(ins + nils + outs))
 
 
-@property
-def reception(self):
-    "Each message reception is accompanied by the observation of its parameters; either they are observed, or the message itself is not"
-    clauses = [impl(self.received,
-                    or_(sequential(p, self.received),
-                        simultaneous(p, self.received)))
-               for p in map(partial(observe, self.recipient), self.ins | self.outs)]
+def reception(msg):
+    "Each message reception is accompanied by the observation of its parameters; either they are observed, or the message itmsg is not"
+    clauses = [impl(received(msg),
+                    or_(sequential(p, received(msg)),
+                        simultaneous(p, received(msg))))
+               for p in map(partial(observes, msg.recipient), msg.ins | msg.outs)]
     return and_(*clauses)
 
 
@@ -347,14 +304,14 @@ def print_formula(*formulas):
     print()
 
 
-def handle_enactability(protocol, args):
+def handle_enactability(P, args):
     reset_stats()
-    e = protocol.is_enactable()
+    e = is_enactable(P)
     print("  Enactable: ", bool(e))
     if args.verbose or args.stats:
         print("    stats: ", stats)
     if not e and not args.quiet or args.verbose:
-        print_formula(logic.And(protocol.correct, protocol.enactability))
+        print_formula(logic.And(correct(P), enactability(P)))
     if e and args.verbose:
         pp.pprint(e)
 
@@ -363,7 +320,7 @@ def handle_enactability(protocol, args):
 
 def handle_liveness(protocol, args):
     reset_stats()
-    e = protocol.is_enactable()
+    e = is_enactable(protocol)
     violation = consistent(protocol.dead_end)
     print("  Live: ", e and not violation)
     if args.verbose or args.stats:
@@ -378,7 +335,7 @@ def handle_liveness(protocol, args):
 
 def handle_safety(protocol, args):
     reset_stats()
-    expr = protocol.unsafe
+    expr = unsafe(protocol)
     violation = consistent(expr)
     print("  Safe: ", not violation)
     if args.verbose or args.stats:

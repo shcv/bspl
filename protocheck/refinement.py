@@ -1,5 +1,5 @@
 from .bspl import load_file
-from .protocol import Message, Role
+from .protocol import Message, Role, Parameter
 import sys
 
 
@@ -83,6 +83,7 @@ def viable(path, msg):
     msg_count = len([i.msg for i in path if i.msg == msg])
     if not msg.ins.union(msg.nils).symmetric_difference({p.name for p in msg.parameters.values()}) and msg_count > 0:
         # only allow one copy of an all "in"/"nil" message
+        print("Only one copy of all in message allowed")
         return False
     if msg.sender == External:
         # only send external messages if they would contribute
@@ -90,10 +91,16 @@ def viable(path, msg):
         if not k.issuperset(msg.ins):
             return True
         else:
+            print("Only send external messages if they would contribute")
             return False
     out_keys = msg.keys.intersection(msg.outs)
+    print(msg.name)
+    print(msg.keys)
+    print(msg.outs)
+    print(out_keys)
     if out_keys and all(sources(path, p) for p in out_keys):
         # don't allow multiple key bindings in the same path; they're different enactments
+        print("Don't allow multiple key bindings on the same path; they're different enactments")
         return False
     k = known(path, msg.keys, msg.sender)
     return k.issuperset(msg.ins) \
@@ -117,18 +124,18 @@ class UoD():
                     continue
                 keys = protocol.ins.intersection(protocol.keys)
                 # generate messages that provide p to each sender
-                schema = {
-                    'name': f'external->{r.name}',
-                    'sender': External.name,
-                    'recipient': r.name,
-                    'parameters': [{'adornment': 'in', 'name': k, 'key': True} for k in keys]
-                    + [{'adornment': 'in', 'name': p, 'key': False}
-                        for p in protocol.ins.difference(keys)]
-                }
-                dependencies[r.name] = schema
+                msg = Message(
+                    'external->{r.name}',
+                    External,
+                    r,
+                    [Parameter(k, 'in', True) for k in keys]
+                    + [Parameter(p, 'in')
+                       for p in protocol.ins.difference(keys)]
+                )
+                dependencies[r.name] = msg
             # hmmm; probably shouldn't modify protocol...
             protocol.roles[External.name] = External
-            uod = UoD(list(protocol.messages.values()) + [Message(s, protocol) for s in dependencies.values()],
+            uod = UoD(list(protocol.messages.values()) + list(dependencies.values()),
                       protocol.roles.values())
             return uod
 

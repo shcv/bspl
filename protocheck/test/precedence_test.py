@@ -1,6 +1,6 @@
 import pytest
 from boolexpr import and_, not_, impl
-from protocheck.precedence import (
+from protocheck.sat.precedence import (
     transitivity, relationships, var,
     occurrence, simultaneous, sequential,
     timeline,

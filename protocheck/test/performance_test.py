@@ -2,6 +2,7 @@ import pytest
 from ttictoc import Timer
 from statistics import median
 from protocheck.refinement import *
+from protocheck.sat.verification import *
 
 
 def perf_test(objects, properties):
@@ -10,11 +11,11 @@ def perf_test(objects, properties):
         for name, fn in properties.items():
             times = []
             for x in range(10 + 1):
-                t.tic()
+                t.start()
                 fn(obj)
-                t.toc()
+                elapsed = t.stop()
                 if x > 0:  # burn in once
-                    times.append(t.elapsed * 1000)  # use milliseconds
+                    times.append(elapsed * 1000)  # use milliseconds
             mean = sum(times) / len(times)
             print(
                 f"{obj.name}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}, {times}")
@@ -49,9 +50,9 @@ def PurchaseComposition():
 #         paths = []
 #         U = UoD.from_protocol(protocol)
 #         for x in range(10):
-#             t.tic()
+#             t.start()
 #             paths = all_paths(U)
-#             t.toc()
+#             t.stop()
 #             times.append(t.elapsed)
 #         print(f"{protocol.name}, {len(paths)}, {min(times):0.4f}, {sum(times) / len(times):0.4f}, {max(times):0.4f}")
 
@@ -63,9 +64,9 @@ def PurchaseComposition():
 #         times = []
 #         paths = None
 #         for x in range(10):
-#             t.tic()
+#             t.start()
 #             paths = all_paths(UoD.from_protocol(protocol))
-#             t.toc()
+#             t.stop()
 #             times.append(t.elapsed)
 #         print(f"{protocol.name}, {len(paths)}, {min(times):0.4f}, {sum(times) / len(times):0.4f}, {max(times):0.4f}")
 
@@ -77,10 +78,10 @@ def PurchaseComposition():
 #         times = []
 #         paths = None
 #         for x in range(10):
-#             t.tic()
+#             t.start()
 #             paths = refines(UoD(), protocol.public_parameters,
 #                             protocol, protocol)
-#             t.toc()
+#             t.stop()
 #             times.append(t.elapsed)
 #         print(f"{protocol.name}, {len(paths)}, {min(times):0.4f}, {sum(times) / len(times):0.4f}, {max(times):0.4f}")
 
@@ -92,9 +93,9 @@ def PurchaseComposition():
 #         times = []
 #         paths = 0
 #         for x in range(10):
-#             t.tic()
+#             t.start()
 #             paths = all_paths(UoD.from_protocol(protocol))
-#             t.toc()
+#             t.stop()
 #             times.append(t.elapsed)
 #         print(f"{protocol.name}, {len(paths)}, {min(times):0.4f}, {sum(times) / len(times):0.4f}, {max(times):0.4f}")
 
@@ -110,10 +111,10 @@ def test_refinement_performance(PurchaseComposition):
         Q = PurchaseComposition.protocols[Qs[i]]
         times = []
         for x in range(10):
-            t.tic()
+            t.start()
             refines(UoD(), P.public_parameters, Q, P)
-            t.toc()
-            times.append(t.elapsed * 1000)
+            elapsed = t.stop()
+            times.append(elapsed * 1000)
         avg = sum(times) / len(times)
         print(f"{P.name}, {int(min(times))}, {int(avg)}, {int(max(times))}, {times}")
 
@@ -123,8 +124,8 @@ def test_sat_composition_performance(PurchaseComposition):
     print("SAT (composition): ")
     print('Protocol, Property, Min, Mean, Max, Times')
     properties = {
-        "Liveness": lambda P: P.is_live(),
-        "Safety": lambda P: P.is_safe()
+        "Liveness": lambda P: is_live(P),
+        "Safety": lambda P: is_safe(P)
     }
     perf_test([PurchaseComposition.protocols['Refined-Commerce']], properties)
 
@@ -138,18 +139,19 @@ def test_sat_subprotocol_performance(PurchaseComposition):
         if 'Commerce' in P.name:
             continue
         properties = {
-            "Enactability": P.is_enactable,
-            "Liveness": P.is_live,
-            "Safety": P.is_safe
+            "Enactability": lambda: is_enactable(P),
+            "Liveness": lambda: is_live(P),
+            "Safety": lambda: is_safe(P)
         }
         for name, fn in properties.items():
             times = []
             for x in range(10):
-                t.tic()
+                t.start()
+                print(name, fn)
                 fn()
-                t.toc()
-                print(t.elapsed)
-                times.append(t.elapsed * 1000)  # use milliseconds
+                elapsed = t.stop()
+                print(elapsed)
+                times.append(elapsed * 1000)  # use milliseconds
             mean = sum(times) / len(times)
             print(
                 f"{P.name}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}")
@@ -168,17 +170,17 @@ def test_single_sub_performance(PurchaseComposition):
         P = load_file('samples/bspl/performance/' +
                       s).protocols['Refined-Commerce']
         properties = {
-            "Liveness": P.is_live,
-            "Safety": P.is_safe
+            "Liveness": lambda: is_live(P),
+            "Safety": lambda: is_safe(P)
         }
         for name, fn in properties.items():
             times = []
             for x in range(10 + 1):
-                t.tic()
+                t.start()
                 fn()
-                t.toc()
+                elapsed = t.stop()
                 if x > 0:  # burn in once
-                    times.append(t.elapsed * 1000)  # use milliseconds
+                    times.append(elapsed * 1000)  # use milliseconds
             mean = sum(times) / len(times)
             print(
                 f"{s}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}, {times}")
@@ -212,8 +214,8 @@ def test_netbill_refinement(PurchaseComposition):
     Q = spec.protocols['Original-NetBill']
     properties = {
         "Refinement": lambda q: refines(UoD(), P.public_parameters, q, P),
-        "Liveness": lambda p: p.is_live(),
-        "Safety": lambda p: p.is_safe(),
+        "Liveness": lambda p: is_live(p),
+        "Safety": lambda p: is_safe(p),
         "Path-Liveness": path_liveness,
         "Path-Safety": path_safety,
     }
@@ -229,8 +231,8 @@ def test_CreateLabOrder_refinement(PurchaseComposition):
     Q = spec.protocols['CreateOrder2']
     properties = {
         "Refinement": lambda q: refines(UoD(), P.public_parameters, q, P),
-        "Liveness": lambda p: p.is_live(),
-        "Safety": lambda p: p.is_safe(),
+        "Liveness": lambda p: is_live(p),
+        "Safety": lambda p: is_safe(p),
         "Path-Liveness": path_liveness,
         "Path-Safety": path_safety,
     }

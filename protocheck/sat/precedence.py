@@ -28,6 +28,8 @@ def reset_stats():
 
 def name(var):
     "convert name or var to name"
+    if hasattr(var, 'qualified_name'):
+        return var.qualified_name
     if hasattr(var, 'name'):
         return var.name
     if hasattr(var, 'get') and var.get('name', None):
@@ -349,7 +351,7 @@ def consistent(*statements, exhaustive=False):
     clauses = statements
     cons = []
     t = Timer()
-    t.tic()
+    t.start()
     if options.exhaustive or exhaustive:
         cons += exhaustive_consistency(statements)
         result = solve(clauses + cons, options, depth="exhaustive")
@@ -362,7 +364,6 @@ def consistent(*statements, exhaustive=False):
             depth += 1
             cons = consistency(clauses + cons)
             result = solve(clauses + cons, options, depth)
-    t.toc()
-    stats["time"] += t.elapsed
+    stats["time"] += t.stop()
 
     return result

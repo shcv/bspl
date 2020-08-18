@@ -1,7 +1,7 @@
 import pytest
 from boolexpr import not_
 from protocheck.bspl import *
-from protocheck import precedence, logic
+from protocheck.sat import precedence, logic
 
 
 @pytest.fixture(scope="module")
@@ -71,101 +71,13 @@ def test_protocol_messages(Auction):
     assert Auction.messages.get('Bid')
 
 
-def test_observe(Bid, A):
-    assert str(observe(A, Bid)) == 'A:Auction/Bid'
-
-
-def test_transmission(Bid, A, B):
-    assert logic.compile(Bid.transmission).equiv(
-        or_(not_(observe(A, Bid)),
-            sequential(observe(B, Bid),
-                       observe(A, Bid))))
-
-
-def test_reception(Bid, B):
-    assert precedence.consistent(Bid.reception)
-
-
-def test_role_messages(A):
-    assert A.messages
-
-
-def test_minimality(A, Auction):
-    assert A.minimality
-    print(A.minimality)
-    assert consistent(A.minimality(Auction))
-
-
-def test_enactable(Auction):
-    assert Auction.enactability
-    assert consistent(Auction.enactability)
-
-
-def test_correct(Auction):
-    c = Auction.correct
-    assert c
-    assert consistent(Auction.correct)
-
-
-def test_maximal(Auction):
-    assert Auction.maximal
-    assert consistent(Auction.maximal)
-
-
-def test_begin(Auction):
-    assert Auction.begin
-    assert consistent(Auction.begin)
-
-
-def test_complete(Auction):
-    print(Auction.complete)
-    assert Auction.complete
-    assert consistent(Auction.complete)
-
-
-def test_is_enactable(Auction):
-    assert Auction.is_enactable()
-
-
-def test_protocol_dead_end(Auction):
-    assert Auction.dead_end
-    print(Auction.dead_end)
-    o = consistent(Auction.dead_end)
-    if o:
-        print([k for k, v in o.items() if v])
-    assert not o
-
-
-def test_is_live(Auction):
-    assert Auction.is_live()
-
-
-def test_protocol_unsafe(Auction):
-    o = consistent(Auction.unsafe)
-    if o:
-        print([k for k, v in o.items() if v == 1])
-    assert not o
-
-
-def test_protocol_safe(Auction):
-    assert Auction.is_safe()
-
-
-def test_protocol_is_atomic(Auction):
-    assert Auction.is_atomic()
-
-
-def test_protocol_cover(Auction):
-    assert Auction.cover
-
-
 def test_parameter_format(Bid):
     assert Bid.parameters['bidID'].format() == "out bidID key"
 
 
 def test_message_format(Bid):
     assert Bid.format(
-    ) == "B -> A: Bid[in id, out bidID key, out bid, nil done]"
+    ) == "B -> A: Bid[in id key, out bidID key, out bid, nil done]"
 
 
 def test_protocol_format(Auction, WithReject):
@@ -174,9 +86,9 @@ def test_protocol_format(Auction, WithReject):
   parameters out id key, out done
   private bidID, bid
 
-  A -> B: Start[out id]
-  B -> A: Bid[in id, out bidID key, out bid, nil done]
-  A -> B: Stop[in id, out done]
+  A -> B: Start[out id key]
+  B -> A: Bid[in id key, out bidID key, out bid, nil done]
+  A -> B: Stop[in id key, out done]
 }"""
 
     assert WithReject.format() == """With-Reject {
@@ -184,5 +96,5 @@ def test_protocol_format(Auction, WithReject):
   parameters out item key, out done
 
   Order(C, S, out item key, out done)
-  S -> C: Reject[in item, out done]
+  S -> C: Reject[in item key, out done]
 }"""

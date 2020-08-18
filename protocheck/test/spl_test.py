@@ -1,6 +1,6 @@
 from boolexpr import not_
-from protocheck.spl import *
-from protocheck import precedence
+from protocheck.spl.spl import *
+from protocheck.sat import precedence
 
 Bid = Message({
     "type": "message",

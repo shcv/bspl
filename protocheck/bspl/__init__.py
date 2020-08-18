@@ -85,7 +85,7 @@ def ast_parameter(ast, parent):
 
 def ast_message(ast, parent):
     msg = Message(ast["name"], ast["sender"], ast["recipient"], parent=parent)
-    parameters = [ast_parameter(p, msg) for p in ast['parameters']]
+    parameters = [ast_parameter(p, msg) for p in ast.get('parameters') or []]
     msg.set_parameters(parameters)
     return msg
 
