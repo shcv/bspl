@@ -15,8 +15,8 @@ logger = logging.getLogger('bungie')
 
 class History:
     def __init__(self):
-
         self.by_param = {}
+        self.by_msg = {}
         self.all_bindings = {}
 
     def check_integrity(self, message):
@@ -73,6 +73,13 @@ class History:
     def observe(self, message):
         """Observe an instance of a given message specification.
            Check integrity, and add the message to the history."""
+
+        # log by message type
+        if message.schema in self.by_msg:
+            self.by_msg[message.schema].add(message)
+        else:
+            self.by_msg[message.schema] = {message}
+
         # record all unique parameter bindings
         for p in message.payload:
             if p in self.all_bindings:
