@@ -17,12 +17,7 @@ class History:
     def __init__(self):
         self.log = {}
         self.parameters = {}
-        self.triggers = []
 
-    def process_triggers(self):
-        for condition, handler in self.triggers:
-            if condition(self):
-                threading.Thread(target=handler, args=(self,)).start()
 
     def check_integrity(self, message):
         """
@@ -94,7 +89,6 @@ class History:
             else:
                 self.log[k] = {v: [message]}
 
-        self.process_triggers()
 
     def enactment(self, message):
         enactment = {'messages': set()}
@@ -171,9 +165,6 @@ class Adapter:
         self.recv_q = Queue()
         self.process_thread = Thread(target=self.process_loop)
         self.listen_thread = Thread(target=self.listen_loop)
-
-    def add_trigger(self, condition, handler):
-        self.history.triggers.append((condition, handler))
 
     def process_receive(self, payload):
         if not isinstance(payload, dict):
