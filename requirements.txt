@@ -1,0 +1,3 @@
+-e git://github.com/priestoferis/cronus.git#egg=cronus
+python-crontab
+croniter
