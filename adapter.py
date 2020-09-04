@@ -7,6 +7,12 @@ import os
 import math
 import socket
 from queue import Queue
+from collections import deque
+from cronus.beat import Beat
+from crontab import CronTab
+import croniter
+import uuid
+import yaml
 
 FORMAT = '%(asctime)-15s %(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
@@ -138,6 +144,9 @@ class Message:
         self.payload = payload
         self.enactment = enactment
         self.duplicate = duplicate
+        self.meta = {
+            "ack": False
+        }
 
     def __str__(self):
         if self.enactment and self.duplicate:
@@ -151,6 +160,11 @@ class Message:
                 self.schema.name, self.payload, self.duplicate)
         else:
             return "Message({}, {})".format(self.schema.name, self.payload)
+
+    def keys_match(self, other):
+        return all(self.payload[k] == other.payload[k]
+                   for k in self.schema.keys
+                   if k in other.schema.parameters)
 
 
 class Adapter:
@@ -275,3 +289,152 @@ class Adapter:
     def start(self):
         self.process_thread.start()
         self.listen_thread.start()
+
+
+class Resend:
+    """
+    A helper class for defining proactive resend policies.
+
+    The following statement returns a function that returns a list of all Accept messages that do not have corresponding Deliver instances in the history.
+      Resend(Accept).until(Deliver)
+    """
+
+    def __init__(self, *messages):
+        """List of message schemas to try resending"""
+        self.messages = messages
+
+    def until(self, *expectations):
+        """
+        Conditions for resending the messages; another list of message schemas to wait for, resending until they arrive
+        """
+        def process(history):
+            resend = {}
+            # for each schema that needs resending
+            for s in self.messages:
+                # identify candidate instances in the log
+                for candidate in history.by_msg[s]:
+                    # go through each expected schema
+                    for e in expectations:
+                        # if there aren't any matching instances, add
+                        # the candidate to the resend set
+                        if not any(candidate.keys_match(m)
+                                   for m in history.by_msg.get(e, [])):
+                            resend.add(candidate)
+            return resend
+        return process
+
+
+class Scheduler:
+    def __init__(self, adapter, schedule='* * * * * *', policies=None):
+        self.adapter = adapter
+        self.schedule = schedule
+        self.policies = policies or set()
+        self.crontab = CronTab()
+        self.ID = uuid.uuid4()
+        job = self.crontab.new(command='echo '+self.ID)
+        job.setall(schedule)  # assume cron syntax for now
+
+    def add(self, policy):
+        self.policies.add(policy)
+
+    def start(self):
+        self.thread = Thread(target=self.run)
+        self.thread.start()
+
+    def cron(self):
+        for result in self.crontab.run_scheduler():
+            if result == self.ID:
+                # only run on our schedule
+                self.run()
+
+    def run(self):
+        for p in policies:
+            # give policy access to full history for conditional evaluation
+            if p.condition(self.adapter.history):
+                for m in p.messages:
+                    m = self.adapter.history.fill(m)
+                    self.adapter.send(m)
+
+
+def identity(arg):
+    return arg
+
+
+class Bundle:
+    def __init__(self, max_size):
+        self.max_size = max_size
+        self.contents = b''
+
+    def add(message):
+        """
+        Add a message to contents, using ',' as the separator.
+        """
+        if len(self.contents) > 0:
+            self.contents += b',' + message
+        else:
+            self.contents = message
+
+    def test(message):
+        if len(self.contents + message + 2) <= max_size:
+            return True
+        return False
+
+    def pack(self, queue):
+        while len(queue) > 0:
+            if self.test(queue[0]):
+                self.add(queue.popleft())
+            else:
+                if self.contents:
+                    break
+                else:
+                    raise Exception(
+                        'Message is too long to fit in a single packet: {}'.format(queue[0]))
+
+        return b'[' + self.contents + b']'
+
+
+def bundle(mtu, queue):
+    b = Bundle(mtu)
+    return b.pack(queue)
+
+
+def encode(msg):
+    return json.dumps(separators=(',', ':'))
+
+
+def simple_rate(frequency):
+    def handler(callback):
+        beat = Beat()
+        beat.set_rate(2)
+        while beat.true():
+            callback()
+            beat.sleep()
+    return handler
+
+
+class Emitter:
+    """An Emitter just needs the send(message) method."""
+
+    def __init__(self, transmitter, mangler=identity, encoder=encode, bundler=bundle, controller=simple_rate(500), mtu=1500):
+        """Each component is a function that """
+        self.mangle = mangler
+        self.encode = encoder
+        self.bundle = bundler
+        self.transmit = transmitter
+        self.queue = deque()
+        self.thread = Thread(target=self.process)
+
+    def start(self):
+        """Start loop for transmitting messages in outgoing queue"""
+        self.thread.start()
+
+    def send(self, message):
+        # Do mangling and encoding first; then bundler can process the queue directly
+        m = self.mangle(message)
+        m = self.encode(message)
+        self.queue.append(m)
+
+    def process(self):
+        if len(queue) > 0:
+            bun = self.bundle(self.mtu, self.queue)
+            self.transmit(bun)
