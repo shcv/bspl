@@ -15,9 +15,9 @@ logger = logging.getLogger('bungie')
 
 class History:
     def __init__(self):
-        self.log = {}
-        self.parameters = {}
 
+        self.by_param = {}
+        self.all_bindings = {}
 
     def check_integrity(self, message):
         """
@@ -41,7 +41,7 @@ class History:
         Make sure none of the outs have been bound.
         Only use this check if the message is being sent.
         """
-        enactment = [m for l in self.log.get(next(k for k in message.schema.keys), {}).values()
+        enactment = [m for l in self.by_param.get(next(k for k in message.schema.keys), {}).values()
                      for m in l
                      if all(m.payload.get(p) == message.payload.get(p) for p in message.schema.keys)]
         return not any(m.payload.get(p)
@@ -52,7 +52,7 @@ class History:
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
         """
-        return not any(message.payload[p] not in self.parameters.get(p, {})
+        return not any(message.payload[p] not in self.all_bindings.get(p, {})
                        for p in message.schema.ins)
 
     def validate_send(self, message):
@@ -73,29 +73,31 @@ class History:
     def observe(self, message):
         """Observe an instance of a given message specification.
            Check integrity, and add the message to the history."""
+        # record all unique parameter bindings
         for p in message.payload:
-            if p in self.parameters:
-                self.parameters[p].add(message.payload[p])
+            if p in self.all_bindings:
+                self.all_bindings[p].add(message.payload[p])
             else:
-                self.parameters[p] = set([message.payload[p]])
+                self.all_bindings[p] = set([message.payload[p]])
 
+        # log message under each key
         for k in message.schema.keys:
             v = message.payload.get(k)
-            if v and self.log.get(k):
-                if self.log[k].get(v):
-                    self.log[k][v].append(message)
+            if v and self.by_param.get(k):
+                if self.by_param[k].get(v):
+                    self.by_param[k][v].append(message)
                 else:
-                    self.log[k][v] = [message]
+                    self.by_param[k][v] = [message]
             else:
-                self.log[k] = {v: [message]}
-
+                self.by_param[k] = {v: [message]}
 
     def enactment(self, message):
         enactment = {'messages': set()}
         matches = {}
         for k in message.schema.keys:
             if message.payload.get(k):
-                matches[k] = self.log.get(k, {}).get(message.payload[k], [])
+                matches[k] = self.by_param.get(
+                    k, {}).get(message.payload[k], [])
                 enactment['messages'].update(matches[k])
                 # may need to filter parameters
             else:
@@ -115,8 +117,8 @@ class History:
     def duplicate(self, message):
         """Return true if payload has been observed before"""
         for k, v in message.payload.items():
-            if v in self.log.get(k, {}):
-                log = self.log[k][v]
+            if v in self.by_param.get(k, {}):
+                log = self.by_param[k][v]
                 if len(log) and all(message.payload.get(p) == m.payload.get(p)
                                     for p in message.payload
                                     for m in log):
