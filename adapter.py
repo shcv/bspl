@@ -167,8 +167,7 @@ class Adapter:
         self.role = role
         self.protocol = protocol
         self.configuration = configuration
-        self.sent_handlers = {}
-        self.received_handlers = {}
+        self.reactors = {}  # dict of message -> {handlers}
         self.history = History()
         self.send_q = Queue()
         self.recv_q = Queue()
@@ -195,11 +194,7 @@ class Adapter:
                 logger.debug("Observing message: {}".format(message))
                 self.history.observe(message)
 
-            reactor = self.received_handlers.get(schema)
-            if reactor:
-                logger.debug("Invoking reactor: {}".format(reactor))
-                # run reactor in a thread
-                Thread(target=reactor, args=(message,)).start()
+            self.react(message)
 
     def send(self, payload, schema=None, name=None, to=None):
         """
@@ -219,14 +214,10 @@ class Adapter:
         if self.history.validate_send(message):
             self.history.observe(message)
 
-            reactor = self.sent_handlers.get(message.schema)
-            if reactor:
-                logger.info("Invoking reactor: {}".format(reactor))
-                # run reactor in a thread
-                threading.Thread(target=reactor, args=(message,)).start()
-
             logger.debug("Sending message {} to {} at {}".format(
                 message.payload, message.schema.recipient.name, dest))
+
+            self.react(message)
 
             data = json.dumps(message.payload).encode('utf-8')
             if len(data) > 1500-48:  # ethernet MTU - IPv6 + UDP header
@@ -237,31 +228,32 @@ class Adapter:
             sock.sendto(data, dest)
             return True
 
-    def sent(self, schema):
+    def reaction(self, schema):
         """
-        Decorator for declaring sent message handlers.
+        Decorator for declaring reactor handler.
 
         Example:
-        @adapter.sent(MessageSchema)
+        @adapter.react(MessageSchema)
         def handle_message(message, enactment):
             'do stuff'
         """
         def register_handler(handler):
-            self.sent_handlers[schema] = handler
+            if self.reactors.get(schema):
+                self.reactors[schema].add(handler)
+            else:
+                self.reactors[schema] = {handler}  # set
         return register_handler
 
-    def received(self, schema):
+    def react(self, message):
         """
-        Decorator for declaring received message handlers.
-
-        Example:
-        @adapter.received(MessageSchema)
-        def handle_message(message, enactment):
-            'do stuff'
+        Handle emission/reception of message by invoking corresponding reactors.
         """
-        def register_handler(handler):
-            self.received_handlers[schema] = handler
-        return register_handler
+        reactors = self.reactors.get(message.schema)
+        if reactors:
+            for r in reactors:
+                logger.info("Invoking reactor: {}".format(r))
+                # run reactor in a thread
+                threading.Thread(target=r, args=(message,)).start()
 
     def listen_loop(self):
         sock = socket.socket(socket.AF_INET,  # Internet
