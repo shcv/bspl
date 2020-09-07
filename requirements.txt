@@ -1,6 +1,0 @@
-pytest
-TatSu
-boolexpr
-configargparse
-simplejson
-ttictoc
