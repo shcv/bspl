@@ -346,6 +346,10 @@ class Message(Protocol):
         data["from"] = self.sender.name
         return data
 
+    @property
+    def contents(self):
+        return [p for p in self.parameters.values() if p.adornment in ['out', 'any', 'in']]
+
 
 class Parameter(Base):
     def __init__(self, name, adornment, key=False, parent=None):
