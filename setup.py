@@ -32,7 +32,12 @@ setup(
         'ttictoc',
     ],
 
+    package_data={
+        'protocheck': ['protocheck/bspl/bspl.gr']
+    },
+
     packages=find_packages(),
+    include_package_data=True,
 
     test_suite='protocheck'
 )
