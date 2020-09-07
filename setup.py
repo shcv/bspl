@@ -47,7 +47,7 @@ setup(
         'Intended Audience :: Developers'
     ],
 
-    entry_points=entry_points,
+    # entry_points=entry_points,
 
     install_requires=requireModules(),
 

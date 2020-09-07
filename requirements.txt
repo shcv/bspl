@@ -1,3 +1,5 @@
--e git://github.com/priestoferis/cronus.git#egg=cronus
+protocheck @ git+https://gitlab.com/masr/protocheck.git
+cronus @ git://github.com/priestoferis/cronus.git
 python-crontab
 croniter
+pyyaml

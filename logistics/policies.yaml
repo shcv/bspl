@@ -1,0 +1,18 @@
+# Merchant Fault-Tolerance Policies
+
+merchant:
+  proactive: # do we need the 'proactive' marker?
+    every second:
+      - resend RequestLabel, RequestWrapping until Packed # or retries >= 5
+
+labeler:
+  reactive:
+    - resend Labeled upon duplicate RequestLabel
+
+wrapper:
+  reactive:
+    - resend Wrapped upon duplicate RequestWrapping
+
+packer:
+  reactive:
+    - resend Packed upon duplicate RequestLabel
