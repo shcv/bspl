@@ -2,6 +2,4 @@ FROM python
 ARG SCENARIO
 
 WORKDIR /src
-RUN pip install -e git+https://gitlab.com/masr/protocheck.git@refactor#"egg=protocheck"
-
-ADD adapter.py .
+RUN pip install -e .
