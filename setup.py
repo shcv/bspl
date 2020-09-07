@@ -23,6 +23,10 @@ setup(
 
     entry_points=entry_points,
 
+    setup_requires=[
+        "setuptools_git >= 0.3",
+    ],
+
     install_requires=[
         'pytest',
         'TatSu',
@@ -31,10 +35,6 @@ setup(
         'simplejson',
         'ttictoc',
     ],
-
-    package_data={
-        'protocheck': ['protocheck/bspl/bspl.gr']
-    },
 
     packages=find_packages(),
     include_package_data=True,
