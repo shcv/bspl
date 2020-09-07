@@ -59,6 +59,10 @@ class History:
         """Observe an instance of a given message specification.
            Check integrity, and add the message to the history."""
 
+        if self.duplicate(message):
+            self.by_msg[message.schema][message.key].duplicate = True
+            return
+
         # log by message type
         if message.schema in self.by_msg:
             self.by_msg[message.schema][message.key] = message
@@ -111,7 +115,7 @@ class History:
         Return true if payload has been observed before.
         Somewhat expensive linear scan of all messages with the same schema.
         """
-        match = self.by_msg[message.schema].get(message.key)
+        match = self.by_msg.get(message.schema, {}).get(message.key)
         if match and all(message.payload.get(p) == match.payload.get(p)
                          for p in message.payload):
             return True

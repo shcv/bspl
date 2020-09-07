@@ -8,7 +8,6 @@ import math
 import socket
 import inspect
 from queue import Queue
-from collections import deque
 from .history import History
 from functools import partial
 from .emitter import Emitter, udp_transmitter
@@ -43,13 +42,14 @@ class Message:
             return "Message({}, {})".format(self.schema.name, self.payload)
 
     def keys_match(self, other):
+        print(other)
         return all(self.payload[k] == other.payload[k]
                    for k in self.schema.keys
                    if k in other.schema.parameters)
 
     @property
     def key(self):
-        return tuple(v for k, v in sorted(self.schema.keys.items()))
+        return tuple(self.payload[k] for k in sorted(self.schema.keys))
 
     @key.setter
     def set_key(self, value):
@@ -63,7 +63,7 @@ class Adapter:
                  protocol,
                  configuration,
                  emitter=Emitter(udp_transmitter),
-                 receiver=Receiver(udp_listener(self.configuration[self.role]))):
+                 receiver=None):
         """
         Initialize the agent adapter.
 
@@ -82,7 +82,8 @@ class Adapter:
         self.recv_q = Queue()
         self.process_thread = Thread(target=self.process_loop)
         self.emitter = emitter
-        self.receiver = receiver
+        self.receiver = receiver or Receiver(
+            udp_listener(*self.configuration[self.role]))
 
     def process_receive(self, payload):
         if not isinstance(payload, dict):
@@ -141,7 +142,7 @@ class Adapter:
             self.history.observe(message)
 
             logger.debug("Sending message {} to {} at {}".format(
-                message.payload, message.schema.recipient.name, dest))
+                message.payload, message.schema.recipient.name, message.dest))
 
             self.react(message)
 

@@ -1,11 +1,10 @@
-from adapter import Adapter
-from protocheck import bspl
+from bungie import Adapter, Resend
 from configuration import config, logistics
 
 adapter = Adapter(logistics.roles['Wrapper'], logistics, config)
 
 
-@adapter.received(logistics.messages['RequestWrapping'])
+@adapter.reaction(logistics.messages['RequestWrapping'])
 def request_wrapping(message):
     print(message)
     item = message.payload['item']
@@ -19,6 +18,10 @@ def request_wrapping(message):
     adapter.send(payload, logistics.messages['Wrapped'])
 
 
+RequestWrapping = logistics.messages['RequestLabel']
+Wrapped = logistics.messages['Wrapped']
+
 if __name__ == '__main__':
     print("Starting Wrapper...")
+    adapter.add_policy(Resend(Wrapped).upon.duplicate(RequestWrapping))
     adapter.start()

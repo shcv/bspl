@@ -2,4 +2,5 @@ FROM python
 ARG SCENARIO
 
 WORKDIR /src
+ADD . /src
 RUN pip install -e .

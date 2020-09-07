@@ -1,5 +1,7 @@
 from threading import Thread
 from cronus.beat import Beat
+from collections import deque
+import json
 
 
 class Bundle:
@@ -41,7 +43,7 @@ def bundle(mtu, queue):
 
 
 def encode(msg):
-    return json.dumps(separators=(',', ':'))
+    return json.dumps(msg.payload, separators=(',', ':'))
 
 
 def simple_rate(frequency):
