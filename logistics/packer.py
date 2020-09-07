@@ -1,11 +1,14 @@
-from adapter import Adapter
-from protocheck import bspl
+from bungie import Adapter, Resend
 from configuration import config, logistics
+
+Labeled = logistics.messages['Labeled']
+Wrapped = logistics.messages['Wrapped']
+Packed = logistics.messages['Packed']
 
 adapter = Adapter(logistics.roles['Packer'], logistics, config)
 
 
-@adapter.received(logistics.messages['Labeled'])
+@adapter.reaction(Labeled)
 def labeled(message):
     print(message)
 
@@ -24,10 +27,10 @@ def labeled(message):
             'label': message.payload['label'],
             'status': 'packed'
         }
-        adapter.send(payload, logistics.messages['Packed'])
+        adapter.send(payload, Packed)
 
 
-@adapter.received(logistics.messages['Wrapped'])
+@adapter.reaction(Wrapped)
 def wrapped(message):
     print(message)
     labeled_msg = next(
@@ -41,9 +44,10 @@ def wrapped(message):
             'label': labeled_msg.payload['label'],
             'status': 'packed'
         }
-        adapter.send(payload, logistics.messages['Packed'])
+        adapter.send(payload, Packed)
 
 
 if __name__ == '__main__':
     print("Starting Packer...")
+    adapter.add(Resend(Packed).upon.duplicate(Labeled).Or.duplicate(Wrapped))
     adapter.start()

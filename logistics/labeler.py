@@ -1,12 +1,11 @@
-from adapter import Adapter
-from protocheck import bspl
+from bungie import Adapter, Resend
 from configuration import config, logistics
 import uuid
 
 adapter = Adapter(logistics.roles['Labeler'], logistics, config)
 
 
-@adapter.received(logistics.messages['RequestLabel'])
+@adapter.reaction(logistics.messages['RequestLabel'])
 def request_label(message):
     print(message)
 
@@ -18,6 +17,10 @@ def request_label(message):
     adapter.send(payload, logistics.messages['Labeled'])
 
 
+RequestLabel = logistics.messages['RequestLabel']
+Labeled = logistics.messages['Labeled']
+
 if __name__ == '__main__':
     print("Starting Labeler...")
+    adapter.add_policy(Resend(Labeled).upon.duplicate(RequestLabel))
     adapter.start()

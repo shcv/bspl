@@ -11,8 +11,6 @@ if version < '2.2.3':
     DistributionMetadata.classifiers = None
     DistributionMetadata.download_url = None
 
-from bungie import __version__ as version
-
 
 def requireModules(moduleNames=None):
     import re
@@ -35,7 +33,7 @@ def requireModules(moduleNames=None):
 
 setup(
     name='bungie',
-    version=version,
+    version='0.0.0',
 
     author='Samuel Christie',
     author_email='schrist@ncsu.edu',

@@ -37,7 +37,7 @@ class Resend:
 
     @property
     def until(self):
-        self.reactive = True
+        self.reactive = False
         return self
 
     def received(self, *expectations):
@@ -52,20 +52,20 @@ class Resend:
           Resend(A).until.received(B).Or.received(C)
         """
 
-        if reactive:
+        if self.reactive:
             for s in expectations:
                 def reactor(msg, adapter):
                     for r in self.schemas:
                         # resend message schema r in the same enactment as msg
                         self.action(adapter, r, msg.enactment)
-                reactors[s] = reactor
+                self.reactors[s] = reactor
         else:
             def process(history):
                 messages = set()
                 # for each schema that needs resending
                 for s in self.schemas:
                     # identify candidate instances in the log
-                    for candidate in history.by_msg[s]:
+                    for candidate in history.by_msg[s].values():
                         # go through each expected schema separately;
                         # if any expectation is not met, it will
                         # select the candidate
@@ -73,7 +73,7 @@ class Resend:
                             # if there aren't any matching instances,
                             # select the candidate
                             if not any(candidate.keys_match(m)
-                                       for m in history.by_msg.get(e, [])):
+                                       for m in history.by_msg.get(e, {}).values()):
                                 messages.add(candidate)
                 return messages
             self.proactors.append(process)
@@ -105,7 +105,7 @@ class Resend:
                 # for each schema that needs resending
                 for s in self.schemas:
                     # identify candidate instances in the log
-                    for candidate in history.by_msg[s]:
+                    for candidate in history.by_msg[s].values():
                         # go through each expected schema
                         if not candidate.acknowledged:
                             resend.add(candidate)
@@ -128,7 +128,7 @@ class Resend:
                     for r in self.schemas:
                         # resend message schema r in the same enactment as msg
                         self.action(adapter, r, msg.enactment)
-            reactors[s] = reactor
+            self.reactors[s] = reactor
         return self
 
 
