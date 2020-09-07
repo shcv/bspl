@@ -46,7 +46,8 @@ class Role(Base):
     def __init__(self, name, parent=None):
         super().__init__(name, parent, "role")
 
-    def messages(self, protocol):
+    def messages(self, protocol=None):
+        protocol = protocol or self.parent
         return {m.name: m for m in protocol.messages.values()
                 if m.sender == self or m.recipient == self}
 
