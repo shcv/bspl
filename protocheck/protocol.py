@@ -295,6 +295,14 @@ class Message(Protocol):
     def name(self):
         return self.raw_name + (str(self.idx) if self.idx > 1 else "")
 
+    def __repr__(self):
+        return self.name
+        return "Message('{}', {}, {}, {})".format(
+            self.name,
+            self.sender.name,
+            self.recipient.name,
+            [p.format() for p in self.parameters.values()])
+
     def instance(self, parent):
         msg = Message(self.raw_name,
                       self.sender,
