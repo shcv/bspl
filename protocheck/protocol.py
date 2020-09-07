@@ -153,6 +153,10 @@ class Protocol(Base):
         dependencies on sibling protocols"
         return not self.ins - self.parent.ins
 
+    @property
+    def entrypoints(self):
+        return [m for m in self.messages.values() if m.is_entrypoint]
+
     def format(self, ref=False):
         if ref:
             return "{}({}, {})".format(self.name,
