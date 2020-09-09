@@ -2,5 +2,10 @@ FROM python
 ARG SCENARIO
 
 WORKDIR /src
+RUN pip install git+https://gitlab.com/masr/protocheck#egg=protocheck
+RUN pip install git+https://github.com/priestoferis/cronus.git
+RUN pip install python-crontab
+RUN pip install croniter
+RUN pip install pyyaml
 ADD . /src
 RUN pip install -e .
