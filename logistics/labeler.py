@@ -6,7 +6,10 @@ adapter = Adapter(logistics.roles['Labeler'], logistics, config)
 
 
 @adapter.reaction(logistics.messages['RequestLabel'])
-def request_label(message):
+def request_label(message, adapter):
+    if message.duplicate:
+        return
+
     print(message)
 
     payload = {

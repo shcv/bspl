@@ -1,11 +1,12 @@
-from cronus.beat import Beat
-from crontab import CronTab
 import croniter
 import uuid
+from cronus.beat import Beat
+from crontab import CronTab
+from threading import Thread
 
 
 class Scheduler:
-    def __init__(self, schedule='* * * * * *', policies=None, rate=None):
+    def __init__(self, schedule='* * * * *', policies=None, rate=None):
         self.schedule = schedule
         self.policies = policies or set()
         if rate:
@@ -13,7 +14,7 @@ class Scheduler:
             self.beat.set_rate(rate)
         self.crontab = CronTab()
         self.ID = uuid.uuid4()
-        job = self.crontab.new(command='echo '+self.ID)
+        job = self.crontab.new(command='echo '+str(self.ID))
         job.setall(schedule)  # assume cron syntax for now
 
     def add(self, policy):
@@ -37,8 +38,9 @@ class Scheduler:
                     self.run()
 
     def run(self):
-        for p in policies:
+        for p in self.policies:
             # give policy access to full history for conditional evaluation
             messages = p.run(self.adapter.history)
             for m in messages:
-                self.adapter.send(m)
+                # put message directly onto send queue, bypassing protocol check (?)
+                self.adapter.send_q.put(m)

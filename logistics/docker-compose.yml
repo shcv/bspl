@@ -13,6 +13,9 @@ services:
       context: ..
       dockerfile: agent.docker
     image: agent
+    depends_on:
+      - wrapper
+      - labeler
     expose:
       - 8000/udp
     networks:
@@ -38,6 +41,8 @@ services:
       - 8001/udp
     networks:
       - bungie-net
+    depends_on:
+      - packer
     volumes:
       - type: bind
         source: ./wrapper.py
@@ -55,6 +60,8 @@ services:
 
   labeler:
     image: agent
+    depends_on:
+      - packer
     expose:
       - 8002/udp
     networks:

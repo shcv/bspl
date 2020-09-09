@@ -9,7 +9,7 @@ adapter = Adapter(logistics.roles['Packer'], logistics, config)
 
 
 @adapter.reaction(Labeled)
-def labeled(message):
+def labeled(message, adapter):
     print(message)
 
     orderID = message.payload['orderID']
@@ -18,7 +18,7 @@ def labeled(message):
               if m.payload.get('status')]
     unpacked = [m for m in message.enactment['messages']
                 if 'itemID' in m.payload and
-                not any(p.payload.get('itemID') == m['itemID'] for p in packed)]
+                not any(p.payload.get('itemID') == m.payload['itemID'] for p in packed)]
     for m in unpacked:
         payload = {
             'orderID': orderID,
@@ -31,7 +31,7 @@ def labeled(message):
 
 
 @adapter.reaction(Wrapped)
-def wrapped(message):
+def wrapped(message, adapter):
     print(message)
     labeled_msg = next(
         (m for m in message.enactment['messages'] if m.payload.get("label")), None)
@@ -49,5 +49,6 @@ def wrapped(message):
 
 if __name__ == '__main__':
     print("Starting Packer...")
-    adapter.add(Resend(Packed).upon.duplicate(Labeled).Or.duplicate(Wrapped))
+    adapter.add_policy(Resend(Packed).upon.duplicate(
+        Labeled).Or.duplicate(Wrapped))
     adapter.start()

@@ -1,3 +1,7 @@
+import logging
+logger = logging.getLogger('bungie')
+
+
 class History:
     def __init__(self):
         self.by_param = {}
@@ -23,13 +27,16 @@ class History:
 
     def check_outs(self, message):
         """
-        Make sure none of the outs have been bound.
+        Make sure none of the outs have been previous bound to a different value.
         Only use this check if the message is being sent.
         """
+        # get the list of messages that have matching keys
         enactment = [m for l in self.by_param.get(next(k for k in message.schema.keys), {}).values()
                      for m in l
                      if all(m.payload.get(p) == message.payload.get(p) for p in message.schema.keys)]
-        return not any(m.payload.get(p)
+        # make sure none of them have a different binding for any out parameters
+        # any messages with existing bindings must be duplicates
+        return not any(m.payload.get(p) and not m.schema == message.schema
                        for m in enactment
                        for p in message.schema.outs)
 
@@ -81,29 +88,30 @@ class History:
             v = message.payload.get(k)
             if v and self.by_param.get(k):
                 if self.by_param[k].get(v):
-                    self.by_param[k][v].append(message)
+                    self.by_param[k][v].add(message)
                 else:
-                    self.by_param[k][v] = [message]
+                    self.by_param[k][v] = {message}
             else:
-                self.by_param[k] = {v: [message]}
+                self.by_param[k] = {v: {message}}
 
     def enactment(self, message):
         enactment = {'messages': set()}
         matches = {}
         for k in message.schema.keys:
-            if message.payload.get(k):
+            if k in message.payload:
                 matches[k] = self.by_param.get(
-                    k, {}).get(message.payload[k], [])
+                    k, {}).get(message.payload[k], set()).copy()
+                matches[k].add(message)
                 enactment['messages'].update(matches[k])
                 # may need to filter parameters
             else:
-                matches[k] = []
+                matches[k] = set(message)
         enactment['history'] = matches
 
         preds = None
         for k in message.schema.keys:
             preds = preds or matches[k]
-            preds = filter(lambda m: m.payload.get(
+            preds = filter(lambda m: k not in m.payload or m.payload.get(
                 k) == message.payload.get(k), preds)
 
         enactment["bindings"] = {

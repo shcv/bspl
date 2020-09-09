@@ -1,5 +1,10 @@
+import logging
+import socket
+import json
 from threading import Thread
 from queue import Queue
+
+logger = logging.getLogger('bungie')
 
 
 def unbundle(bundle):
@@ -30,7 +35,7 @@ class Receiver:
 
     def process(self):
         while True:
-            data = self.recv_q.get()
+            data = self.queue.get()
             bundle = self.decode(data)
             messages = self.unbundle(bundle)
             for m in messages:
@@ -39,6 +44,7 @@ class Receiver:
 
 def udp_listener(IP, port):
     def listener(queue):
+        logger.info("Listening on {}:{}".format(IP, port))
         sock = socket.socket(socket.AF_INET,  # Internet
                              socket.SOCK_DGRAM)  # UDP
         sock.bind((IP, port))  # (IP, port)
