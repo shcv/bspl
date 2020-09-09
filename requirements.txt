@@ -1,5 +1,0 @@
-protocheck @ git+https://gitlab.com/masr/protocheck.git#egg=protocheck
-cronus @ git+https://github.com/priestoferis/cronus.git#egg=cronus
-python-crontab
-croniter
-pyyaml
