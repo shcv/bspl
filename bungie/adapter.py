@@ -42,7 +42,6 @@ class Message:
             return "Message({}, {})".format(self.schema.name, self.payload)
 
     def keys_match(self, other):
-        print(other)
         return all(self.payload[k] == other.payload[k]
                    for k in self.schema.keys
                    if k in other.schema.parameters)
@@ -117,12 +116,18 @@ class Adapter:
         Add a message to the outgoing queue
         """
         schema = schema or self.protocol.find_schema(payload, name=name, to=to)
-        self.send_q.put(Message(schema, payload))
+        m = Message(schema, payload)
+        self.send_q.put(m)
 
     def resend(self, schema, enactment):
-        m = Message(schema, {p: enactment['bindings'][p]
-                             for p in schema.parameters})
-        self.send_q.put(m)
+        try:
+            m = Message(schema, {p: enactment['bindings'][p]
+                                 for p in schema.parameters})
+            self.send_q.put(m)
+        except KeyError as e:
+            logging.debug(
+                "Missing parameter for sending {}: {}".format(schema.name, e))
+            pass
 
     def forward(self, schema, recipient, enactment):
         m = Message(schema,
@@ -136,15 +141,18 @@ class Adapter:
         Send a message by posting to the recipient's http endpoint,
         after checking for correctness, and storing the message.
         """
-        enactment = self.history.enactment(message)
 
         if self.history.validate_send(message):
-            self.history.observe(message)
+            if not self.history.duplicate(message):
+                self.history.observe(message)
 
-            logger.debug("Sending message {} to {} at {}".format(
-                message.payload, message.schema.recipient.name, message.dest))
+                logger.debug("Sending message {} to {} at {}".format(
+                    message.payload, message.schema.recipient.name, message.dest))
 
-            self.react(message)
+                message.enactment = self.history.enactment(message)
+                self.react(message)
+            else:
+                logger.debug("Resending message: {}".format(message))
 
             if not message.dest:
                 message.dest = self.configuration[message.schema.recipient]
@@ -166,7 +174,7 @@ class Adapter:
         def handle_message(message, enactment):
             'do stuff'
         """
-        return partial(self.register_handler, schema)
+        return partial(self.register_reactor, schema)
 
     def react(self, message):
         """
@@ -177,7 +185,7 @@ class Adapter:
             for r in reactors:
                 logger.info("Invoking reactor: {}".format(r))
                 # run reactor in a thread
-                threading.Thread(target=r, args=(message, self)).start()
+                Thread(target=r, args=(message, self)).start()
 
     def process_loop(self):
         while True:

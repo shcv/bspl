@@ -2,6 +2,7 @@ from bungie import Adapter, Resend, Scheduler
 from configuration import config, logistics
 import random
 import threading
+import time
 
 RequestLabel = logistics.messages['RequestLabel']
 RequestWrapping = logistics.messages['RequestWrapping']
@@ -24,12 +25,13 @@ def order_generator():
                 "item": random.sample(['ball', 'bat', 'plate', 'glass'], 1)[0]
             }, RequestWrapping)
         orderID += 1
-        sleep(1)
+        time.sleep(1)
+        break
 
 
 @adapter.reaction(Packed)
-def packed(message):
-    print(message)
+def packed(message, adapter):
+    print("Reacting to: {}".format(message))
 
 
 if __name__ == '__main__':

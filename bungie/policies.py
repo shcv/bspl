@@ -65,7 +65,7 @@ class Resend:
                 # for each schema that needs resending
                 for s in self.schemas:
                     # identify candidate instances in the log
-                    for candidate in history.by_msg[s].values():
+                    for candidate in history.by_msg.get(s, {}).values():
                         # go through each expected schema separately;
                         # if any expectation is not met, it will
                         # select the candidate

@@ -5,7 +5,7 @@ adapter = Adapter(logistics.roles['Wrapper'], logistics, config)
 
 
 @adapter.reaction(logistics.messages['RequestWrapping'])
-def request_wrapping(message):
+def request_wrapping(message, adapter):
     print(message)
     item = message.payload['item']
 
