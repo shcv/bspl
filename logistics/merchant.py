@@ -36,8 +36,6 @@ def packed(message, adapter):
 
 if __name__ == '__main__':
     print("Starting Merchant...")
-    sched = Scheduler(rate=1)
-    sched.add(Resend(RequestLabel, RequestWrapping).until.received(Packed))
-    sched.start(adapter)
+    adapter.load_policy_file('policies.yaml')
     adapter.start()
     threading.Thread(target=order_generator).start()

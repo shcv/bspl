@@ -49,6 +49,5 @@ def wrapped(message, adapter):
 
 if __name__ == '__main__':
     print("Starting Packer...")
-    adapter.add_policy(Resend(Packed).upon.duplicate(
-        Labeled).Or.duplicate(Wrapped))
+    adapter.load_policy_file('policies.yaml')
     adapter.start()

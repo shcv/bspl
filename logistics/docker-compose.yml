@@ -33,6 +33,10 @@ services:
         source: ./logistics.bspl
         target: /src/logistics.bspl
         read_only: true
+      - type: bind
+        source: ./policies.yaml
+        target: /src/policies.yaml
+        read_only: true
     entrypoint: python merchant.py
 
   wrapper:
@@ -55,6 +59,10 @@ services:
       - type: bind
         source: ./logistics.bspl
         target: /src/logistics.bspl
+        read_only: true
+      - type: bind
+        source: ./policies.yaml
+        target: /src/policies.yaml
         read_only: true
     entrypoint: python wrapper.py
 
@@ -79,6 +87,10 @@ services:
         source: ./logistics.bspl
         target: /src/logistics.bspl
         read_only: true
+      - type: bind
+        source: ./policies.yaml
+        target: /src/policies.yaml
+        read_only: true
     entrypoint: python labeler.py
 
   packer:
@@ -99,6 +111,10 @@ services:
       - type: bind
         source: ./logistics.bspl
         target: /src/logistics.bspl
+        read_only: true
+      - type: bind
+        source: ./policies.yaml
+        target: /src/policies.yaml
         read_only: true
     entrypoint: python packer.py
 

@@ -23,5 +23,5 @@ Wrapped = logistics.messages['Wrapped']
 
 if __name__ == '__main__':
     print("Starting Wrapper...")
-    adapter.add_policy(Resend(Wrapped).upon.duplicate(RequestWrapping))
+    adapter.load_policy_file('policies.yaml')
     adapter.start()
