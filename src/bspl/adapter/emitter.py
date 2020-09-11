@@ -26,7 +26,7 @@ class Bundle:
             self.contents = message
 
     def test(self, message):
-        if len(self.contents) + len(message[0]) + 2 <= self.max_size:
+        if len(self.contents) + len(message) + 2 <= self.max_size:
             return True
         return False
 
