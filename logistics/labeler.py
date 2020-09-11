@@ -25,5 +25,5 @@ Labeled = logistics.messages['Labeled']
 
 if __name__ == '__main__':
     print("Starting Labeler...")
-    adapter.add_policy(Resend(Labeled).upon.duplicate(RequestLabel))
+    adapter.load_policy_file('policies.yaml')
     adapter.start()
