@@ -1,4 +1,5 @@
 import pytest
+import yaml
 from protocheck import bspl
 from bungie.policies import *
 from bungie.adapter import Message
@@ -117,3 +118,34 @@ def test_resend_upon_dup():
     with pytest.raises(AttributeError):
         # raises an attribute error if it tries to resend the message using None as the adapter
         r.reactors[Buy](m, None)
+
+
+def test_parser():
+    p = model.parse(
+        "resend RequestLabel, RequestWrapping until received Packed")
+    print(p)
+    assert p
+
+
+def test_from_ast():
+    ast = model.parse(
+        "resend Buy until received Deliver")
+    print(ast)
+    policy = from_ast(Order, ast)
+    assert(policy)
+    assert(type(policy) == Resend)
+    assert('Buy' in [m.name for m in policy.schemas])
+    assert(not policy.reactive)
+    print([e for e in ast['events']])
+    assert(policy.proactors[0].__name__ == 'process_received')
+
+    ast = model.parse(
+        "resend Buy until received Deliver or received Extra")
+    print(ast)
+    policy = from_ast(Order, ast)
+    assert(policy)
+    assert(type(policy) == Resend)
+    assert('Buy' in [m.name for m in policy.schemas])
+    assert(not policy.reactive)
+    print([e for e in ast['events']])
+    assert(policy.proactors[0].__name__ == 'process_received')
