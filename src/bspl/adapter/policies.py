@@ -1,5 +1,62 @@
 import yaml
-from .adapter import Message
+import tatsu
+import os
+
+grammar_path = os.path.join(os.path.dirname(__file__), "policy.gr")
+with open(grammar_path, 'r', encoding='utf8') as grammar:
+    model = tatsu.compile(grammar.read())
+
+
+def lookup(protocol, names):
+    return [protocol.messages[name] for name in names]
+
+
+def from_ast(protocol, ast):
+    if ast['action'] == 'resend':
+        cls = Resend
+    elif ast['action'] == 'forward':
+        cls = Forward
+    elif ast['action'] == 'send':
+        cls = Send
+
+    policy = cls(*lookup(protocol, ast['messages']))
+
+    if ast['prep'] == 'until':
+        policy.until
+    elif ast['prep'] == 'upon':
+        policy.upon
+    else:
+        raise Exception("Unknown preposition: {}".format(ast['prep']))
+
+    def add_event(event):
+        if type(event) is tuple:
+            if event[0] == 'or':
+                policy.Or
+            elif event[0] == 'and':
+                policy.And
+            else:
+                raise Exception("Unknown conjunction: {}".format(event[0]))
+
+            for e in event[1:]:
+                add_event(e)
+            return
+
+        kind = event['type']
+        messages = lookup(protocol, event['messages'])
+        if kind == 'received':
+            policy.received(*messages)
+        elif kind == 'acknowledged':
+            policy.acknowledged
+        elif kind == 'duplicate':
+            policy.duplicate(*messages)
+
+    add_event(ast['events'])
+
+    return policy
+
+
+def parse(protocol, text):
+    return from_ast(protocol, model.parse(text))
 
 
 class Resend:
@@ -60,7 +117,7 @@ class Resend:
                         self.action(adapter, r, msg.enactment)
                 self.reactors[s] = reactor
         else:
-            def process(history):
+            def process_received(history):
                 messages = set()
                 # for each schema that needs resending
                 for s in self.schemas:
@@ -76,7 +133,7 @@ class Resend:
                                        for m in history.by_msg.get(e, {}).values()):
                                 messages.add(candidate)
                 return messages
-            self.proactors.append(process)
+            self.proactors.append(process_received)
         return self
 
     @property
@@ -100,7 +157,7 @@ class Resend:
         if self.reactive:
             pass
         else:
-            def process(history):
+            def process_acknowledged(history):
                 resend = set()
                 # for each schema that needs resending
                 for s in self.schemas:
@@ -110,7 +167,7 @@ class Resend:
                         if not candidate.acknowledged:
                             resend.add(candidate)
                 return resend
-            self.proactors.append(process)
+            self.proactors.append(process_acknowledged)
         return self
 
     @property

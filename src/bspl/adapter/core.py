@@ -7,11 +7,14 @@ import os
 import math
 import socket
 import inspect
+import yaml
 from queue import Queue
 from .history import History
 from functools import partial
 from .emitter import Emitter, udp_transmitter
 from .receiver import Receiver, udp_listener
+from .scheduler import Scheduler
+from . import policies
 
 FORMAT = '%(asctime)-15s %(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
@@ -83,6 +86,7 @@ class Adapter:
         self.emitter = emitter
         self.receiver = receiver or Receiver(
             udp_listener(*self.configuration[self.role]))
+        self.schedulers = []
 
     def process_receive(self, payload):
         if not isinstance(payload, dict):
@@ -153,6 +157,8 @@ class Adapter:
                 self.react(message)
             else:
                 logger.debug("Resending message: {}".format(message))
+                message.meta['retries'] = message.meta.get('retries', 0) + 1
+                message.meta['last-retry'] = str(datetime.datetime.now())
 
             if not message.dest:
                 message.dest = self.configuration[message.schema.recipient]
@@ -199,7 +205,37 @@ class Adapter:
         self.process_thread.start()
         self.emitter.start()
         self.receiver.start(self)
+        for s in self.schedulers:
+            s.start(self)
 
-    def add_policy(self, policy):
-        for schema, reactor in policy.reactors.items():
-            self.register_reactor(schema, reactor)
+    def add_policies(self, condition, *ps):
+        if condition == 'reactive':
+            for policy in ps:
+                if type(policy) is str:
+                    policy = policies.parse(self.protocol, policy)
+                for schema, reactor in policy.reactors.items():
+                    self.register_reactor(schema, reactor)
+        else:
+            s = Scheduler(condition)
+            self.schedulers.append(s)
+            for policy in ps:
+                if type(policy) is str:
+                    policy = policies.parse(self.protocol, policy)
+                s.add(policy)
+
+    def load_policies(self, spec):
+        if type(spec) is str:
+            spec = yaml.full_load(spec)
+        if self.role.name in spec:
+            for condition, ps in spec[self.role.name].items():
+                self.add_policies(condition, *ps)
+        else:
+            print(self.role.name)
+            # Assume the file contains policies only for agent
+            for condition, ps in spec.items():
+                self.add_policies(condition, *ps)
+
+    def load_policy_file(self, path):
+        with open(path) as file:
+            spec = yaml.full_load(file)
+            self.load_policies(spec)
