@@ -37,3 +37,14 @@ def test_send_process():
     a = Adapter(with_reject.roles['C'], with_reject, config)
     m = Message(with_reject.messages['Buy'], {"item": "ball"})
     a.process_send(m)
+
+
+def test_load_policies():
+    a = Adapter(with_reject.roles['C'], with_reject, config)
+    policies = """
+    C:
+      every 1s:
+        - resend Buy until received Deliver
+    """
+    a.load_policies(policies)
+    assert(a.schedulers)
