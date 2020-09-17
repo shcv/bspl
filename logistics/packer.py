@@ -1,3 +1,4 @@
+import logging
 from bungie import Adapter, Resend
 from configuration import config, logistics
 
@@ -7,19 +8,25 @@ Packed = logistics.messages['Packed']
 
 adapter = Adapter(logistics.roles['Packer'], logistics, config)
 
+logger = logging.getLogger('bungie')
+
 
 @adapter.reaction(Labeled)
-def labeled(message, adapter):
+async def labeled(message, enactment, adapter):
+    if message.duplicate:
+        return
     print(message)
 
     orderID = message.payload['orderID']
 
-    packed = [m for m in message.enactment['messages']
+    packed = [m for m in enactment['messages']
               if m.payload.get('status')]
-    unpacked = [m for m in message.enactment['messages']
+    unpacked = [m for m in enactment['messages']
                 if 'itemID' in m.payload and
                 not any(p.payload.get('itemID') == m.payload['itemID'] for p in packed)]
+
     for m in unpacked:
+        logger.info(f'unpacked: {m}')
         payload = {
             'orderID': orderID,
             'itemID': m.payload['itemID'],
@@ -31,10 +38,12 @@ def labeled(message, adapter):
 
 
 @adapter.reaction(Wrapped)
-def wrapped(message, adapter):
-    print(message)
+async def wrapped(message, enactment, adapter):
+    if message.duplicate:
+        logger.info(f'duplicate: {message}')
+        return
     labeled_msg = next(
-        (m for m in message.enactment['messages'] if m.payload.get("label")), None)
+        (m for m in enactment['messages'] if 'label' in m.payload), None)
 
     if labeled_msg:
         payload = {

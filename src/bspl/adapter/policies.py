@@ -1,6 +1,9 @@
 import yaml
 import tatsu
 import os
+import logging
+
+logger = logging.getLogger('bungie')
 
 grammar_path = os.path.join(os.path.dirname(__file__), "policy.gr")
 with open(grammar_path, 'r', encoding='utf8') as grammar:
@@ -89,8 +92,8 @@ class Resend:
                 selected.intersection_update(p(history))
         return selected
 
-    def action(self, adapter, schema, enactment):
-        adapter.resend(schema, enactment)
+    async def action(self, adapter, schema, enactment):
+        await adapter.resend(schema, enactment)
 
     @property
     def until(self):
@@ -111,10 +114,10 @@ class Resend:
 
         if self.reactive:
             for s in expectations:
-                def reactor(msg, adapter):
+                async def reactor(msg, enactment, adapter):
                     for r in self.schemas:
                         # resend message schema r in the same enactment as msg
-                        self.action(adapter, r, msg.enactment)
+                        await self.action(adapter, r, enactment)
                 self.reactors[s] = reactor
         else:
             def process_received(history):
@@ -180,11 +183,11 @@ class Resend:
         React to duplicate instances of any message in *messages
         """
         for s in schemas:
-            def reactor(msg, adapter):
+            async def reactor(msg, enactment, adapter):
                 if msg.duplicate:
                     for r in self.schemas:
                         # resend message schema r in the same enactment as msg
-                        self.action(adapter, r, msg.enactment)
+                        await self.action(adapter, r, enactment)
             self.reactors[s] = reactor
         return self
 

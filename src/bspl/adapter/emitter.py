@@ -1,9 +1,8 @@
+import asyncio
 import logging
 import socket
 import json
-from threading import Thread
-from cronus.beat import Beat
-from collections import deque
+from asyncio.queues import Queue
 
 logger = logging.getLogger('bungie')
 
@@ -30,16 +29,16 @@ class Bundle:
             return True
         return False
 
-    def pack(self, queue):
-        while len(queue) > 0:
-            if self.test(queue[0]):
-                self.add(queue.popleft())
+    def pack(self, deque):
+        while len(deque) > 0:
+            if self.test(deque[0]):
+                self.add(deque.popleft())
             else:
                 if self.contents:
                     break
                 else:
                     raise Exception(
-                        'Message is too long to fit in a single packet: {}'.format(queue[0]))
+                        'Message is too long to fit in a single packet: {}'.format(deque[0]))
 
         return b'[' + self.contents + b']'
 
@@ -53,58 +52,67 @@ def encode(msg):
     return json.dumps(msg.payload, separators=(',', ':'))
 
 
-def simple_rate(frequency):
-    def handler(callback):
-        beat = Beat()
-        beat.set_rate(frequency)
-        while beat.true():
-            callback()
-            try:
-                beat.sleep()
-            except:
-                pass
-    return handler
-
-
 class Emitter:
     """An Emitter just needs the send(message) method."""
 
-    def __init__(self, transmitter, encoder=encode, bundler=bundle, controller=simple_rate(400), mtu=1500-48):
+    def __init__(self, encoder=encode, bundler=bundle, mtu=1500-48):
         """Each component is a function that """
         self.encode = encoder
         self.bundle = bundler
-        self.transmit = transmitter
-        self.controller = controller
         self.mtu = mtu
 
         self.channels = {}
-        self.thread = Thread(target=self.controller, args=(self.process,))
+        self.socket = socket.socket(socket.AF_INET,  # Internet
+                                    socket.SOCK_DGRAM)  # UDP
 
-    def start(self):
+    async def sort(self):
+        while True:
+            message = await self.queue.get()
+            m = self.encode(message)
+            if message.dest in self.channels:
+                await self.channels[message.dest].put(m)
+            else:
+                loop = asyncio.get_running_loop()
+                queue = self.channels[message.dest] = Queue()
+                loop.create_task(self.process(message.dest, queue))
+                await self.channels[message.dest].put(m)
+
+    async def process(self, dest, queue):
+        while True:
+            message = await queue.get()
+            q = queue._queue
+            q.appendleft(message)
+            bun = self.bundle(self.mtu, q)
+            self.transmit(bun, dest)
+
+    async def task(self):
         """Start loop for transmitting messages in outgoing queue"""
-        self.thread.start()
+        loop = asyncio.get_running_loop()
+        self.queue = Queue()
+        loop.create_task(self.sort())
 
     def send(self, message):
         # Do mangling and encoding first; then bundler can process the queue directly
-        m = self.encode(message)
-        logger.info('send requested: {}'.format(m))
-        if self.channels.get(message.dest):
-            self.channels[message.dest].append(m)
+        self.queue.put_nowait(message)
+
+    def transmit(self, bun, dest):
+        """Send binary-encoded bun via UDP"""
+        logger.info('Sending bun {} to {}'.format(bun, dest))
+        self.socket.sendto(bun, dest)
+
+
+def tcp_transmitter():
+    connections = {}
+
+    def transmitter(bun, dest):
+        logger.info('Sending bun {} to {}'.format(bun, dest))
+        if dest in connections:
+            sock = connections[dest]
         else:
-            self.channels[message.dest] = deque()
-            self.channels[message.dest].append(m)
+            sock = socket.socket(socket.AF_INET,  # Internet
+                                 socket.SOCK_STREAM)  # TCP
+            sock.connect(dest)
+            connections[dest] = sock
 
-    def process(self):
-        for dest, queue in self.channels.items():
-            if len(queue) > 0:
-                logger.info('messages in queue for {}'.format(dest))
-                bun = self.bundle(self.mtu, queue)
-                self.transmit(bun, dest)
-
-
-def udp_transmitter(bun, dest):
-    """Send binary-encoded bun via UDP"""
-    logger.info('Sending bun {} to {}'.format(bun, dest))
-    sock = socket.socket(socket.AF_INET,  # Internet
-                         socket.SOCK_DGRAM)  # UDP
-    sock.sendto(bun, dest)
+        sock.sendto(bun, dest)
+    return transmitter

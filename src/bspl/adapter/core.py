@@ -1,18 +1,18 @@
+import asyncio
 import logging
 import json
 import datetime
-from threading import Thread
 import sys
 import os
 import math
 import socket
 import inspect
 import yaml
-from queue import Queue
+from asyncio.queues import Queue
 from .history import History
 from functools import partial
-from .emitter import Emitter, udp_transmitter
-from .receiver import Receiver, udp_listener
+from .emitter import Emitter
+from .receiver import Receiver
 from .scheduler import Scheduler
 from . import policies
 
@@ -22,27 +22,19 @@ logger = logging.getLogger('bungie')
 
 
 class Message:
-    def __init__(self, schema, payload, enactment=None, duplicate=False, acknowledged=False, dest=None):
+    def __init__(self, schema, payload, duplicate=False, acknowledged=False, dest=None):
         self.schema = schema
         self.payload = payload
-        self.enactment = enactment
         self.duplicate = duplicate
         self.acknowledged = acknowledged
         self.dest = dest
         self.meta = {}
 
-    def __str__(self):
-        if self.enactment and self.duplicate:
-            return "Message({}, {}, {}, {})".format(
-                self.schema.name, self.payload, self.enactment, self.duplicate)
-        elif self.enactment:
-            return "Message({}, {}, {})".format(
-                self.schema.name, self.payload, self.enactment)
-        elif self.duplicate:
-            return "Message({}, {}, duplicate={})".format(
-                self.schema.name, self.payload, self.duplicate)
+    def __repr__(self):
+        if self.duplicate:
+            return f"Message({self.schema.name}, {self.payload}, duplicate={self.duplicate})"
         else:
-            return "Message({}, {})".format(self.schema.name, self.payload)
+            return f"Message({self.schema.name}, {self.payload})"
 
     def keys_match(self, other):
         return all(self.payload[k] == other.payload[k]
@@ -64,7 +56,7 @@ class Adapter:
                  role,
                  protocol,
                  configuration,
-                 emitter=Emitter(udp_transmitter),
+                 emitter=Emitter(),
                  receiver=None):
         """
         Initialize the agent adapter.
@@ -80,15 +72,11 @@ class Adapter:
         self.configuration = configuration
         self.reactors = {}  # dict of message -> {handlers}
         self.history = History()
-        self.send_q = Queue()
-        self.recv_q = Queue()
-        self.process_thread = Thread(target=self.process_loop)
         self.emitter = emitter
-        self.receiver = receiver or Receiver(
-            udp_listener(*self.configuration[self.role]))
+        self.receiver = receiver or Receiver(self.configuration[self.role])
         self.schedulers = []
 
-    def process_receive(self, payload):
+    async def process_receive(self, payload):
         if not isinstance(payload, dict):
             logger.warn(
                 "Payload does not parse to a dictionary: {}".format(payload))
@@ -104,8 +92,8 @@ class Adapter:
             m = Message(s, payload)
             history.acknowledge(m)
         message = Message(schema, payload)
-        message.enactment = self.history.check_integrity(message)
-        if message.enactment is not False:
+        enactment = self.history.check_integrity(message)
+        if enactment is not False:
             if self.history.duplicate(message):
                 logger.debug("Duplicate message: {}".format(message))
                 message.duplicate = True
@@ -113,7 +101,7 @@ class Adapter:
                 logger.debug("Observing message: {}".format(message))
                 self.history.observe(message)
 
-            self.react(message)
+            await self.react(message, enactment)
 
     def send(self, payload, schema=None, name=None, to=None):
         """
@@ -121,47 +109,51 @@ class Adapter:
         """
         schema = schema or self.protocol.find_schema(payload, name=name, to=to)
         m = Message(schema, payload)
-        self.send_q.put(m)
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.send_q.put(m))
 
-    def resend(self, schema, enactment):
+    async def resend(self, schema, enactment):
         try:
             m = Message(schema, {p: enactment['bindings'][p]
                                  for p in schema.parameters})
-            self.send_q.put(m)
+            await self.send_q.put(m)
         except KeyError as e:
             logging.debug(
                 "Missing parameter for sending {}: {}".format(schema.name, e))
             pass
 
-    def forward(self, schema, recipient, enactment):
+    async def forward(self, schema, recipient, enactment):
         m = Message(schema,
                     {p: enactment['bindings'][p]
                      for p in schema.parameters},
                     dest=self.configuration[recipient])
-        self.send_q.put(m)
+        await self.send_q.put(m)
 
-    def process_send(self, message):
+    async def process_send(self, message):
         """
-        Send a message by posting to the recipient's http endpoint,
+n        Send a message by posting to the recipient's http endpoint,
         after checking for correctness, and storing the message.
         """
 
-        if self.history.validate_send(message):
-            if not self.history.duplicate(message):
+        if not message.dest:
+            message.dest = self.configuration[message.schema.recipient]
+        if not self.history.duplicate(message):
+            if self.history.validate_send(message):
                 self.history.observe(message)
 
                 logger.debug("Sending message {} to {} at {}".format(
                     message.payload, message.schema.recipient.name, message.dest))
 
-                message.enactment = self.history.enactment(message)
-                self.react(message)
-            else:
-                logger.debug("Resending message: {}".format(message))
-                message.meta['retries'] = message.meta.get('retries', 0) + 1
-                message.meta['last-retry'] = str(datetime.datetime.now())
+                enactment = self.history.enactment(message)
+                await self.react(message, enactment)
 
-            if not message.dest:
-                message.dest = self.configuration[message.schema.recipient]
+                self.emitter.send(message)
+                return True
+        else:
+            logger.debug(f"Resending message: {message}")
+            message.meta['retries'] = message.meta.get('retries', 0) + 1
+            message.meta['last-retry'] = str(datetime.datetime.now())
+
             self.emitter.send(message)
             return True
 
@@ -182,31 +174,39 @@ class Adapter:
         """
         return partial(self.register_reactor, schema)
 
-    def react(self, message):
+    async def react(self, message, enactment):
         """
         Handle emission/reception of message by invoking corresponding reactors.
         """
         reactors = self.reactors.get(message.schema)
         if reactors:
+            loop = asyncio.get_running_loop()
             for r in reactors:
                 logger.info("Invoking reactor: {}".format(r))
-                # run reactor in a thread
-                Thread(target=r, args=(message, self)).start()
+                # run reactors asynchronously
+                loop.create_task(r(message, enactment, self))
 
-    def process_loop(self):
-        while True:
-            # very busy waiting...
-            if not self.send_q.empty():
-                self.process_send(self.send_q.get())
-            if not self.recv_q.empty():
-                self.process_receive(self.recv_q.get())
+    async def task(self):
+        loop = asyncio.get_running_loop()
+        self.send_q = Queue()
+        self.recv_q = Queue()
 
-    def start(self):
-        self.process_thread.start()
-        self.emitter.start()
-        self.receiver.start(self)
+        async def send_loop():
+            while True:
+                m = await self.send_q.get()
+                await self.process_send(m)
+
+        async def receive_loop():
+            while True:
+                m = await self.recv_q.get()
+                await self.process_receive(m)
+
+        loop.create_task(self.receiver.task(self))
+        loop.create_task(receive_loop())
+        loop.create_task(self.emitter.task())
+        loop.create_task(send_loop())
         for s in self.schedulers:
-            s.start(self)
+            loop.create_task(s.task(self))
 
     def add_policies(self, condition, *ps):
         if condition == 'reactive':
@@ -230,7 +230,6 @@ class Adapter:
             for condition, ps in spec[self.role.name].items():
                 self.add_policies(condition, *ps)
         else:
-            print(self.role.name)
             # Assume the file contains policies only for agent
             for condition, ps in spec.items():
                 self.add_policies(condition, *ps)
@@ -239,3 +238,11 @@ class Adapter:
         with open(path) as file:
             spec = yaml.full_load(file)
             self.load_policies(spec)
+
+    def start(self, *tasks):
+        loop = asyncio.get_event_loop()
+
+        loop.create_task(self.task())
+        for t in tasks:
+            loop.create_task(t)
+        loop.run_forever()
