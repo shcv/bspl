@@ -86,8 +86,8 @@ class History:
         # log message under each key
         for k in message.schema.keys:
             v = message.payload.get(k)
-            if v and self.by_param.get(k):
-                if self.by_param[k].get(v):
+            if v is not None and k in self.by_param:
+                if v in self.by_param[k]:
                     self.by_param[k][v].add(message)
                 else:
                     self.by_param[k][v] = {message}
