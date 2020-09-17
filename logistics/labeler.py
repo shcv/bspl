@@ -3,10 +3,12 @@ from configuration import config, logistics
 import uuid
 
 adapter = Adapter(logistics.roles['Labeler'], logistics, config)
+RequestLabel = logistics.messages['RequestLabel']
+Labeled = logistics.messages['Labeled']
 
 
-@adapter.reaction(logistics.messages['RequestLabel'])
-def request_label(message, adapter):
+@adapter.reaction(RequestLabel)
+async def request_label(message, enactment, adapter):
     if message.duplicate:
         return
 
@@ -17,11 +19,8 @@ def request_label(message, adapter):
         'address': message.payload['address'],
         'label': str(uuid.uuid4()),
     }
-    adapter.send(payload, logistics.messages['Labeled'])
+    adapter.send(payload, Labeled)
 
-
-RequestLabel = logistics.messages['RequestLabel']
-Labeled = logistics.messages['Labeled']
 
 if __name__ == '__main__':
     print("Starting Labeler...")

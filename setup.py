@@ -23,10 +23,9 @@ setup(
 
     install_requires=[
         'protocheck @ git+https://gitlab.com/masr/protocheck.git',
-        'cronus @ git+https://github.com/priestoferis/cronus.git',
-        'python-crontab',
-        'croniter',
-        'pyyaml'
+        'aiocron',
+        'pyyaml',
+        'ijson'
     ],
 
     packages=find_packages(),

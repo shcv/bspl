@@ -1,8 +1,9 @@
+import asyncio
 import logging
 import socket
 import json
-from threading import Thread
-from queue import Queue
+import ijson
+from asyncio.queues import Queue
 
 logger = logging.getLogger('bungie')
 
@@ -15,41 +16,70 @@ def decode(msg):
     return json.loads(msg)
 
 
+class UDPReceiverProtocol:
+    def __init__(self, queue):
+        self.queue = queue
+
+    def datagram_received(self, data, addr):
+        self.queue.put_nowait(data)
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def connection_lost(self, exc):
+        logger.info(f"Connection lost: {exc}")
+
+
 class Receiver:
     """An Receiver just needs the send(message) method."""
 
-    def __init__(self, listener, decoder=decode, unbundler=unbundle):
-        """Each component is a function that """
+    def __init__(self, address, decoder=decode, unbundler=unbundle):
+        self.address = address
         self.decode = decoder
         self.unbundle = unbundler
-        self.listen = listener
-        self.queue = Queue()
-        self.listen_thread = Thread(target=self.listen, args=(self.queue,))
-        self.process_thread = Thread(target=self.process)
 
-    def start(self, adapter):
+    async def task(self, adapter):
         """Start loop for transmitting messages in outgoing queue"""
         self.adapter = adapter
-        self.listen_thread.start()
-        self.process_thread.start()
+        self.queue = Queue()
+        loop = asyncio.get_running_loop()
+        print(f"Attempting to bind: {self.address}")
+        transport, protocol = await loop.create_datagram_endpoint(
+            lambda: UDPReceiverProtocol(self.queue),
+            local_addr=('0.0.0.0', self.address[1]))
+        logger.info(f"Listening on {self.address}")
+        loop.create_task(self.process())
 
-    def process(self):
+    async def process(self):
         while True:
-            data = self.queue.get()
+            data = await self.queue.get()
             bundle = self.decode(data)
             messages = self.unbundle(bundle)
             for m in messages:
-                self.adapter.recv_q.put(m)
+                await self.adapter.recv_q.put(m)
 
 
-def udp_listener(IP, port):
-    def listener(queue):
-        logger.info("Listening on {}:{}".format(IP, port))
-        sock = socket.socket(socket.AF_INET,  # Internet
-                             socket.SOCK_DGRAM)  # UDP
-        sock.bind((IP, port))  # (IP, port)
+class TCPReceiver:
+    def __init__(self, address, decoder=decode):
+        self.address = address
+        self.decode = decoder
 
-        while True:
-            data, addr = sock.recvfrom(1500)  # buffer size is 1500 bytes
-            queue.put(data)
-    return listener
+    async def task(self, adapter):
+        self.adapter = adapter
+        self.queue = Queue()
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.process())
+
+        server = await asyncio.start_server(
+            self.process,
+            *self.address)
+
+        addr = server.sockets[0].getsockname()
+        logger.info(f'Listening on {addr}')
+
+        async with server:
+            await server.serve_forever()
+
+    async def process(self, reader, writer):
+        async for object in ijson.items(reader):
+            await self.adapter.recv_q.put(object)

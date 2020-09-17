@@ -2,11 +2,14 @@ from bungie import Adapter, Resend
 from configuration import config, logistics
 
 adapter = Adapter(logistics.roles['Wrapper'], logistics, config)
+RequestWrapping = logistics.messages['RequestWrapping']
+Wrapped = logistics.messages['Wrapped']
 
 
-@adapter.reaction(logistics.messages['RequestWrapping'])
-def request_wrapping(message, adapter):
-    print(message)
+@adapter.reaction(RequestWrapping)
+async def request_wrapping(message, enactment, adapter):
+    if message.duplicate:
+        return
     item = message.payload['item']
 
     payload = {
@@ -15,11 +18,8 @@ def request_wrapping(message, adapter):
         'item': item,
         'wrapping': 'bubblewrap' if item in ['plate', 'glass'] else 'paper',
     }
-    adapter.send(payload, logistics.messages['Wrapped'])
+    adapter.send(payload, Wrapped)
 
-
-RequestWrapping = logistics.messages['RequestLabel']
-Wrapped = logistics.messages['Wrapped']
 
 if __name__ == '__main__':
     print("Starting Wrapper...")

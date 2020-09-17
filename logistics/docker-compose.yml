@@ -37,6 +37,12 @@ services:
         source: ./policies.yaml
         target: /src/policies.yaml
         read_only: true
+      - type: bind
+        source: ./packed-log
+        target: /src/packed-log
+      - type: bind
+        source: ./requested-log
+        target: /src/requested-log
     entrypoint: python merchant.py
 
   wrapper:
