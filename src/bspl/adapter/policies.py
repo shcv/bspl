@@ -62,6 +62,19 @@ def parse(protocol, text):
     return from_ast(protocol, model.parse(text))
 
 
+class Acknowledge:
+    def __init__(self, *schemas):
+        self.schemas = schemas
+        self.reactive = True
+        self.priority = 0
+
+    @property
+    def reactors(self):
+        async def ack(message, enactment, adapter):
+            await adapter.send_q.put(message.ack())
+        return {s: ack for s in self.schemas}
+
+
 class Resend:
     """
     A helper class for defining resend policies.
