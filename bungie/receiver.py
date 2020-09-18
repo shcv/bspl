@@ -68,7 +68,6 @@ class TCPReceiver:
         self.adapter = adapter
         self.queue = Queue()
         loop = asyncio.get_running_loop()
-        loop.create_task(self.process())
 
         server = await asyncio.start_server(
             self.process,
@@ -81,5 +80,5 @@ class TCPReceiver:
             await server.serve_forever()
 
     async def process(self, reader, writer):
-        async for object in ijson.items(reader):
+        async for object in ijson.items(reader, 'item'):
             await self.adapter.recv_q.put(object)

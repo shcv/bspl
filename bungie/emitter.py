@@ -49,7 +49,9 @@ def bundle(mtu, queue):
 
 
 def encode(msg):
-    return json.dumps(msg.payload, separators=(',', ':'))
+    s = json.dumps(msg.payload, separators=(',', ':'))
+    b = s.encode()
+    return b
 
 
 class Emitter:
@@ -101,18 +103,36 @@ class Emitter:
         self.socket.sendto(bun, dest)
 
 
-def tcp_transmitter():
-    connections = {}
+class TCPEmitter:
+    """An Emitter just needs the send(message) method."""
 
-    def transmitter(bun, dest):
-        logger.info('Sending bun {} to {}'.format(bun, dest))
-        if dest in connections:
-            sock = connections[dest]
-        else:
-            sock = socket.socket(socket.AF_INET,  # Internet
-                                 socket.SOCK_STREAM)  # TCP
-            sock.connect(dest)
-            connections[dest] = sock
+    def __init__(self, encoder=encode):
+        """Each component is a function that """
+        self.encode = encoder
+        self.channels = {}
 
-        sock.sendto(bun, dest)
-    return transmitter
+    async def process(self):
+        while True:
+            message = await self.queue.get()
+            m = self.encode(message)
+            if message.dest in self.channels:
+                writer = self.channels[message.dest]
+            else:
+                # need to think about when to close the connections...
+                _, writer = await asyncio.open_connection(*message.dest)
+                self.channels[message.dest] = writer
+                writer.write(b'[')
+
+            writer.write(m + b',')
+            # await writer.drain()
+
+    async def task(self):
+        """Start loop for transmitting messages in outgoing queue"""
+        loop = asyncio.get_running_loop()
+        self.queue = Queue()
+
+        loop.create_task(self.process())
+
+    def send(self, message):
+        # Do mangling and encoding first; then bundler can process the queue directly
+        self.queue.put_nowait(message)
