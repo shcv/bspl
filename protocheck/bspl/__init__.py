@@ -64,15 +64,6 @@ def strip_latex(spec):
     return spec
 
 
-def reference(ast, parent):
-    if ast["type"] == "message":
-        return ast_message(ast, parent)
-    elif ast["type"] == "protocol":
-        return ast_reference(ast, parent)
-    else:
-        raise Exception("Unknown type: " + ast["type"])
-
-
 def ast_reference(ast, parent):
     r = Reference(ast['name'], parent=parent)
     r.parameters = [ast_parameter(p, r) for p in ast['params']]
@@ -100,11 +91,34 @@ def ast_protocol(ast, parent):
     private_parameters = [ast_parameter(p, protocol)
                           for p in ast.get('private') or []]
 
-    references = [reference(r, protocol)
-                  for r in ast.get('references', [])]
+    references = []
+    messages = {}
+    acks = False
+    for r in ast.get('references', []):
+        type = r["type"]
+        if type == "message":
+            if r["name"][0] is "@":
+                m = messages[r["name"][1:]]
+                references.append(m.acknowledgment())
+                acks = True
+            else:
+                m = ast_message(r, protocol)
+                messages[m.raw_name] = m
+                references.append(m)
+        elif type == "protocol":
+            references.append(ast_reference(r, protocol))
+        else:
+            raise Exception(f"Unknown type: {type}")
 
-    protocol.configure(roles, public_parameters, references,
-                       private_parameters)
+    if acks:
+        private_parameters.append(Parameter('$ack', 'out', key=True))
+
+    protocol.configure(
+        roles,
+        public_parameters,
+        references,
+        private_parameters
+    )
     return protocol
 
 

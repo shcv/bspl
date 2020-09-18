@@ -100,13 +100,7 @@ class Protocol(Base):
                 else:
                     raise("{} is unexpected type: {}".format(r, type(r)))
         if public_parameters:
-            self.set_parameters(public_parameters or [])
-            self.keys = {p.name for p in self.parameters.values()
-                         if p.key
-                         or parent
-                         and parent.type == 'protocol'
-                         and p.name in parent.parameters
-                         and parent.parameters[p.name].key}
+            self.set_parameters(public_parameters)
         if private_parameters:
             self.private_parameters = {p.name: p for p in private_parameters}
         if references:
@@ -125,6 +119,15 @@ class Protocol(Base):
     @property
     def all_parameters(self):
         return {p for m in self.messages.values() for p in m.parameters}
+
+    @property
+    def keys(self):
+        return {p.name for p in self.parameters.values()
+                if p.key
+                or self.parent
+                and self.parent.type == 'protocol'
+                and p.name in self.parent.parameters
+                and self.parent.parameters[p.name].key}
 
     def _adorned(self, adornment):
         "helper method for selecting parameters with a particular adornment"
@@ -354,6 +357,17 @@ class Message(Protocol):
     @property
     def contents(self):
         return [p for p in self.parameters.values() if p.adornment in ['out', 'any', 'in']]
+
+    def acknowledgment(self):
+        m = Message(
+            '@' + self.raw_name,
+            self.recipient,
+            self.sender,
+            parent=self.parent
+        )
+        m.set_parameters([Parameter(k, 'in', key=True)
+                          for k in self.keys] + [Parameter('$ack', 'out', key=True)])
+        return m
 
 
 class Parameter(Base):
