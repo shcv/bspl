@@ -10,7 +10,7 @@ services:
 
   merchant:
     build:
-      context: ..
+      context: ../..
       dockerfile: agent.docker
     image: agent
     depends_on:

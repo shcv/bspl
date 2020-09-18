@@ -3,7 +3,6 @@ from configuration import config, logistics
 import random
 import time
 import datetime
-import asyncio
 
 RequestLabel = logistics.messages['RequestLabel']
 RequestWrapping = logistics.messages['RequestWrapping']
