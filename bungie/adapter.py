@@ -70,7 +70,7 @@ class Adapter:
         self.role = role
         self.protocol = protocol
         self.configuration = configuration
-        self.reactors = {}  # dict of message -> {handlers}
+        self.reactors = {}  # dict of message -> [handlers]
         self.history = History()
         self.emitter = emitter
         self.receiver = receiver or Receiver(self.configuration[self.role])
@@ -157,11 +157,13 @@ n        Send a message by posting to the recipient's http endpoint,
             self.emitter.send(message)
             return True
 
-    def register_reactor(self, schema, handler):
-        if self.reactors.get(schema):
-            self.reactors[schema].add(handler)
+    def register_reactor(self, schema, handler, index=None):
+        if schema in self.reactors:
+            rs = self.reactors[schema]
+            if handler not in rs:
+                rs.insert(index if index is not None else len(rs), handler)
         else:
-            self.reactors[schema] = {handler}  # set
+            self.reactors[schema] = [handler]
 
     def reaction(self, schema):
         """
@@ -208,19 +210,16 @@ n        Send a message by posting to the recipient's http endpoint,
         for s in self.schedulers:
             loop.create_task(s.task(self))
 
-    def add_policies(self, condition, *ps):
-        if condition == 'reactive':
-            for policy in ps:
-                if type(policy) is str:
-                    policy = policies.parse(self.protocol, policy)
+    def add_policies(self, *ps, when='reactive'):
+        for policy in ps:
+            if type(policy) is str:
+                policy = policies.parse(self.protocol, policy)
+            if when == 'reactive':
                 for schema, reactor in policy.reactors.items():
-                    self.register_reactor(schema, reactor)
-        else:
-            s = Scheduler(condition)
-            self.schedulers.append(s)
-            for policy in ps:
-                if type(policy) is str:
-                    policy = policies.parse(self.protocol, policy)
+                    self.register_reactor(schema, reactor, policy.priority)
+            else:
+                s = Scheduler(when)
+                self.schedulers.append(s)
                 s.add(policy)
 
     def load_policies(self, spec):
@@ -228,11 +227,11 @@ n        Send a message by posting to the recipient's http endpoint,
             spec = yaml.full_load(spec)
         if self.role.name in spec:
             for condition, ps in spec[self.role.name].items():
-                self.add_policies(condition, *ps)
+                self.add_policies(*ps, when=condition)
         else:
             # Assume the file contains policies only for agent
             for condition, ps in spec.items():
-                self.add_policies(condition, *ps)
+                self.add_policies(*ps, when=condition)
 
     def load_policy_file(self, path):
         with open(path) as file:

@@ -82,6 +82,7 @@ class Resend:
         self.reactive = False
         self.disjunctive = True
         self.proactors = []
+        self.priority = None
 
     def run(self, history):
         selected = set()
