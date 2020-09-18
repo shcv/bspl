@@ -50,6 +50,12 @@ class Message:
         for k, i in enumerate(sorted(self.schema.keys.keys())):
             self.payload[k] = value[i]
 
+    def ack(self):
+        payload = {k: self.payload[k] for k in self.schema.keys}
+        payload['$ack'] = self.schema.name
+        self.acknowledged = True
+        return Message(self.schema.parent.messages['@'+self.schema.name], payload)
+
 
 class Adapter:
     def __init__(self,
@@ -86,11 +92,11 @@ class Adapter:
         if not schema:
             logger.warn("No schema matching payload: {}".format(payload))
             return
-        elif 'ack' in payload:
+        elif '$ack' in payload:
             # look up message schema by name
-            s = self.protocol.messages[payload['ack']]
+            s = self.protocol.messages[payload['$ack']]
             m = Message(s, payload)
-            history.acknowledge(m)
+            self.history.acknowledge(m)
         message = Message(schema, payload)
         enactment = self.history.check_integrity(message)
         if enactment is not False:
