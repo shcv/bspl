@@ -1,5 +1,7 @@
 from bungie import Adapter, Resend
 from configuration import config, logistics
+import logging
+logging.getLogger('bungie').setLevel(logging.INFO)
 
 adapter = Adapter(logistics.roles['Wrapper'], logistics, config)
 RequestWrapping = logistics.messages['RequestWrapping']
