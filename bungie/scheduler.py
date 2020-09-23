@@ -54,11 +54,11 @@ class Scheduler:
 
         while True:
             if self.schedule:
-                logger.info(
+                logger.debug(
                     f'scheduler: Waiting for next occurrence of ({self.schedule})')
                 await aiocron.crontab(self.schedule).next()
             else:
-                logger.info(f'scheduler: Waiting {self.interval} seconds')
+                logger.debug(f'scheduler: Waiting {self.interval} seconds')
                 await asyncio.sleep(self.interval)
             await self.run()
 
