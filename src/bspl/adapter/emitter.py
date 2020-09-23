@@ -99,7 +99,7 @@ class Emitter:
 
     def transmit(self, bun, dest):
         """Send binary-encoded bun via UDP"""
-        logger.info('Sending bun {} to {}'.format(bun, dest))
+        logger.debug('Sending bun {} to {}'.format(bun, dest))
         self.socket.sendto(bun, dest)
 
 

@@ -190,7 +190,7 @@ n        Send a message by posting to the recipient's http endpoint,
         if reactors:
             loop = asyncio.get_running_loop()
             for r in reactors:
-                logger.info("Invoking reactor: {}".format(r))
+                logger.debug("Invoking reactor: {}".format(r))
                 # run reactors asynchronously
                 loop.create_task(r(message, enactment, self))
 

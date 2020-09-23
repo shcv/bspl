@@ -27,7 +27,7 @@ class UDPReceiverProtocol:
         self.transport = transport
 
     def connection_lost(self, exc):
-        logger.info(f"Connection lost: {exc}")
+        logger.debug(f"Connection lost: {exc}")
 
 
 class Receiver:
@@ -43,7 +43,7 @@ class Receiver:
         self.adapter = adapter
         self.queue = Queue()
         loop = asyncio.get_running_loop()
-        print(f"Attempting to bind: {self.address}")
+        logger.debug(f"Attempting to bind: {self.address}")
         transport, protocol = await loop.create_datagram_endpoint(
             lambda: UDPReceiverProtocol(self.queue),
             local_addr=('0.0.0.0', self.address[1]))
