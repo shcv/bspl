@@ -3,6 +3,9 @@ from configuration import config, logistics
 import random
 import time
 import datetime
+import logging
+
+logging.getLogger('bungie').setLevel(logging.INFO)
 
 RequestLabel = logistics.messages['RequestLabel']
 RequestWrapping = logistics.messages['RequestWrapping']

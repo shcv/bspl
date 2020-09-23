@@ -1,6 +1,9 @@
 from bungie import Adapter, Resend
 from configuration import config, logistics
 import uuid
+import logging
+logger = logging.getLogger('bungie')
+logger.setLevel(logging.INFO)
 
 adapter = Adapter(logistics.roles['Labeler'], logistics, config)
 RequestLabel = logistics.messages['RequestLabel']
@@ -23,6 +26,6 @@ async def request_label(message, enactment, adapter):
 
 
 if __name__ == '__main__':
-    print("Starting Labeler...")
+    logger.info("Starting Labeler...")
     adapter.load_policy_file('policies.yaml')
     adapter.start()

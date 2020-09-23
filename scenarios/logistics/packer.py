@@ -9,6 +9,7 @@ Packed = logistics.messages['Packed']
 adapter = Adapter(logistics.roles['Packer'], logistics, config)
 
 logger = logging.getLogger('bungie')
+logger.setLevel(logging.INFO)
 
 
 @adapter.reaction(Labeled)
@@ -26,7 +27,6 @@ async def labeled(message, enactment, adapter):
                 not any(p.payload.get('itemID') == m.payload['itemID'] for p in packed)]
 
     for m in unpacked:
-        logger.info(f'unpacked: {m}')
         payload = {
             'orderID': orderID,
             'itemID': m.payload['itemID'],
@@ -40,7 +40,7 @@ async def labeled(message, enactment, adapter):
 @adapter.reaction(Wrapped)
 async def wrapped(message, enactment, adapter):
     if message.duplicate:
-        logger.info(f'duplicate: {message}')
+        logger.debug(f'duplicate: {message}')
         return
     labeled_msg = next(
         (m for m in enactment['messages'] if 'label' in m.payload), None)
