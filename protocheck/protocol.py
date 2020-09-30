@@ -1,4 +1,5 @@
 from .sat.logic import merge
+from collections import OrderedDict
 
 
 class Specification():
@@ -102,17 +103,20 @@ class Protocol(Base):
         if public_parameters:
             self.set_parameters(public_parameters)
         if private_parameters:
-            self.private_parameters = {p.name: p for p in private_parameters}
+            self.private_parameters = OrderedDict(
+                (p.name, p) for p in private_parameters)
         if references:
             self.references = {r.name: r for r in references or []}
 
     def set_parameters(self, parameters):
-        self.public_parameters = {p.name: p for p in parameters}
+        self.public_parameters = OrderedDict((p.name, p) for p in parameters)
 
     @property
     def parameters(self):
         if hasattr(self, 'private_parameters'):
-            return merge(self.public_parameters, self.private_parameters)
+            params = self.public_parameters.copy()
+            params.update(self.private_parameters)
+            return params
         else:
             return self.public_parameters
 
@@ -122,12 +126,12 @@ class Protocol(Base):
 
     @property
     def keys(self):
-        return {p.name for p in self.parameters.values()
+        return [p.name for p in self.parameters.values()
                 if p.key
                 or self.parent
                 and self.parent.type == 'protocol'
                 and p.name in self.parent.parameters
-                and self.parent.parameters[p.name].key}
+                and self.parent.parameters[p.name].key]
 
     def _adorned(self, adornment):
         "helper method for selecting parameters with a particular adornment"
