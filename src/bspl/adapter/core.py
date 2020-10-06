@@ -1,4 +1,5 @@
 import asyncio
+import aiorun
 import logging
 import json
 import datetime
@@ -245,9 +246,10 @@ n        Send a message by posting to the recipient's http endpoint,
             self.load_policies(spec)
 
     def start(self, *tasks):
-        loop = asyncio.get_event_loop()
+        async def main():
+            await self.task()
+            loop = asyncio.get_running_loop()
+            for t in tasks:
+                loop.create_task(t)
 
-        loop.create_task(self.task())
-        for t in tasks:
-            loop.create_task(t)
-        loop.run_forever()
+        aiorun.run(main(), stop_on_unhandled_errors=True, use_uvloop=True)
