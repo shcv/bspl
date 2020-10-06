@@ -25,7 +25,10 @@ setup(
         'protocheck @ git+https://gitlab.com/masr/protocheck.git',
         'aiocron',
         'pyyaml',
-        'ijson'
+        'ijson',
+        'aiorun',
+        'uvloop',
+        'argparse'
     ],
 
     packages=find_packages(),

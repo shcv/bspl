@@ -1,7 +1,8 @@
 from bungie import Adapter, Resend
 from configuration import config, logistics
 import logging
-logging.getLogger('bungie').setLevel(logging.INFO)
+logger = logging.getLogger('wrapper')
+# logging.getLogger('bungie').setLevel(logging.DEBUG)
 
 adapter = Adapter(logistics.roles['Wrapper'], logistics, config)
 RequestWrapping = logistics.messages['RequestWrapping']
@@ -24,6 +25,6 @@ async def request_wrapping(message, enactment, adapter):
 
 
 if __name__ == '__main__':
-    print("Starting Wrapper...")
+    logger.info("Starting Wrapper...")
     adapter.load_policy_file('policies.yaml')
     adapter.start()

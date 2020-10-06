@@ -13,7 +13,9 @@ logger = logging.getLogger('bungie')
 
 def exponential(interval=1):
     def inner(message):
-        return interval * random.randint(0, 2 ** message.meta.get('retries', 0)-1)
+        delay = interval * \
+            random.randint(0, 2 ** message.meta.get('retries', 0)-1)
+        return delay
     return inner
 
 
@@ -45,7 +47,7 @@ class Scheduler:
         if 'last-retry' in message.meta:
             delta = datetime.datetime.now() - message.meta['last-retry']
             delay = self._backoff(message)
-            return delta > datetime.timedelta(seconds=delay)
+            return delta.total_seconds() > delay
         else:
             return True
 
@@ -66,8 +68,7 @@ class Scheduler:
         for p in self.policies:
             # give policy access to full history for conditional evaluation
             messages = p.run(self.adapter.history)
-            for m in messages:
-                # check backoff, if set, before sending
-                if not self._backoff or self.backoff(m):
-                    # put message directly onto send queue, bypassing protocol check (?)
-                    await self.adapter.send_q.put(m)
+            if self._backoff:
+                await self.adapter.bulk_send([m for m in messages if self.backoff(m)])
+            else:
+                await self.adapter.bulk_send(messages)

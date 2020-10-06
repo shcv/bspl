@@ -1,5 +1,6 @@
 import pytest
 import yaml
+import asyncio
 from protocheck import bspl
 from bungie.policies import *
 from bungie.adapter import Message
@@ -108,7 +109,7 @@ def test_resend_upon_dup():
     h = History()
     m = Message(Buy, {'item': 'shoe'})
     h.observe(m)
-    assert(not r.reactors[Buy](m, None))
+    assert(not asyncio.run(r.reactors[Buy](m, None, None)))
 
     # should react to duplicate
     deliver = Message(Deliver, {'item': 'shoe', 'done': 'yep'})
@@ -117,7 +118,7 @@ def test_resend_upon_dup():
     m.duplicate = True
     with pytest.raises(AttributeError):
         # raises an attribute error if it tries to resend the message using None as the adapter
-        r.reactors[Buy](m, None)
+        asyncio.run(r.reactors[Buy](m, None, None))
 
 
 def test_parser():
