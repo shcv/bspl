@@ -3,6 +3,7 @@ import logging
 import socket
 import json
 import ijson
+import datetime
 from asyncio.queues import Queue
 
 logger = logging.getLogger('bungie')
@@ -56,7 +57,7 @@ class Receiver:
             bundle = self.decode(data)
             messages = self.unbundle(bundle)
             for m in messages:
-                await self.adapter.recv_q.put(m)
+                await self.adapter.receive(m)
 
 
 class TCPReceiver:
@@ -71,14 +72,18 @@ class TCPReceiver:
 
         server = await asyncio.start_server(
             self.process,
-            *self.address)
+            '0.0.0.0', self.address[1])
 
         addr = server.sockets[0].getsockname()
         logger.info(f'Listening on {addr}')
 
-        async with server:
-            await server.serve_forever()
+        loop = asyncio.get_running_loop()
+
+        async def serve():
+            async with server:
+                await server.serve_forever()
+        loop.create_task(serve())
 
     async def process(self, reader, writer):
-        async for object in ijson.items(reader, 'item'):
-            await self.adapter.recv_q.put(object)
+        async for obj in ijson.items(reader, 'item'):
+            await self.adapter.receive(obj)

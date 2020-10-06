@@ -2,6 +2,7 @@ import yaml
 import tatsu
 import os
 import logging
+import datetime
 
 logger = logging.getLogger('bungie')
 
@@ -23,6 +24,9 @@ def from_ast(protocol, ast):
         cls = Send
 
     policy = cls(*lookup(protocol, ast['messages']))
+
+    if ast['delay']:
+        policy.after(float(ast['delay']))
 
     if ast['prep'] == 'until':
         policy.until
@@ -71,7 +75,7 @@ class Acknowledge:
     @property
     def reactors(self):
         async def ack(message, enactment, adapter):
-            await adapter.send_q.put(message.ack())
+            await adapter.process_send(message.ack())
         return {s: ack for s in self.schemas}
 
 
@@ -96,10 +100,18 @@ class Resend:
         self.disjunctive = True
         self.proactors = []
         self.priority = None
+        self.delay = None
+
+        # the set of active messages, for proactive policies
+        self.active = set()
 
     def run(self, history):
         selected = set()
+        first = True
         for p in self.proactors:
+            if first:
+                selected = p(history)
+                continue
             if self.disjunctive:
                 selected.update(p(history))
             else:
@@ -108,6 +120,10 @@ class Resend:
 
     async def action(self, adapter, schema, enactment):
         await adapter.resend(schema, enactment)
+
+    def after(self, delay):
+        self.delay = delay
+        return self
 
     @property
     def until(self):
@@ -134,23 +150,47 @@ class Resend:
                         await self.action(adapter, r, enactment)
                 self.reactors[s] = reactor
         else:
-            def process_received(history):
-                messages = set()
-                # for each schema that needs resending
+            async def activate(message, enactment, adapter):
+                message.meta['sent'] = datetime.datetime.now()
+                self.active.add(message)
+
+            for s in self.schemas:
+                self.reactors[s] = activate
+
+            async def deactivate(message, enactment, adapter):
                 for s in self.schemas:
-                    # identify candidate instances in the log
-                    for candidate in history.by_msg.get(s, {}).values():
-                        # go through each expected schema separately;
-                        # if any expectation is not met, it will
-                        # select the candidate
-                        for e in expectations:
-                            # if there aren't any matching instances,
-                            # select the candidate
-                            if not any(candidate.keys_match(m)
-                                       for m in history.by_msg.get(e, {}).values()):
-                                messages.add(candidate)
-                return messages
-            self.proactors.append(process_received)
+                    key = message.project_key(s)
+                    m = adapter.history.by_msg.get(s, {}).get(key)
+                    if m and m in self.active:
+                        self.active.remove(m)
+
+            for e in expectations:
+                self.reactors[e] = deactivate
+
+            def process(history):
+                if not self.delay:
+                    messages = []
+                    for m in self.active:
+                        messages.append(m)
+                        if len(messages) >= 500:
+                            break
+                    return messages
+                else:
+                    now = datetime.datetime.now()
+                    messages = []
+                    i = 0
+                    for m in self.active:
+                        if (now - m.meta['sent']).total_seconds() >= self.delay:
+                            i += 1
+                            messages.append(m)
+                        if i >= 500:
+                            break
+
+                    logger.info(
+                        f'resending: {len(messages)}, delta: {len(self.active) - len(messages)}')
+                    return messages
+
+            self.proactors.append(process)
         return self
 
     @property
@@ -174,20 +214,44 @@ class Resend:
         if self.reactive:
             pass
         else:
+            async def activate(message, enactment, adapter):
+                message.meta['sent'] = datetime.datetime.now()
+                self.active.add(message)
+
+            for m in self.schemas:
+                self.reactors[m] = activate
+
+            def gen_deactivate(schema):
+                async def deactivate(message, enactment, adapter):
+                    key = message.project_key(schema)
+                    logger.debug(f'received ack; key: {key}')
+                    m = adapter.history.by_msg.get(schema, {}).get(key)
+                    logger.debug(f'matching message: {m}')
+                    if m and m in self.active:
+                        logger.debug(f"deactivating: {m}")
+                        self.active.remove(m)
+                return deactivate
+
+            for s in self.schemas:
+                self.reactors[s.acknowledgment()] = gen_deactivate(s)
+
             def process_acknowledged(history):
-                resend = set()
-                # for each schema that needs resending
-                for s in self.schemas:
-                    # identify candidate instances in the log
-                    for candidate in history.by_msg[s].values():
-                        # go through each expected schema
-                        if not candidate.acknowledged:
-                            resend.add(candidate)
-                return resend
+                if not self.delay:
+                    messages = self.active
+                    return messages
+                else:
+                    now = datetime.datetime.now()
+                    messages = []
+                    i = 0
+                    for m in self.active:
+                        if (now - m.meta['sent']).total_seconds() >= self.delay:
+                            messages.append(m)
+                    return messages
+
             self.proactors.append(process_acknowledged)
         return self
 
-    @property
+    @ property
     def upon(self):
         self.reactive = True
         return self

@@ -1,13 +1,6 @@
 version: "3.3"
 
 services:
-  host:
-    image: qoomon/docker-host
-    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-    restart: on-failure
-    networks:
-      - bungie-net
-
   merchant:
     build:
       context: ../..
@@ -37,12 +30,6 @@ services:
         source: ./policies.yaml
         target: /src/policies.yaml
         read_only: true
-      - type: bind
-        source: ./packed-log
-        target: /src/packed-log
-      - type: bind
-        source: ./requested-log
-        target: /src/requested-log
     entrypoint: python merchant.py
 
   wrapper:

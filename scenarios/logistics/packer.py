@@ -1,6 +1,7 @@
 import logging
 from bungie import Adapter, Resend
 from configuration import config, logistics
+from bungie.performance import perf_logger
 
 Labeled = logistics.messages['Labeled']
 Wrapped = logistics.messages['Wrapped']
@@ -9,22 +10,18 @@ Packed = logistics.messages['Packed']
 adapter = Adapter(logistics.roles['Packer'], logistics, config)
 
 logger = logging.getLogger('bungie')
-logger.setLevel(logging.INFO)
+# logger.setLevel(logging.DEBUG)
 
 
 @adapter.reaction(Labeled)
 async def labeled(message, enactment, adapter):
     if message.duplicate:
         return
-    print(message)
 
     orderID = message.payload['orderID']
 
-    packed = [m for m in enactment['messages']
-              if m.payload.get('status')]
-    unpacked = [m for m in enactment['messages']
-                if 'itemID' in m.payload and
-                not any(p.payload.get('itemID') == m.payload['itemID'] for p in packed)]
+    unpacked = [m for m in adapter.history.by_param['orderID'][orderID].get(Wrapped, [])
+                if not m.meta.get('packed')]
 
     for m in unpacked:
         payload = {
@@ -35,6 +32,7 @@ async def labeled(message, enactment, adapter):
             'status': 'packed'
         }
         adapter.send(payload, Packed)
+        m.packed = True
 
 
 @adapter.reaction(Wrapped)
@@ -42,21 +40,21 @@ async def wrapped(message, enactment, adapter):
     if message.duplicate:
         logger.debug(f'duplicate: {message}')
         return
-    labeled_msg = next(
-        (m for m in enactment['messages'] if 'label' in m.payload), None)
+    orderID = message.payload['orderID']
+    label = adapter.history.bindings.get(f'orderID:{orderID}', {}).get('label')
 
-    if labeled_msg:
+    if label:
         payload = {
-            'orderID': message.payload['orderID'],
+            'orderID': orderID,
             'itemID': message.payload['itemID'],
             'wrapping': message.payload['wrapping'],
-            'label': labeled_msg.payload['label'],
+            'label': label,
             'status': 'packed'
         }
         adapter.send(payload, Packed)
-
+        message.meta['packed'] = True
 
 if __name__ == '__main__':
-    print("Starting Packer...")
+    logger.info("Starting Packer...")
     adapter.load_policy_file('policies.yaml')
-    adapter.start()
+    adapter.start(perf_logger(3))

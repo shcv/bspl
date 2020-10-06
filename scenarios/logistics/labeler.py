@@ -2,8 +2,8 @@ from bungie import Adapter, Resend
 from configuration import config, logistics
 import uuid
 import logging
-logger = logging.getLogger('bungie')
-logger.setLevel(logging.INFO)
+logger = logging.getLogger('labeler')
+# logging.getLogger('bungie').setLevel(logging.DEBUG)
 
 adapter = Adapter(logistics.roles['Labeler'], logistics, config)
 RequestLabel = logistics.messages['RequestLabel']
@@ -14,8 +14,6 @@ Labeled = logistics.messages['Labeled']
 async def request_label(message, enactment, adapter):
     if message.duplicate:
         return
-
-    print(message)
 
     payload = {
         'orderID': message.payload['orderID'],

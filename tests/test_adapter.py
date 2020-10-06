@@ -1,3 +1,4 @@
+import asyncio
 from protocheck import bspl
 from bungie.adapter import Adapter, Message
 
@@ -29,14 +30,18 @@ config = {
 
 def test_receive_process():
     a = Adapter(with_reject.roles['S'], with_reject, config)
-    a.process_receive({"item": "ball"})
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(a.task())
+    loop.run_until_complete(a.process_receive({"item": "ball"}))
     print(a.history.all_bindings)
 
 
 def test_send_process():
     a = Adapter(with_reject.roles['C'], with_reject, config)
     m = Message(with_reject.messages['Buy'], {"item": "ball"})
-    a.process_send(m)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(a.task())
+    loop.run_until_complete(a.process_send(m))
 
 
 def test_load_policies():

@@ -1,8 +1,8 @@
 # Logistics fault-tolerance policies
 
 Merchant:
-  every 2 seconds:
-    - resend RequestLabel, RequestWrapping until received Packed # or retries >= 5
+  every 3 seconds:
+    - resend RequestLabel, RequestWrapping after 1s until received Packed # or retries >= 5
 
 Labeler:
   reactive:
@@ -14,4 +14,4 @@ Wrapper:
 
 Packer:
   reactive:
-    - resend Packed upon duplicate RequestLabel
+    - resend Packed upon duplicate Labeled

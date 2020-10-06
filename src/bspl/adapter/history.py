@@ -4,9 +4,13 @@ logger = logging.getLogger('bungie')
 
 class History:
     def __init__(self):
+        # message indexes
         self.by_param = {}
         self.by_msg = {}
+
+        # parameter indexes
         self.all_bindings = {}
+        self.bindings = {}
 
     def check_integrity(self, message):
         """
@@ -15,39 +19,30 @@ class History:
         Each message in enactment should have the same keys.
         Returns true if the parameters are consistent with all messages in the matching enactment.
         """
-        # may not the most efficient algorithm for large histories
-        # might be better to ask the database to find messages that don't match
-        enactment = self.enactment(message)
-        result = all(message.payload[p] == m[p]
-                     for p in message.payload.keys()
-                     for m in enactment
-                     if p in m)
-        if result:
-            return enactment
+        bindings = self.bindings.get(message.key, {})
+        result = all(message.payload[p] == bindings[p]
+                     for p in message.payload
+                     if p in bindings)
+        return result
 
     def check_outs(self, message):
         """
         Make sure none of the outs have been previous bound to a different value.
         Only use this check if the message is being sent.
+        Assumes message is not a duplicate.
         """
-        # get the list of messages that have matching keys
-        enactment = [m for l in self.by_param.get(next(k for k in message.schema.keys), {}).values()
-                     for m in l
-                     if all(m.payload.get(p) == message.payload.get(p) for p in message.schema.keys)]
-        # make sure none of them have a different binding for any out parameters
-        # any messages with existing bindings must be duplicates
-        return not any(m.payload.get(p) and not m.schema == message.schema
-                       for m in enactment
-                       for p in message.schema.outs)
+        return not any(p in self.bindings.get(message.key, {}) for p in message.schema.outs)
 
     def check_dependencies(self, message):
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
         """
-        return not any(message.payload[p] not in self.all_bindings.get(p, {})
+        return not any(message.payload[p] not in self.all_bindings.get(p, [])
                        for p in message.schema.ins)
 
     def validate_send(self, message):
+        # message assumed not to be duplicate; otherwise recheck unnecessary
+
         if not self.check_outs(message):
             logger.info("Failed out check: {}".format(message.payload))
             return False
@@ -88,44 +83,40 @@ class History:
             v = message.payload.get(k)
             if v is not None and k in self.by_param:
                 if v in self.by_param[k]:
-                    self.by_param[k][v].add(message)
+                    d = self.by_param[k][v]
+                    d['all'].add(message)
+                    if message.schema in d:
+                        d[message.schema].add(message)
+                    else:
+                        d[message.schema] = {message}
                 else:
-                    self.by_param[k][v] = {message}
+                    self.by_param[k][v] = {
+                        'all': {message},
+                        message.schema: {message}
+                    }
             else:
-                self.by_param[k] = {v: {message}}
+                self.by_param[k] = {
+                    v: {'all': {message}, message.schema: {message}}}
+
+        # update bindings
+        if message.key in self.bindings:
+            bs = self.bindings[message.key]
+            for p in message.payload:
+                if p not in bs:
+                    bs[p] = message.payload[p]
+        else:
+            self.bindings[message.key] = message.payload.copy()
 
     def enactment(self, message):
-        enactment = {'messages': set()}
-        matches = {}
-        for k in message.schema.keys:
-            if k in message.payload:
-                matches[k] = self.by_param.get(
-                    k, {}).get(message.payload[k], set()).copy()
-                matches[k].add(message)
-                enactment['messages'].update(matches[k])
-                # may need to filter parameters
-            else:
-                matches[k] = set(message)
-        enactment['history'] = matches
-
-        preds = None
-        for k in message.schema.keys:
-            preds = preds or matches[k]
-            preds = filter(lambda m: k not in m.payload or m.payload.get(
-                k) == message.payload.get(k), preds)
-
-        enactment["bindings"] = {
-            k: v for m in preds for k, v in m.payload.items()}
+        enactment = {"bindings": self.bindings.get(message.key)}
         return enactment
 
     def duplicate(self, message):
         """
         Return true if payload has been observed before.
-        Somewhat expensive linear scan of all messages with the same schema.
         """
         match = self.by_msg.get(message.schema, {}).get(message.key)
-        if match and all(message.payload.get(p) == match.payload.get(p)
-                         for p in message.payload):
+        if match and match == message:
             return True
         elif match:
             raise Exception(
@@ -134,9 +125,17 @@ class History:
         else:
             return False
 
-    def acknowledge(self, message):
-        match = self.by_msg[message.schema].get(message.key)
-        match.acknowledged = True
+    def acknowledge(self, schema, key):
+        """
+        Mark a matching message as acknowledged
+        Return True if it had already been acknowledged
+        """
+        match = self.by_msg[schema].get(key)
+        if match:
+            if match.acknowledged:
+                return True
+            else:
+                match.acknowledged = True
 
     def fill(self, message):
         enactment = self.enactment(message)
