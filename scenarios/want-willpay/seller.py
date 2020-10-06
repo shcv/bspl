@@ -1,11 +1,23 @@
 from bungie import Adapter
+from bungie.statistics import stats_logger, stats
+from bungie.policies import Acknowledge
+from bungie.receiver import TCPReceiver
 from configuration import config, protocol, Want, WillPay, Seller
 import random
 import logging
+import asyncio
+import datetime
+import argparse
 
-FORMAT = '%(asctime)-15s %(message)s'
-logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logger = logging.getLogger('seller')
+# logging.getLogger('bungie').setLevel(logging.DEBUG)
+
+parser = argparse.ArgumentParser(description="Run the seller agent")
+parser.add_argument('version', type=str,
+                    help="The version of the agent to run",
+                    choices=['no-recovery', 'ack', 'tcp'],
+                    default='ack'
+                    )
 
 adapter = Adapter(Seller,
                   protocol,
@@ -14,18 +26,26 @@ adapter = Adapter(Seller,
 Want = protocol.messages['Want']
 WillPay = protocol.messages['WillPay']
 
-
-@adapter.reaction(Want)
-async def want(msg, enactment, adapter):
-    logging.info(f"Buyer wants: {msg.payload['item']}")
+stats.update({'finished': 0})
 
 
 @adapter.reaction(WillPay)
-async def want(msg, enactment, adapter):
-    logging.info(
-        f"Buyer is willing to pay ${msg.payload['price']} for {msg.payload['item']}")
+async def will_pay(msg, enactment, adapter):
+    if not msg.duplicate:
+        stats['finished'] += 1
+        if 'first' not in stats:
+            stats['first'] = datetime.datetime.now()
+        stats['duration'] = (datetime.datetime.now() -
+                             stats['first']).total_seconds()
+        stats['rate'] = stats['finished'] / stats['duration']
 
 
 if __name__ == '__main__':
-    print("Starting Seller...")
-    adapter.start()
+    logger.info("Starting Seller...")
+    args = parser.parse_args()
+    if args.version == 'ack':
+        adapter.add_policies(Acknowledge(WillPay))
+    elif args.version == 'tcp':
+        adapter.receiver = TCPReceiver(config[Seller])
+
+    adapter.start(stats_logger(3, hide=['first']))
