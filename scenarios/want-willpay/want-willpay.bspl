@@ -2,6 +2,7 @@ Want-Willpay {
   roles Buyer, Seller
   parameters out ID key, out item, out price
 
-  Buyer -> Seller: Want[out ID, out item]
-  Buyer -> Seller: WillPay[in ID, in item, out price]
+  Buyer -> Seller: Want[out ID key, out item]
+  Buyer -> Seller: WillPay[in ID key, in item, out price]
+  Seller -> Buyer: @WillPay
 }
