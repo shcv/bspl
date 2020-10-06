@@ -126,12 +126,14 @@ class Protocol(Base):
 
     @property
     def keys(self):
-        return [p.name for p in self.parameters.values()
-                if p.key
-                or self.parent
-                and self.parent.type == 'protocol'
-                and p.name in self.parent.parameters
-                and self.parent.parameters[p.name].key]
+        if not hasattr(self, '_keys'):
+            self._keys = [p.name for p in self.parameters.values()
+                          if p.key
+                          or self.parent
+                          and self.parent.type == 'protocol'
+                          and p.name in self.parent.parameters
+                          and self.parent.parameters[p.name].key]
+        return self._keys
 
     def _adorned(self, adornment):
         "helper method for selecting parameters with a particular adornment"
@@ -152,7 +154,10 @@ class Protocol(Base):
 
     @property
     def messages(self):
-        return {k: v for r in self.references.values() for k, v in r.messages.items()}
+        if not hasattr(self, '_messages') or not self._messages:
+            self._messages = {k: v for r in self.references.values()
+                              for k, v in r.messages.items()}
+        return self._messages
 
     @property
     def is_entrypoint(self):
