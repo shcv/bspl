@@ -255,10 +255,11 @@ class Protocol(Base):
         p.resolve_references(spec)
         return p
 
-    def find_schema(self, payload, name=None, to=None):
+    def find_schema(self, payload=None, name=None, to=None):
+        if name:
+            return self.messages[name]
+
         for schema in self.messages.values():
-            if name and schema.name is not name:
-                continue
             if to and schema.recipient is not to:
                 continue
             # find schema with exactly the same parameters (except nils, which should not be bound)
