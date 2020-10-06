@@ -369,15 +369,19 @@ class Message(Protocol):
         return [p for p in self.parameters.values() if p.adornment in ['out', 'any', 'in']]
 
     def acknowledgment(self):
-        m = Message(
-            '@' + self.raw_name,
-            self.recipient,
-            self.sender,
-            parent=self.parent
-        )
-        m.set_parameters([Parameter(k, 'in', key=True)
-                          for k in self.keys] + [Parameter('$ack', 'out', key=True)])
-        return m
+        name = '@'+self.raw_name
+        if name in self.parent.messages:
+            return self.parent.messages[name]
+        else:
+            m = Message(
+                '@' + self.raw_name,
+                self.recipient,
+                self.sender,
+                parent=self.parent
+            )
+            m.set_parameters([Parameter(k, 'in', key=True)
+                              for k in self.keys] + [Parameter('$ack', 'out', key=True)])
+            return m
 
 
 class Parameter(Base):
