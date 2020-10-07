@@ -160,7 +160,7 @@ class Resend:
             async def deactivate(message, enactment, adapter):
                 for s in self.schemas:
                     key = message.project_key(s)
-                    m = adapter.history.by_msg.get(s, {}).get(key)
+                    m = adapter.history.messages.get(s, {}).get(key)
                     if m and m in self.active:
                         self.active.remove(m)
 
@@ -225,7 +225,7 @@ class Resend:
                 async def deactivate(message, enactment, adapter):
                     key = message.project_key(schema)
                     logger.debug(f'received ack; key: {key}')
-                    m = adapter.history.by_msg.get(schema, {}).get(key)
+                    m = adapter.history.messages.get(schema, {}).get(key)
                     logger.debug(f'matching message: {m}')
                     if m and m in self.active:
                         logger.debug(f"deactivating: {m}")
@@ -251,7 +251,7 @@ class Resend:
             self.proactors.append(process_acknowledged)
         return self
 
-    @ property
+    @property
     def upon(self):
         self.reactive = True
         return self

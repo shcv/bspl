@@ -4,9 +4,8 @@ logger = logging.getLogger('bungie')
 
 class History:
     def __init__(self):
-        # message indexes
-        self.by_param = {}
-        self.by_msg = {}
+        # message index
+        self.messages = {}
 
         # parameter indexes
         self.all_bindings = {}
@@ -61,15 +60,20 @@ class History:
         """Observe an instance of a given message specification.
            Check integrity, and add the message to the history."""
 
-        if self.duplicate(message):
-            self.by_msg[message.schema][message.key].duplicate = True
-            return
-
-        # log by message type
-        if message.schema in self.by_msg:
-            self.by_msg[message.schema][message.key] = message
+        # index messages by key
+        if message.schema in self.messages:
+            self.messages[message.schema][message.key] = message
         else:
-            self.by_msg[message.schema] = {message.key: message}
+            self.messages[message.schema] = {message.key: message}
+
+        # update bindings
+        if message.key in self.bindings:
+            bs = self.bindings[message.key]
+            for p in message.payload:
+                if p not in bs:
+                    bs[p] = message.payload[p]
+        else:
+            self.bindings[message.key] = message.payload.copy()
 
         # record all unique parameter bindings
         for p in message.payload:
@@ -115,7 +119,7 @@ class History:
         """
         Return true if payload has been observed before.
         """
-        match = self.by_msg.get(message.schema, {}).get(message.key)
+        match = self.messages.get(message.schema, {}).get(message.key)
         if match and match == message:
             return True
         elif match:
@@ -130,7 +134,7 @@ class History:
         Mark a matching message as acknowledged
         Return True if it had already been acknowledged
         """
-        match = self.by_msg[schema].get(key)
+        match = self.messages[schema].get(key)
         if match:
             if match.acknowledged:
                 return True
