@@ -97,6 +97,7 @@ class Adapter:
         self.emitter = emitter
         self.receiver = receiver or Receiver(self.configuration[self.role])
         self.schedulers = []
+        self.generators = {}
 
     async def receive(self, payload):
         if not isinstance(payload, dict):
@@ -128,21 +129,26 @@ class Adapter:
         loop = asyncio.get_running_loop()
         loop.create_task(self.process_send(m))
 
+    def fill(self, schema, enactment):
+        bindings = enactment.bindings
+        payload = {}
+        for p in scehma.parameters:
+            if p in self.generators:
+                payload[p] = self.generators[p]()
+            elif p in bindings:
+                payload[p] = bindings[p]
+            else:
+                logging.debug(f"Missing parameter for {schema.name}: {e}")
+                return
+        return Message(schema, payload)
+
     async def resend(self, schema, enactment):
-        try:
-            m = Message(schema, {p: enactment['bindings'][p]
-                                 for p in schema.parameters})
-            await self.process_send(m)
-        except KeyError as e:
-            logging.debug(
-                "Missing parameter for sending {}: {}".format(schema.name, e))
-            pass
+        m = self.fill(schema, enactment)
+        await self.process_send(m)
 
     async def forward(self, schema, recipient, enactment):
-        m = Message(schema,
-                    {p: enactment['bindings'][p]
-                     for p in schema.parameters},
-                    dest=self.configuration[recipient])
+        m = self.fill(schema, enactment)
+        m.dest = self.configuration[recipient]
         await self.process_send(m)
 
     async def process_send(self, message):
