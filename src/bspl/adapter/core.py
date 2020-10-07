@@ -104,22 +104,6 @@ class Adapter:
                 "Payload does not parse to a dictionary: {}".format(payload))
             return
 
-        if '$ack' in payload:
-            s = self.protocol.messages[payload['$ack']]
-            k = get_key(s, payload)
-
-            dup = self.history.acknowledge(s, k)
-
-            if 'acks' not in stats:
-                stats.update({'acks': 0, 'dup acks': 0})
-            if not dup:
-                stats['acks'] += 1
-            else:
-                stats['dup acks'] += 1
-
-            await self.react(Message(s.acknowledgment(), payload))
-            return
-
         schema = self.protocol.find_schema(payload, to=self.role)
         if not schema:
             logger.warn("No schema matching payload: {}".format(payload))
@@ -172,9 +156,6 @@ class Adapter:
 
         if not message.dest:
             message.dest = self.configuration[message.schema.recipient]
-        if '$ack' in message.payload:
-            # don't need to observe ack messages
-            return message
         if self.history.duplicate(message):
             logger.debug(f"Resending message: {message}")
             stats['retries'] = stats.get('retries', 0)+1
