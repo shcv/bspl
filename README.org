@@ -1,18 +1,3 @@
 * Bungie
 
-  A simple python-based framework for implementing agents as microservices.
-
-* Objectives
-
-** DONE Implement example logistics and prescription scenarios
-** Fault Tolerance
-*** Detect Unmet Expectations
-*** Resend Policies
-**** When expectation is unmet
-**** When duplicate is received
-*** Content Policies
-**** Redundancy
-**** Redaction
-*** Forwarding
-*** Acknowledgment
-** Evaluation
+  A simple python-based framework for implementing agents as microservices, with additional support for fault-tolerance policies.
