@@ -11,7 +11,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Run the buyer agent")
 parser.add_argument('version', type=str,
                     help="The version of the agent to run",
-                    choices=['no-recovery', 'ack', 'tcp'],
+                    choices=['no-recovery', 'ack', 'tcp', 'forward'],
                     default='ack'
                     )
 
@@ -59,6 +59,7 @@ if __name__ == '__main__':
             when='every 0.5s')
     elif args.version == 'tcp':
         adapter.emitter = TCPEmitter()
-
+    elif args.version == 'forward':
+        pass
     # no special handling for no-recovery case
     adapter.start(order_generator(), stats_logger(3, hide=['first']))

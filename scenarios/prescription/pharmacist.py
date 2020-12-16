@@ -1,23 +1,18 @@
-from adapter import Adapter
-from protocheck import bspl
-from configuration import config, prescription
-import random
-import threading
 import uuid
+from bungie import Adapter
+from configuration import config, prescription, Pharmacist, Prescribe, Filled
 
-adapter = Adapter(prescription.roles['Pharmacist'], prescription, config)
+adapter = Adapter(Pharmacist, prescription, config)
 
 
-@adapter.received(prescription.messages['Prescribe'])
-def handle_prescription(message):
+@adapter.reaction(Prescribe)
+async def handle_prescription(message, enactment, adapter):
     print(message)
 
-    payload = {
-        "reqID": message.payload['reqID'],
-        "Rx": message.payload['Rx'],
-        "package": str(uuid.uuid4()),
-    }
-    adapter.send(payload, prescription.messages['Filled'])
+    msg = Filled(cID=message.cID,
+                 Rx=message.Rx,
+                 package=str(uuid.uuid4()))
+    adapter.send(msg)
 
 
 if __name__ == '__main__':

@@ -1,32 +1,38 @@
-from adapter import Adapter
-from protocheck import bspl
-from configuration import config, prescription
-import random
-import threading
+from bungie import Adapter, schema
+# from configuration import config, prescription, Doctor, Complain, Prescribe
+from configuration_resend import config, prescription, Doctor, Complain, Repeat, Prescribe, Map
+from bungie.policies import Acknowledge
+# from configuration_ack import config, prescription, Doctor, Complain, Repeat, Confirm, Prescribe, Map
 
-adapter = Adapter(prescription.roles['Doctor'], prescription, config)
+adapter = Adapter(Doctor, prescription, config)
+
+treatment = {
+    "Stomache ache": "Calcium carbonate",
+    "Sneezing": "Diphenhydramine",
+    "Cough": "Dextromethorphan",
+    "Nausea": "Bismuth sub-salicylate",
+    "Hemorrhage": "Vitamins",
+    "Death": "Condolences",
+}
 
 
-@adapter.received(prescription.messages['Request'])
-def request(message):
+# @adapter.reaction(Complain)
+@adapter.reaction(Complain, Repeat)
+async def request(message, enactment, adapter):
     print(message)
 
-    treatment = {
-        "Stomache ache": "Calcium carbonate",
-        "Sneezing": "Diphenhydramine",
-        "Cough": "Dextromethorphan",
-        "Nausea": "Bismuth sub-salicylate",
-        "Hemorrhage": "Vitamins",
-        "Death": "Condolences",
-    }
+    msg = Prescribe(cID=message.cID,
+                    symptoms=message.symptoms,
+                    Rx=treatment[message.symptoms])
 
-    payload = {
-        'reqID': message.payload['reqID'],
-        'details': message.payload['details'],
-        'Rx': treatment[message.payload['details']]}
-    adapter.send(payload, prescription.messages['Prescribe'])
+    adapter.send(msg)
 
 
 if __name__ == '__main__':
     print("Starting Doctor...")
+
+    # acknowledge Complain
+    # adapter.add_policies(Acknowledge(Complain).Map(Map),
+    #                      Acknowledge(Repeat).With(Confirm, 'ackID'))
+
     adapter.start()
