@@ -10,7 +10,7 @@ import socket
 import inspect
 import yaml
 from asyncio.queues import Queue
-from .history import History
+from .history import History, Message
 from functools import partial
 from .emitter import Emitter
 from .receiver import Receiver
@@ -21,55 +21,6 @@ from . import policies
 FORMAT = '%(asctime)-15s %(module)s: %(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logger = logging.getLogger('bungie')
-
-
-def get_key(schema, payload):
-    # schema.keys should be ordered, or sorted for consistency
-    return ','.join(k + ':' + str(payload[k]) for k in schema.keys)
-
-
-class Message:
-    def __init__(self, schema, payload, duplicate=False, acknowledged=False, dest=None):
-        self.schema = schema
-        self.payload = payload
-        self.duplicate = duplicate
-        self.acknowledged = acknowledged
-        self.dest = dest
-        self.meta = {}
-
-        self.key = get_key(self.schema, self.payload)
-
-    def __repr__(self):
-        if self.duplicate:
-            return f"Message({self.schema.name}, {self.payload}, duplicate={self.duplicate})"
-        else:
-            return f"Message({self.schema.name}, {self.payload})"
-
-    def __eq__(self, other):
-        return self.payload == other.payload and self.schema == other.schema
-
-    def __hash__(self):
-        return hash(self.schema.qualified_name+self.key)
-
-    def keys_match(self, other):
-        return all(self.payload[k] == other.payload[k]
-                   for k in self.schema.keys
-                   if k in other.schema.parameters)
-
-    def ack(self):
-        payload = {k: self.payload[k] for k in self.schema.keys}
-        payload['$ack'] = self.schema.name
-        self.acknowledged = True
-        schema = self.schema.acknowledgment()
-        return Message(schema, payload)
-
-    def project_key(self, schema):
-        key = []
-        # use ordering from other schema
-        for k in schema.keys:
-            if k in self.schema.keys:
-                key.append(k)
-        return ','.join(k + ':' + str(self.payload[k]) for k in key)
 
 
 class Adapter:
@@ -97,7 +48,6 @@ class Adapter:
         self.emitter = emitter
         self.receiver = receiver or Receiver(self.configuration[self.role])
         self.schedulers = []
-        self.generators = {}
 
     async def receive(self, payload):
         if not isinstance(payload, dict):
@@ -124,8 +74,13 @@ class Adapter:
             await self.react(message)
 
     def send(self, payload, schema=None, name=None, to=None):
-        schema = schema or self.protocol.find_schema(payload, name=name, to=to)
-        m = Message(schema, payload)
+        if isinstance(payload, Message):
+            m = payload
+        else:
+            schema = schema or self.protocol.find_schema(
+                payload, name=name, to=to)
+            m = Message(schema, payload)
+
         loop = asyncio.get_running_loop()
         loop.create_task(self.process_send(m))
 
@@ -134,22 +89,13 @@ class Adapter:
         payload = {}
         for p in scehma.parameters:
             if p in self.generators:
-                payload[p] = self.generators[p]()
+                payload[p] = self.generators[p](enactment)
             elif p in bindings:
                 payload[p] = bindings[p]
             else:
                 logging.debug(f"Missing parameter for {schema.name}: {e}")
                 return
         return Message(schema, payload)
-
-    async def resend(self, schema, enactment):
-        m = self.fill(schema, enactment)
-        await self.process_send(m)
-
-    async def forward(self, schema, recipient, enactment):
-        m = self.fill(schema, enactment)
-        m.dest = self.configuration[recipient]
-        await self.process_send(m)
 
     async def process_send(self, message):
         if await self.prepare_send(message):
@@ -160,6 +106,8 @@ class Adapter:
         Checking a message for correctness, and possibly store it.
         """
 
+        # if not message.schema.validate(message.payload):
+        #     logger.warn(f'Invalid payload: {message.payload}')
         if not message.dest:
             message.dest = self.configuration[message.schema.recipient]
         if self.history.duplicate(message):
@@ -201,7 +149,11 @@ class Adapter:
             self.signatures[schema] = {
                 handler: inspect.signature(handler).parameters}
 
-    def reaction(self, schema):
+    def register_reactors(self, handler, schemas=[]):
+        for s in schemas:
+            self.register_reactor(s, handler)
+
+    def reaction(self, *schemas):
         """
         Decorator for declaring reactor handler.
 
@@ -210,7 +162,7 @@ class Adapter:
         def handle_message(message, enactment):
             'do stuff'
         """
-        return partial(self.register_reactor, schema)
+        return partial(self.register_reactors, schemas=schemas)
 
     async def react(self, message):
         """
@@ -235,8 +187,9 @@ class Adapter:
 
     def add_policies(self, *ps, when='reactive'):
         for policy in ps:
-            if type(policy) is str:
-                policy = policies.parse(self.protocol, policy)
+            # action = policy.get('action')
+            # if type(action) is str:
+            #     action = policies.parse(self.protocol, action)
             for schema, reactor in policy.reactors.items():
                 self.register_reactor(schema, reactor, policy.priority)
             if when != 'reactive':

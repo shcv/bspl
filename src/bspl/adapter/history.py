@@ -2,6 +2,60 @@ import logging
 logger = logging.getLogger('bungie')
 
 
+def get_key(schema, payload):
+    # schema.keys should be ordered, or sorted for consistency
+    return ','.join(k + ':' + str(payload[k]) for k in schema.keys)
+
+
+class Message:
+    def __init__(self, schema, payload, duplicate=False, acknowledged=False, dest=None):
+        self.schema = schema
+        self.payload = payload
+        self.duplicate = duplicate
+        self.acknowledged = acknowledged
+        self.dest = dest
+        self.meta = {}
+
+        self.key = get_key(self.schema, self.payload)
+
+    def __repr__(self):
+        payload = ','.join('{0}={1!r}'.format(k, v)
+                           for k, v in self.payload.items())
+        return f"{self.schema.name}({payload})"
+
+    def __eq__(self, other):
+        return self.payload == other.payload and self.schema == other.schema
+
+    def __hash__(self):
+        return hash(self.schema.qualified_name+self.key)
+
+    def __getitem__(self, key):
+        return self.payload[key]
+
+    def __getattr__(self, key):
+        return self.payload[key]
+
+    def keys_match(self, other):
+        return all(self.payload[k] == other.payload[k]
+                   for k in self.schema.keys
+                   if k in other.schema.parameters)
+
+    def ack(self):
+        payload = {k: self.payload[k] for k in self.schema.keys}
+        payload['$ack'] = self.schema.name
+        self.acknowledged = True
+        schema = self.schema.acknowledgment()
+        return Message(schema, payload)
+
+    def project_key(self, schema):
+        key = []
+        # use ordering from other schema
+        for k in schema.keys:
+            if k in self.schema.keys:
+                key.append(k)
+        return ','.join(k + ':' + str(self.payload[k]) for k in key)
+
+
 class Enactment:
     def __init__(self, parent=None):
         self.subenactments = {}
@@ -30,6 +84,12 @@ class Enactment:
 
     def __repr__(self):
         return f"Enactment(bindings={self.bindings},messages={[m for m in self.messages]},subenactments={self.subenactments})"
+
+    def instance(self, schema):
+        payload = {}
+        for k in schema.parameters:
+            payload[k] = self.bindings[k]
+        return Message(schema, payload)
 
 
 class History:
