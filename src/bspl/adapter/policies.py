@@ -3,6 +3,40 @@ import tatsu
 import os
 import logging
 import datetime
+import uuid
+
+logger = logging.getLogger('bungie')
+
+
+def autoincrement(parameter):
+    def _autoinc(enactment):
+        current = 0
+        for m in enactment.messages:
+            current = max(current, m.payload.get(parameter))
+        return current + 1
+    return _autoinc
+
+
+def guid():
+    return str(uuid.uuid4())
+
+
+generators = {
+    'autoincrement': autoincrement,
+    'guid': guid
+}
+
+
+def map_message(map, kind, m):
+    return map[kind][m.schema][0](
+        **m.payload,
+        **{map[kind][m.schema][1]: guid()})
+
+
+def map_messages(map, kind, messages):
+    for m in messages:
+        yield map_message(map, kind, m)
+
 
 logger = logging.getLogger('bungie')
 
@@ -72,10 +106,25 @@ class Acknowledge:
         self.reactive = True
         self.priority = 0
 
+    def With(self, schema, key):
+        self.ack = (schema, key)
+        return self
+
+    def Map(self, map):
+        self.map = map
+        return self
+
     @property
     def reactors(self):
         async def ack(message, enactment, adapter):
-            await adapter.process_send(message.ack())
+            if hasattr(self, 'map'):
+                m = map_message(self.map, 'acknowledgments', message)
+            elif hasattr(self, 'ack'):
+                m = self.ack[0](**message.payload, **{self.ack[1]: guid()})
+            else:
+                logging.error(
+                    f'Need to configure acknowledgment mapping for message: {message}')
+            await adapter.process_send(m)
         return {s: ack for s in self.schemas}
 
 
@@ -101,6 +150,8 @@ class Resend:
         self.proactors = []
         self.priority = None
         self.delay = None
+        self.generators = {}
+        self.map = {}
 
         # the set of active messages, for proactive policies
         self.active = set()
@@ -119,7 +170,12 @@ class Resend:
         return selected
 
     async def action(self, adapter, schema, enactment):
-        await adapter.resend(schema, enactment)
+        # resend message
+        pass
+
+    def With(self, map):
+        self.map = map
+        return self
 
     def after(self, delay):
         self.delay = delay
@@ -171,7 +227,7 @@ class Resend:
                 if not self.delay:
                     messages = []
                     for m in self.active:
-                        messages.append(m)
+                        messages.append(map_message(self.map, 'forward', m))
                         if len(messages) >= 500:
                             break
                     return messages
@@ -182,7 +238,8 @@ class Resend:
                     for m in self.active:
                         if (now - m.meta['sent']).total_seconds() >= self.delay:
                             i += 1
-                            messages.append(m)
+                            messages.append(map_message(
+                                self.map, 'forwards', m))
                         if i >= 500:
                             break
 
@@ -233,12 +290,13 @@ class Resend:
                 return deactivate
 
             for s in self.schemas:
-                self.reactors[s.acknowledgment()] = gen_deactivate(s)
+                self.reactors[self.map['acknowledgments'][s][0]]\
+                    = gen_deactivate(s)
 
             def process_acknowledged(history):
                 if not self.delay:
                     messages = self.active
-                    return messages
+                    return map_messages(self.map, 'forwards', messages)
                 else:
                     now = datetime.datetime.now()
                     messages = []
@@ -246,7 +304,7 @@ class Resend:
                     for m in self.active:
                         if (now - m.meta['sent']).total_seconds() >= self.delay:
                             messages.append(m)
-                    return messages
+                    return map_messages(self.map, 'forwards', messages)
 
             self.proactors.append(process_acknowledged)
         return self
