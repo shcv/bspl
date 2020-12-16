@@ -1,8 +1,8 @@
 @@eol_comments :: ?/‌‌#|(//).*?$/?
 
-policy = action:action messages:messages [destination:destination] [delay:delay] prep:prep events:events ;
+policy = action:action messages:messages [destination:destination] [delay:delay] [prep:prep events:events] ;
 
-action = /[Rr]esend/ | /[Ff]orward/ | /[Ss]end/ ;
+action = /[Rr]esend/ | /[Ff]orward/ | /[Ss]end/ | /[Rr]emind/ | /[Aa]cknowledge/ ;
 
 messages = ','.{word} ;
 
