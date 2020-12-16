@@ -2,16 +2,20 @@
 
 Merchant:
   every 3 seconds:
-    - resend RequestLabel, RequestWrapping after 1s until received Packed # or retries >= 5
+    - action:
+      resend RequestLabel, RequestWrapping after 1s until received Packed # or retries >= 5
 
 Labeler:
   reactive:
-    - resend Labeled upon duplicate RequestLabel
+    - action:
+      resend Labeled upon duplicate RequestLabel
 
 Wrapper:
   reactive:
-    - resend Wrapped upon duplicate RequestWrapping
+    - action:
+        resend Wrapped upon duplicate RequestWrapping
 
 Packer:
   reactive:
-    - resend Packed upon duplicate Labeled
+    - action:
+        resend Packed upon duplicate Labeled

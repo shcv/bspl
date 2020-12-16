@@ -1,8 +1,11 @@
 Want-Willpay {
   roles Buyer, Seller
-  parameters out ID key, out item, out price
+  parameters out ID key, out item, out payment
+  private rwpID, note
 
   Buyer -> Seller: Want[out ID key, out item]
   Buyer -> Seller: WillPay[in ID key, in item, out price]
-  Seller -> Buyer: @WillPay
+  Buyer -> Seller: RemindWillPay[in ID key, in item, out price, out rwpID key]
+
+  Seller -> Buyer: Confirmation[in ID key, in item, in price, in rwpID key, out note]
 }

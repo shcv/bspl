@@ -15,7 +15,7 @@ logger = logging.getLogger('seller')
 parser = argparse.ArgumentParser(description="Run the seller agent")
 parser.add_argument('version', type=str,
                     help="The version of the agent to run",
-                    choices=['no-recovery', 'ack', 'tcp'],
+                    choices=['no-recovery', 'ack', 'tcp', 'forward'],
                     default='ack'
                     )
 
@@ -47,5 +47,11 @@ if __name__ == '__main__':
         adapter.add_policies(Acknowledge(WillPay))
     elif args.version == 'tcp':
         adapter.receiver = TCPReceiver(config[Seller])
-
+    elif args.version == 'forward':
+        adapter.add_policies(
+            """
+            action: forward ForwardWillPay to Buyer upon received WillPay
+            autoincrement:
+              - fwpID
+            """)
     adapter.start(stats_logger(3, hide=['first']))
