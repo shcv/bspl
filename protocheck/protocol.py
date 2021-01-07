@@ -269,6 +269,7 @@ class Protocol(Base):
 
 class Message(Protocol):
     def __init__(self, name, sender=None, recipient=None, parameters=None, parent=None):
+        self.idx = 1
         if (sender and recipient):
             super().__init__(name, roles=[
                 sender, recipient], parent=parent, type="message")
@@ -277,8 +278,6 @@ class Message(Protocol):
             super().__init__(name, parent=parent, type="message")
 
     def configure(self, sender=None, recipient=None, parameters=None, parent=None):
-        self.idx = 1
-
         parent = parent or getattr(self, 'parent', None)
         if parent:
             self.sender = parent.roles.get(sender) \
