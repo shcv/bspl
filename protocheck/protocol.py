@@ -382,6 +382,9 @@ class Message(Protocol):
                               for k in self.keys] + [Parameter('$ack', 'out', key=True)])
             return m
 
+    def validate(self, payload):
+        return set(payload) == set(self.parameters.keys())
+
 
 class Parameter(Base):
     def __init__(self, name, adornment, key=False, parent=None):
