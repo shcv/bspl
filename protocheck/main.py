@@ -1,6 +1,7 @@
 from protocheck.bspl import load_file, model, strip_latex
-from protocheck.sat.verification import handle_enactability, handle_liveness, handle_safety, handle_atomicity
-from protocheck.refinement import handle_refinement, path_liveness, path_safety
+from protocheck.verification.sat import handle_enactability, handle_liveness, handle_safety, handle_atomicity
+from protocheck.verification.paths import path_liveness, path_safety
+from protocheck.verification.refinement import handle_refinement
 from protocheck.node_red import handle_node_flow
 import configargparse
 import sys

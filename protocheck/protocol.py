@@ -1,4 +1,4 @@
-from .sat.logic import merge
+from .verification.logic import merge
 from collections import OrderedDict
 
 
