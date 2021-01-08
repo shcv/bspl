@@ -1,5 +1,5 @@
 from ..bspl import load_file
-from .paths import key_sets, UoD, all_paths, branches, any_unreceived, sources, known
+from .paths import key_sets, UoD, all_paths, possibilities, any_unreceived, sources, known
 import sys
 
 
@@ -103,7 +103,7 @@ def refines(U, params, Q, P, verbose=False):
                 match = p
                 # print("p branches: ", branches(U_P, p))
                 # print("q branches: ", branches(U_Q, q))
-                if not branches(U_P, p) or branches(U_Q, q) or any_unreceived(q):
+                if not possibilities(U_P, p) or possibilities(U_Q, q) or any_unreceived(q):
                     break  # only try again if p has branches but q doesn't
         if match == None:
             return {
@@ -111,7 +111,7 @@ def refines(U, params, Q, P, verbose=False):
                 "path": q,
                 "reason": "{} has path that does not subsume any path in {}".format(Q.name, P.name)
             }
-        if branches(U_P, match) and not (branches(U_Q, q) or any_unreceived(q)):
+        if possibilities(U_P, match) and not (possibilities(U_Q, q) or any_unreceived(q)):
             #subsumes(U_P, params, q, match, True)
             return {
                 "ok": False,

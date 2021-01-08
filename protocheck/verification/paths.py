@@ -125,7 +125,7 @@ class UoD():
         return UoD(self.messages.union(other.messages), self.roles.union(other.roles))
 
 
-def branches(U, path):
+def possibilities(U, path):
     b = set()
     for msg in U.messages:
         # print(msg.name, viable(path, msg))
@@ -156,7 +156,7 @@ def receive(path, instance):
 
 
 def extensions(U, path):
-    xs = {path + (b,) for b in branches(U, path)}
+    xs = {path + (b,) for b in possibilities(U, path)}
     return xs.union({receive(path, u) for u in unreceived(path)})
 
 
