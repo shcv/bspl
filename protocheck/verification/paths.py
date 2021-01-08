@@ -90,10 +90,57 @@ def viable(path, msg):
         and k.isdisjoint(msg.nils)
 
 
+def disables(a, b):
+    "Return true if message a directly disables message b"
+    for p in a.outs.union(a.ins):
+        # out or in disables out or nil
+        if p.name in b.parameters:
+            if b.parameters[p.name].adornment in ['out', 'nil']:
+                return True
+
+
+def enables(a, b):
+    "Return true if message a directly enables message b"
+    if not disables(a, b):
+        # out enables in
+        for p in a.outs:
+            if p.name in b.parameters:
+                if b.parameters[p.name].adornment == 'in':
+                    return True
+
+
+class Tangle():
+    "Graph representation of entanglements between messages"
+    def __init__(messages):
+        # initialize graph with direct enable and disablements, O(m^2)
+        self.enables = {a: {b for b in messages
+                            if a != b and enables(a, b)}
+                        for a in messages}
+        self.disables = {a: {b for b in messages
+                             if a != b and disables(a, b)}
+                         for a in messages}
+
+        # propagate enablements; a |- b & b |- c => a |- c
+        def enablees(m):
+            es = self.enables[m]
+            return es.union(*[enablees(b) for b in es])
+
+        for m, es in self.enables.items():
+            es.update(enablees(m))
+
+        # compute entanglements:
+        # a -|| c if a -| c or a -| b and c |- b
+        self.tangles = {a: {self.disables[a]
+                            .union({c for c in self.enables
+                                    if self.enables[c].intersection(self.disables[a])})
+                            for a in messages}}
+
+
 class UoD():
     def __init__(self, messages={}, roles={}):
         self.messages = set(messages)
         self.roles = set(roles)
+        self.tangle = Tangle(messages)
 
     @staticmethod
     def from_protocol(protocol):
