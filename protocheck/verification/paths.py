@@ -321,8 +321,12 @@ def max_paths(U):
 def path_liveness(protocol, args=None):
     U = UoD.from_protocol(protocol)
     new_paths = [empty_path()]
+    checked = 0
     while len(new_paths):
         p = new_paths.pop()
+        checked += 1
+        if args.verbose:
+            print(p)
         xs = extensions(U, p)
         if xs:
             new_paths.extend(xs)
@@ -331,7 +335,7 @@ def path_liveness(protocol, args=None):
                 return {"live": False,
                         "reason": "Found path that does not extend to completion",
                         "path": p}
-    return {"live": True}
+    return {"live": True, "checked": checked}
 
 
 def path_safety(protocol, args=None):
