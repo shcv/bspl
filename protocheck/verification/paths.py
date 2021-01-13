@@ -9,7 +9,7 @@ def empty_path():
 External = Role("*External*")
 
 
-class Instance():
+class Emission:
     def __init__(self, msg, delay=float('inf')):
         self.msg = msg
         self.delay = delay
@@ -18,7 +18,10 @@ class Instance():
         return "<{},{}>".format(self.msg.name, self.delay)
 
     def __repr__(self):
-        return str(self)
+        if self.delay == float('inf'):
+            return f"!{self.msg.name}"
+        else:
+            return f"{self.msg.name}({self.delay})"
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -32,6 +35,9 @@ class Instance():
     @property
     def received(self):
         return self.delay < float('inf')
+
+    def __getattr__(self, attr):
+        return getattr(self.msg, attr)
 
 
 def key_sets(path):
@@ -94,8 +100,8 @@ def disables(a, b):
     "Return true if message a directly disables message b"
     for p in a.outs.union(a.ins):
         # out or in disables out or nil
-        if p.name in b.parameters:
-            if b.parameters[p.name].adornment in ['out', 'nil']:
+        if p in b.parameters:
+            if b.parameters[p].adornment in ['out', 'nil']:
                 return True
 
 
@@ -104,14 +110,18 @@ def enables(a, b):
     if not disables(a, b):
         # out enables in
         for p in a.outs:
-            if p.name in b.parameters:
-                if b.parameters[p.name].adornment == 'in':
+            if p in b.parameters:
+                if b.parameters[p].adornment == 'in':
                     return True
 
 
 class Tangle():
     "Graph representation of entanglements between messages"
-    def __init__(messages):
+
+    def __init__(self, messages):
+        self.emissions = {Emission(m, float("inf")) for m in messages}
+        self.receptions = {Reception(e) for e in self.emissions}
+
         # initialize graph with direct enable and disablements, O(m^2)
         self.enables = {a: {b for b in messages
                             if a != b and enables(a, b)}
@@ -119,6 +129,29 @@ class Tangle():
         self.disables = {a: {b for b in messages
                              if a != b and disables(a, b)}
                          for a in messages}
+
+        # sources for parameters, for computing endowment
+        self.sources = {}
+        for m in messages:
+            for p in m.outs:
+                if p not in self.sources:
+                    self.sources[p] = [m]
+                else:
+                    self.sources[p].append(m)
+
+        # track messages that are the sole source of a given parameter
+        self.source = {p: ms[0]
+                       for p, ms in self.sources.items() if len(ms) == 1}
+
+        # a endows b if a is the sole source of an 'in' parameter of b
+        self.endows = {}
+        for b in messages:
+            for p in b.ins:
+                a = self.source[p]
+                if a in self.endows:
+                    self.endows[a].add(b)
+                else:
+                    self.endows[a] = {b}
 
         # propagate enablements; a |- b & b |- c => a |- c
         def enablees(m):
@@ -129,15 +162,28 @@ class Tangle():
             es.update(enablees(m))
 
         # compute entanglements:
-        # a -|| c if a -| c or a -| b and c |- b
-        self.tangles = {a: {self.disables[a]
-                            .union({c for c in self.enables
-                                    if self.enables[c].intersection(self.disables[a])})
-                            for a in messages}}
+        # a -|| c if:
+        #  1. a does not endow c
+        #  2. a -| c or a -| b and c |- b
+        self.tangles = {a: self.disables[a]
+                        .union({c for c in self.enables
+                                if c not in self.endows.get(a, [])
+                                and self.enables[c].intersection(self.disables[a])})
+                        for a in messages}
+
+        # incompatibility graph
+        # a and b are incompatible if
+        #  1. one is an emission (TODO)
+        #  2. one tangles with the other
+        self.incompatible = {m: set() for m in messages}
+        for a in self.tangles:
+            self.incompatible[a].update(self.tangles[a])
+            for b in self.tangles[a]:
+                self.incompatible[b].add(a)
 
 
 class UoD():
-    def __init__(self, messages={}, roles={}):
+    def __init__(self, messages=set(), roles={}):
         self.messages = set(messages)
         self.roles = set(roles)
         self.tangle = Tangle(messages)
@@ -172,21 +218,35 @@ class UoD():
         return UoD(self.messages.union(other.messages), self.roles.union(other.roles))
 
 
-def possibilities(U, path):
-    b = set()
-    for msg in U.messages:
-        # print(msg.name, viable(path, msg))
-        if viable(path, msg):
-            # default messages to unreceived, progressively receive them later
-            inst = Instance(msg, float("inf"))
-            if msg.sender == External:
-                inst.delay = 0
-            b.add(inst)
-    return b
+class Reception:
+    def __init__(self, emission):
+        self.emission = emission
+        self.msg = emission.msg
+
+    def __getattr__(self, attr):
+        return getattr(self.emission, attr)
+
+    def __repr__(self):
+        return f"?{self.msg.name}"
 
 
 def unreceived(path):
     return set(i for i in path if i.delay == float("inf"))
+
+
+def possibilities(U, path):
+    b = set()
+    for msg in U.messages:
+        print(path, msg.name, viable(path, msg))
+        if viable(path, msg):
+            # default messages to unreceived, progressively receive them later
+            inst = Emission(msg, float("inf"))
+            if msg.sender == External:
+                inst.delay = 0
+            b.add(inst)
+    ps = b.union(Reception(e) for e in unreceived(path))
+    print(ps)
+    return ps
 
 
 def any_unreceived(path):
@@ -198,13 +258,74 @@ def any_unreceived(path):
 def receive(path, instance):
     p = list(path)
     i = p.index(instance)
-    p[i] = Instance(instance.msg, len(p) - i - 1)
+    p[i] = Emission(instance.msg, len(p) - i - 1)
     return tuple(p)
 
 
+class Color(set):
+    def __hash__(self):
+        return id(self)
+
+
+def partition(graph, ps):
+    """
+    Partition a set of possibilities into incompatible subsets.
+      graph: a dictionary from a vertex to its set of neighbors
+      ps: a list of possibilities"""
+
+    # alias graph to neighbors for readability
+    neighbors = graph
+
+    def degree(m):
+        return len(neighbors[m.msg])
+
+    # Sort vertices by degree in descending order
+    vs = sorted(ps, key=degree, reverse=True)
+
+    parts = set()
+    coloring = {}
+    for vertex in vs:
+        # Assign a color to each vertex that isn’t assigned to its neighbors
+        options = parts.difference(
+            {coloring.get(n) for n in neighbors[vertex.msg]})
+
+        # generate a new color if necessary
+        if not len(options):
+            color = Color()
+            parts.add(color)
+        elif len(options) > 1:
+            # Choose a color that
+            #  (1) has the highest cardinality (number of vertices)
+            max_cardinality = max(len(c) for c in parts)
+            options = {o for o in options if len(
+                coloring[o]) == max_cardinality}
+
+            #  (2) within such, the color whose vertex of highest degree has the smallest degree
+            if len(options) > 1:
+                def max_degree(color):
+                    return max(degree(v) for v in color)
+
+                min_max = min(max_degree(c) for c in parts)
+                options = {o for o in options if max_degree(o) == min_max}
+
+            # choose color from options (randomly?)
+            color = next(o for o in options)
+        else:
+            color = next(o for o in options)
+
+        # color vertex
+        color.add(vertex)
+        coloring[vertex] = color
+
+    return parts
+
+
 def extensions(U, path):
-    xs = {path + (b,) for b in possibilities(U, path)}
-    return xs.union({receive(path, u) for u in unreceived(path)})
+    parts = partition(U.tangle.incompatible, possibilities(U, path))
+    branches = {min(p, key=lambda p: p.name) for p in parts}
+    xs = {path + (b,) for b in branches if isinstance(b, Emission)} \
+        .union(receive(path, b.emission) for b in branches if isinstance(b, Reception))
+    return xs
 
 
 def max_paths(U):
