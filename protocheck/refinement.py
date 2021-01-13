@@ -93,14 +93,10 @@ def viable(path, msg):
         else:
             print("Only send external messages if they would contribute")
             return False
-    out_keys = msg.keys.intersection(msg.outs)
-    print(msg.name)
-    print(msg.keys)
-    print(msg.outs)
-    print(out_keys)
+    out_keys = set(msg.keys).intersection(msg.outs)
     if out_keys and all(sources(path, p) for p in out_keys):
         # don't allow multiple key bindings in the same path; they're different enactments
-        print("Don't allow multiple key bindings on the same path; they're different enactments")
+        # print("Don't allow multiple key bindings on the same path; they're different enactments")
         return False
     k = known(path, msg.keys, msg.sender)
     return k.issuperset(msg.ins) \
@@ -236,8 +232,10 @@ def total_knowledge(U, path):
 def path_liveness(protocol, args=None):
     U = UoD.from_protocol(protocol)
     new_paths = [empty_path()]
+    checked = 0
     while len(new_paths):
         p = new_paths.pop()
+        checked += 1
         xs = extensions(U, p)
         if xs:
             new_paths.extend(xs)
@@ -246,7 +244,7 @@ def path_liveness(protocol, args=None):
                 return {"live": False,
                         "reason": "Found path that does not extend to completion",
                         "path": p}
-    return {"live": True}
+    return {"live": True, "checked": checked}
 
 
 def path_safety(protocol, args=None):
