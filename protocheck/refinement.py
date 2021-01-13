@@ -243,7 +243,8 @@ def path_liveness(protocol, args=None):
             if total_knowledge(U, p).intersection(protocol.outs) < protocol.outs:
                 return {"live": False,
                         "reason": "Found path that does not extend to completion",
-                        "path": p}
+                        "path": p,
+                        "checked": checked}
     return {"live": True, "checked": checked}
 
 
