@@ -10,31 +10,20 @@ External = Role("*External*")
 
 
 class Emission:
-    def __init__(self, msg, delay=float('inf')):
+    def __init__(self, msg):
         self.msg = msg
-        self.delay = delay
-
-    def __str__(self):
-        return "<{},{}>".format(self.msg.name, self.delay)
 
     def __repr__(self):
-        if self.delay == float('inf'):
-            return f"!{self.msg.name}"
-        else:
-            return f"{self.msg.name}({self.delay})"
+        return f"!{self.msg.name}"
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self.msg == other.msg and self.delay == other.delay
+            return self.msg == other.msg
         else:
             return False
 
     def __hash__(self):
-        return (self.msg, self.delay).__hash__()
-
-    @property
-    def received(self):
-        return self.delay < float('inf')
+        return (self.msg).__hash__()
 
     def __getattr__(self, attr):
         return getattr(self.msg, attr)
@@ -52,12 +41,11 @@ def known(path, keys, R):
     time = 0
     k = set()
     for instance in path:
-        if (set(instance.msg.parameters) >= set(keys)
-            and (instance.msg.sender.name == R.name
-                 or (instance.msg.recipient.name == R.name
-                     and instance.delay + time <= len(path)))):
-            k.update(set(instance.msg.ins))
-            k.update(set(instance.msg.outs))
+        if (set(instance.msg.parameters).intersection(set(keys))
+            and (isinstance(instance, Emission) and instance.sender.name == R.name
+                 or (isinstance(instance, Reception) and instance.recipient.name == R.name))):
+            k.update(instance.ins)
+            k.update(instance.outs)
         time += 1
     return k
 
@@ -119,7 +107,7 @@ class Tangle():
     "Graph representation of entanglements between messages"
 
     def __init__(self, messages):
-        self.emissions = {Emission(m, float("inf")) for m in messages}
+        self.emissions = {Emission(m) for m in messages}
         self.receptions = {Reception(e) for e in self.emissions}
 
         # initialize graph with direct enable and disablements, O(m^2)
@@ -147,7 +135,9 @@ class Tangle():
         self.endows = {}
         for b in messages:
             for p in b.ins:
-                a = self.source[p]
+                a = self.source.get(p)
+                if not a:
+                    continue
                 if a in self.endows:
                     self.endows[a].add(b)
                 else:
@@ -231,35 +221,24 @@ class Reception:
 
 
 def unreceived(path):
-    return set(i for i in path if i.delay == float("inf"))
+    sent = set(e for e in path if isinstance(e, Emission))
+    received = set(r.emission for r in path if isinstance(r, Reception))
+    return sent.difference(received)
 
 
 def possibilities(U, path):
     b = set()
     for msg in U.messages:
-        print(path, msg.name, viable(path, msg))
         if viable(path, msg):
             # default messages to unreceived, progressively receive them later
-            inst = Emission(msg, float("inf"))
-            if msg.sender == External:
-                inst.delay = 0
+            inst = Emission(msg)
             b.add(inst)
     ps = b.union(Reception(e) for e in unreceived(path))
-    print(ps)
     return ps
 
 
 def any_unreceived(path):
-    for i in path:
-        if i.delay == float('inf'):
-            return True
-
-
-def receive(path, instance):
-    p = list(path)
-    i = p.index(instance)
-    p[i] = Emission(instance.msg, len(p) - i - 1)
-    return tuple(p)
+    return len(unreceived(path)) > 0
 
 
 class Color(set):
@@ -297,8 +276,7 @@ def partition(graph, ps):
             # Choose a color that
             #  (1) has the highest cardinality (number of vertices)
             max_cardinality = max(len(c) for c in parts)
-            options = {o for o in options if len(
-                coloring[o]) == max_cardinality}
+            options = {o for o in options if len(o) == max_cardinality}
 
             #  (2) within such, the color whose vertex of highest degree has the smallest degree
             if len(options) > 1:
@@ -315,7 +293,7 @@ def partition(graph, ps):
 
         # color vertex
         color.add(vertex)
-        coloring[vertex] = color
+        coloring[vertex.msg] = color
 
     return parts
 
@@ -323,8 +301,7 @@ def partition(graph, ps):
 def extensions(U, path):
     parts = partition(U.tangle.incompatible, possibilities(U, path))
     branches = {min(p, key=lambda p: p.name) for p in parts}
-    xs = {path + (b,) for b in branches if isinstance(b, Emission)} \
-        .union(receive(path, b.emission) for b in branches if isinstance(b, Reception))
+    xs = {path + (b,) for b in branches}
     return xs
 
 
@@ -392,7 +369,7 @@ def all_paths(U, verbose=False):
         p = new_paths.pop()
         if len(p) > longest_path:
             longest_path = len(p)
-        if len(p) > len(U.messages):
+        if len(p) > len(U.messages)*2:
             print("Path too long: ", p)
             exit(1)
         xs = extensions(U, p)
