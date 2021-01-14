@@ -329,6 +329,8 @@ def max_paths(U):
 
 def path_liveness(protocol, args=None):
     U = UoD.from_protocol(protocol)
+    if args.verbose:
+        print(f"Incompatibilities: {U.tangle.incompatible}")
     new_paths = [empty_path()]
     checked = 0
     while len(new_paths):
@@ -350,6 +352,8 @@ def path_liveness(protocol, args=None):
 
 def path_safety(protocol, args=None):
     U = UoD.from_protocol(protocol)
+    if args.verbose:
+        print(f"Incompatibilities: {U.tangle.incompatible}")
     parameters = {p for m in protocol.messages.values() for p in m.outs}
     new_paths = [empty_path()]
     checked = 0
