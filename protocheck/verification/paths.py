@@ -161,15 +161,29 @@ class Tangle():
                                 and self.enables[c].intersection(self.disables[a])})
                         for a in messages}
 
-        # incompatibility graph
+        # initialize incompatibility graph
+        self.incompatible = {}
+        for m in messages:
+            e = Emission(m)
+            r = Reception(e)
+            self.incompatible[e] = set()
+            self.incompatible[r] = set()
+
         # a and b are incompatible if
-        #  1. one is an emission (TODO)
+        #  1. one is an emission
         #  2. one tangles with the other
-        self.incompatible = {m: set() for m in messages}
         for a in self.tangles:
-            self.incompatible[a].update(self.tangles[a])
             for b in self.tangles[a]:
-                self.incompatible[b].add(a)
+                ea, eb = Emission(a), Emission(b)
+                ra, rb = Reception(ea), Reception(eb)
+
+                # Emissions can be incompatible with both receptions and emissions
+                self.incompatible[ea].update((eb, rb))
+                self.incompatible[eb].update((ea, ra))
+
+                # Receptions are only incompatible with emissions
+                self.incompatible[ra].add(eb)
+                self.incompatible[rb].add(ea)
 
 
 class UoD():
@@ -265,7 +279,7 @@ def partition(graph, ps):
     neighbors = graph
 
     def degree(m):
-        return len(neighbors[m.msg])
+        return len(neighbors[m])
 
     # Sort vertices by degree in descending order
     vs = sorted(ps, key=degree, reverse=True)
@@ -275,7 +289,7 @@ def partition(graph, ps):
     for vertex in vs:
         # Assign a color to each vertex that isn’t assigned to its neighbors
         options = parts.difference(
-            {coloring.get(n) for n in neighbors[vertex.msg]})
+            {coloring.get(n) for n in neighbors[vertex]})
 
         # generate a new color if necessary
         if not len(options):
@@ -302,7 +316,7 @@ def partition(graph, ps):
 
         # color vertex
         color.add(vertex)
-        coloring[vertex.msg] = color
+        coloring[vertex] = color
 
     return parts
 
