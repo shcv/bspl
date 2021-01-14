@@ -399,10 +399,12 @@ def total_knowledge(U, path):
 
 def all_paths(U, verbose=False):
     paths = set()
-    new_paths = {empty_path()}
+    new_paths = [empty_path()]
     longest_path = 0
     while new_paths:
         p = new_paths.pop()
+        if verbose:
+            print(p)
         if len(p) > longest_path:
             longest_path = len(p)
         if len(p) > len(U.messages)*2:
@@ -410,14 +412,9 @@ def all_paths(U, verbose=False):
             exit(1)
         xs = extensions(U, p)
         if xs:
-            new_paths.update(xs)
+            new_paths.extend(xs)
         paths.add(p)  # add path to paths even if it has unreceived messages
-        if verbose:
-            if len(paths) % 10 == 0:
-                print("\r{} paths, longest path: {}, unprocessed: {}".format(
-                    len(paths), longest_path, len(new_paths)), end='')
-            if len(paths) % 1000 == 0:
-                print(p)
     if verbose:
-        print()
+        print(
+            f"{len(paths)} paths, longest path: {longest_path}, unprocessed: {len(new_paths)}")
     return paths
