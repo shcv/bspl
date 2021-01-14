@@ -1,15 +1,15 @@
 CreateOrder {
   roles S, P, PS, C, CS, L, LS
   parameters out complaint key, out results
-  private order, specimen, unsuitable, received, result-id, request
+  private order, specimen, unsuitable, received, result-id, request, subject
 
   S -> P: Complain[out complaint]
   P -> PS: EnterRequest[in complaint, out order]
 
   ProviderCollection(P, L, order, specimen)
   LabCollection(S, P, L, order, specimen)
-  ThirdPartyCollection(S, P, C, L, order, specimen) 
- 
+  ThirdPartyCollection(S, P, C, L, order, specimen)
+
   GetOrder(L,P, subject, order)
   L -> C: NotifyUnsuitable[in order, in specimen, out unsuitable]
   L -> C: NotifyReceived[in order, in specimen, out received]
@@ -51,8 +51,8 @@ GetOrder {
   roles R, P
   parameters out subject key, out order
 
-  R -> P: QueryOrder[out subject]
-  P -> R: Order[in subject, out order]
+  R -> P: QueryOrder[out subject key]
+  P -> R: Order[in subject key, out order]
 }
 
 QueryResults {
