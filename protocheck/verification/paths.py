@@ -14,7 +14,7 @@ class Emission:
         self.msg = msg
 
     def __repr__(self):
-        return f"!{self.msg.name}"
+        return f"{self.sender.name}!{self.msg.name}"
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -213,11 +213,20 @@ class Reception:
         self.emission = emission
         self.msg = emission.msg
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.msg == other.msg
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(self.msg)
+
     def __getattr__(self, attr):
         return getattr(self.emission, attr)
 
     def __repr__(self):
-        return f"?{self.msg.name}"
+        return f"{self.recipient.name}?{self.msg.name}"
 
 
 def unreceived(path):
