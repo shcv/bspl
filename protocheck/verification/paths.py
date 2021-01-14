@@ -347,6 +347,8 @@ def path_safety(protocol, args=None):
     while len(new_paths):
         path = new_paths.pop()
         checked += 1
+        if args.verbose:
+            print(path)
         xs = extensions(U, path)
         if xs:
             new_paths.extend(xs)
