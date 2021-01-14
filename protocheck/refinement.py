@@ -83,7 +83,7 @@ def viable(path, msg):
     msg_count = len([i.msg for i in path if i.msg == msg])
     if not msg.ins.union(msg.nils).symmetric_difference({p.name for p in msg.parameters.values()}) and msg_count > 0:
         # only allow one copy of an all "in"/"nil" message
-        print("Only one copy of all in message allowed")
+        # print("Only one copy of all in message allowed")
         return False
     if msg.sender == External:
         # only send external messages if they would contribute
@@ -91,7 +91,7 @@ def viable(path, msg):
         if not k.issuperset(msg.ins):
             return True
         else:
-            print("Only send external messages if they would contribute")
+            # print("Only send external messages if they would contribute")
             return False
     out_keys = set(msg.keys).intersection(msg.outs)
     if out_keys and all(sources(path, p) for p in out_keys):
@@ -252,9 +252,10 @@ def path_safety(protocol, args=None):
     U = UoD.from_protocol(protocol)
     parameters = {p for m in protocol.messages.values() for p in m.outs}
     new_paths = [empty_path()]
-    count = 0
+    checked = 0
     while len(new_paths):
         path = new_paths.pop()
+        checked += 1
         xs = extensions(U, path)
         if xs:
             new_paths.extend(xs)
@@ -263,8 +264,9 @@ def path_safety(protocol, args=None):
                 return {"safe": False,
                         "reason": "Found parameter with multiple sources in a path",
                         "path": path,
-                        "parameter": p}
-    return {"safe": True}
+                        "parameter": p,
+                        "checked": checked}
+    return {"safe": True, "checked": checked}
 
 
 def all_paths(U, verbose=False):
