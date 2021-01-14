@@ -1,7 +1,7 @@
 CreateOrder {
   roles S, P, PS, C, CS, L, LS
   parameters out complaint key, out results
-  private order, collection, specimen, unsuitable, received, result-id, request
+  private order, collection, specimen, unsuitable, received, result-id, request, subject
 
   S -> P: Complain[out complaint]
   P -> PS: EnterRequest[in complaint, out order]
@@ -51,8 +51,8 @@ GetOrder {
   roles R, P
   parameters out subject key, out order
 
-  R -> P: QueryOrder[out subject]
-  P -> R: Order[in subject, out order]
+  R -> P: QueryOrder[out subject key]
+  P -> R: Order[in subject key, out order]
 }
 
 QueryResults {
