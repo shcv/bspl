@@ -277,6 +277,8 @@ class Message(Protocol):
         else:
             super().__init__(name, parent=parent, type="message")
 
+        self.msg = self
+
     def configure(self, sender=None, recipient=None, parameters=None, parent=None):
         parent = parent or getattr(self, 'parent', None)
         if parent:
