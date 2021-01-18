@@ -86,6 +86,13 @@ def viable(path, msg):
 
 def disables(a, b):
     "Return true if message a directly disables message b"
+
+    if not isinstance(b, Emission) \
+       or isinstance(a, Emission) and a.sender != b.sender \
+       or isinstance(a, Reception) and a.recipient != b.sender:
+        # only emissions can be disabled, and only at the sender
+        return False
+
     for p in a.outs.union(a.ins):
         # out or in disables out or nil
         if p in b.parameters:
@@ -95,6 +102,16 @@ def disables(a, b):
 
 def enables(a, b):
     "Return true if message a directly enables message b"
+    if isinstance(a, Emission) and isinstance(b, Reception) and a.msg == b.msg:
+        # emissions enable their reception
+        return True
+
+    if not isinstance(b, Emission) \
+       or isinstance(a, Emission) and a.sender != b.sender \
+       or isinstance(a, Reception) and a.recipient != b.sender:
+        # only emissions can be enabled by other messages, and only at the sender
+        return False
+
     if not disables(a, b):
         # out enables in
         for p in a.outs:
@@ -106,36 +123,45 @@ def enables(a, b):
 class Tangle():
     "Graph representation of entanglements between messages"
 
-    def __init__(self, messages):
+    def __init__(self, messages, roles):
         self.emissions = {Emission(m) for m in messages}
         self.receptions = {Reception(e) for e in self.emissions}
+        self.events = self.emissions.union(self.receptions)
 
         # initialize graph with direct enable and disablements, O(m^2)
-        self.enables = {a: {b for b in messages
+        self.enables = {a: {b for b in self.events
                             if a != b and enables(a, b)}
-                        for a in messages}
-        self.disables = {a: {b for b in messages
+                        for a in self.events}
+        self.disables = {a: {b for b in self.events
                              if a != b and disables(a, b)}
-                         for a in messages}
+                         for a in self.events}
 
         # sources for parameters, for computing endowment
         self.sources = {}
-        for m in messages:
-            for p in m.outs:
-                if p not in self.sources:
-                    self.sources[p] = [m]
-                else:
-                    self.sources[p].append(m)
+        for R in roles:
+            self.sources[R] = {}
+            for e in self.events:
+                if isinstance(e, Emission) and e.sender != R \
+                   or isinstance(e, Reception) and e.recipient != R:
+                    continue
+
+                for p in e.outs:
+                    if p not in self.sources[R]:
+                        self.sources[R][p] = [e]
+                    else:
+                        self.sources[R][p].append(e)
 
         # track messages that are the sole source of a given parameter
-        self.source = {p: ms[0]
-                       for p, ms in self.sources.items() if len(ms) == 1}
+        self.source = {}
+        for R in roles:
+            self.source[R] = {p: ms[0]
+                              for p, ms in self.sources[R].items() if len(ms) == 1}
 
         # a endows b if a is the sole source of an 'in' parameter of b
         self.endows = {}
-        for b in messages:
+        for b in self.emissions:
             for p in b.ins:
-                a = self.source.get(p)
+                a = self.source[b.sender].get(p)
                 if not a:
                     continue
                 if a in self.endows:
@@ -159,38 +185,35 @@ class Tangle():
                         .union({c for c in self.enables
                                 if c not in self.endows.get(a, [])
                                 and self.enables[c].intersection(self.disables[a])})
-                        for a in messages}
+                        for a in self.events}
 
         # initialize incompatibility graph
         self.incompatible = {}
-        for m in messages:
-            e = Emission(m)
-            r = Reception(e)
+        for e in self.events:
             self.incompatible[e] = set()
-            self.incompatible[r] = set()
 
         # a and b are incompatible if
         #  1. one is an emission
         #  2. one tangles with the other
         for a in self.tangles:
             for b in self.tangles[a]:
-                ea, eb = Emission(a), Emission(b)
-                ra, rb = Reception(ea), Reception(eb)
-
-                # Emissions can be incompatible with both receptions and emissions
-                self.incompatible[ea].update((eb, rb))
-                self.incompatible[eb].update((ea, ra))
-
-                # Receptions are only incompatible with emissions
-                self.incompatible[ra].add(eb)
-                self.incompatible[rb].add(ea)
+                if isinstance(a, Emission):
+                    if isinstance(b, Emission) and a.sender == b.sender \
+                       or isinstance(b, Reception) and a.sender == b.recipient:
+                        self.incompatible[a].add(b)
+                        self.incompatible[b].add(a)
+                elif isinstance(a, Reception):
+                    if isinstance(b, Emission) and a.recipient == b.sender \
+                       or isinstance(b, Reception) and a.recipient == b.recipient:
+                        self.incompatible[a].add(b)
+                        self.incompatible[b].add(a)
 
 
 class UoD():
     def __init__(self, messages=set(), roles={}):
         self.messages = set(messages)
         self.roles = set(roles)
-        self.tangle = Tangle(messages)
+        self.tangle = Tangle(messages, roles)
 
     @staticmethod
     def from_protocol(protocol):
@@ -318,6 +341,7 @@ def partition(graph, ps):
         color.add(vertex)
         coloring[vertex] = color
 
+    # print(parts)
     return parts
 
 
@@ -401,6 +425,8 @@ def all_paths(U, verbose=False):
     paths = set()
     new_paths = [empty_path()]
     longest_path = 0
+    if verbose:
+        print(U.tangle.incompatible)
     while new_paths:
         p = new_paths.pop()
         if verbose:
@@ -414,7 +440,6 @@ def all_paths(U, verbose=False):
         if xs:
             new_paths.extend(xs)
         paths.add(p)  # add path to paths even if it has unreceived messages
-    if verbose:
-        print(
-            f"{len(paths)} paths, longest path: {longest_path}, unprocessed: {len(new_paths)}")
+    print(
+        f"{len(paths)} paths, longest path: {longest_path}")
     return paths
