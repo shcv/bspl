@@ -87,17 +87,19 @@ def viable(path, msg):
 def disables(a, b):
     "Return true if message a directly disables message b"
 
-    if not isinstance(b, Emission) \
-       or isinstance(a, Emission) and a.sender != b.sender \
-       or isinstance(a, Reception) and a.recipient != b.sender:
-        # only emissions can be disabled, and only at the sender
-        return False
+    if isinstance(a, Emission) and isinstance(b, Emission) and a.sender == b.sender:
+        for p in a.outs:
+            # out disables out or nil
+            if p in b.parameters:
+                if b.parameters[p].adornment in ['out', 'nil']:
+                    return True
 
-    for p in a.outs.union(a.ins):
-        # out or in disables out or nil
-        if p in b.parameters:
-            if b.parameters[p].adornment in ['out', 'nil']:
-                return True
+    if isinstance(a, Reception) and isinstance(b, Emission) and a.recipient == b.sender:
+        for p in a.outs.union(a.ins):
+            # out or in disables out or nil
+            if p in b.parameters:
+                if b.parameters[p].adornment in ['out', 'nil']:
+                    return True
 
 
 def enables(a, b):
