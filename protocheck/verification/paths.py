@@ -1,4 +1,8 @@
 from ..protocol import Message, Role, Parameter
+from pprint import pformat
+import sys
+
+verbose = '-v' in sys.argv or '--verbose' in sys.argv
 
 
 def empty_path():
@@ -138,6 +142,10 @@ class Tangle():
                              if a != b and disables(a, b)}
                          for a in self.events}
 
+        if verbose:
+            print(f"disables: {pformat(self.disables)}")
+            print(f"enables: {pformat(self.enables)}")
+
         # sources for parameters, for computing endowment
         self.sources = {}
         for R in roles:
@@ -170,6 +178,9 @@ class Tangle():
                     self.endows[a].add(b)
                 else:
                     self.endows[a] = {b}
+
+        if verbose:
+            print(f"endows: {pformat(self.endows)}")
 
         # propagate enablements; a |- b & b |- c => a |- c
         def enablees(m):
@@ -428,7 +439,7 @@ def all_paths(U, verbose=False):
     new_paths = [empty_path()]
     longest_path = 0
     if verbose:
-        print(U.tangle.incompatible)
+        print(f"incompatible: {pformat(U.tangle.incompatible)}")
     while new_paths:
         p = new_paths.pop()
         if verbose:
