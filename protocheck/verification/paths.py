@@ -221,6 +221,14 @@ class Tangle():
                         self.incompatible[a].add(b)
                         self.incompatible[b].add(a)
 
+    def safe(self, possibilities, path):
+        ps = possibilities.copy()
+        risky = {e for e in self.events if self.disables[e].difference(path)}
+        choices = {p for p in ps if self.disables[p].intersection(
+            ps) or any(p in self.disables[b] for b in ps)}
+        # print(choices)
+        return ps.difference(risky).difference(choices)
+
 
 class UoD():
     def __init__(self, messages=set(), roles={}):
@@ -359,9 +367,17 @@ def partition(graph, ps):
 
 
 def extensions(U, path):
-    parts = partition(U.tangle.incompatible, possibilities(U, path))
-    branches = {min(p, key=lambda p: p.name) for p in parts}
-    xs = {path + (b,) for b in branches}
+    ps = possibilities(U, path)
+    safe = U.tangle.safe(ps, path)
+    # expand all non-disabling events first
+    if safe:
+        # print(f"free: {free}")
+        xs = {path + (min(safe, key=lambda p: p.name), )}
+    else:
+        parts = partition(U.tangle.incompatible, ps)
+        print(f'parts: {parts}')
+        branches = {min(p, key=lambda p: p.name) for p in parts}
+        xs = {path + (b,) for b in branches}
     return xs
 
 
@@ -381,7 +397,7 @@ def max_paths(U):
 def path_liveness(protocol, args=None):
     U = UoD.from_protocol(protocol)
     if args.verbose:
-        print(f"Incompatibilities: {U.tangle.incompatible}")
+        print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     new_paths = [empty_path()]
     checked = 0
     while len(new_paths):
@@ -404,7 +420,7 @@ def path_liveness(protocol, args=None):
 def path_safety(protocol, args=None):
     U = UoD.from_protocol(protocol)
     if args.verbose:
-        print(f"Incompatibilities: {U.tangle.incompatible}")
+        print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     parameters = {p for m in protocol.messages.values() for p in m.outs}
     new_paths = [empty_path()]
     checked = 0
