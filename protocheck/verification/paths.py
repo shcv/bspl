@@ -409,12 +409,12 @@ def path_liveness(protocol, args=None):
     while len(new_paths):
         p = new_paths.pop()
         checked += 1
-        if args.verbose:
-            print(p)
         xs = extensions(U, p)
         if xs:
             new_paths.extend(xs)
         else:
+            if args.verbose:
+                print(p)
             if total_knowledge(U, p).intersection(protocol.outs) < protocol.outs:
                 return {"live": False,
                         "reason": "Found path that does not extend to completion",
@@ -430,22 +430,27 @@ def path_safety(protocol, args=None):
     parameters = {p for m in protocol.messages.values() for p in m.outs}
     new_paths = [empty_path()]
     checked = 0
+    max_paths = 0
     while len(new_paths):
         path = new_paths.pop()
         checked += 1
-        if args.verbose:
-            print(path)
         xs = extensions(U, path)
         if xs:
             new_paths.extend(xs)
+        else:
+            max_paths += 1
+            if args.verbose:
+                print(path)
+
         for p in parameters:
             if len(sources(path, p)) > 1:
                 return {"safe": False,
                         "reason": "Found parameter with multiple sources in a path",
                         "path": path,
                         "parameter": p,
-                        "checked": checked}
-    return {"safe": True, "checked": checked}
+                        "checked": checked,
+                        "maximal paths": max_paths}
+    return {"safe": True, "checked": checked, "maximal paths": max_paths}
 
 
 def total_knowledge(U, path):
@@ -464,8 +469,6 @@ def all_paths(U, verbose=False):
         print(f"incompatible: {pformat(U.tangle.incompatible)}")
     while new_paths:
         p = new_paths.pop()
-        if verbose:
-            print(p)
         if len(p) > longest_path:
             longest_path = len(p)
         if len(p) > len(U.messages)*2:
@@ -474,6 +477,10 @@ def all_paths(U, verbose=False):
         xs = extensions(U, p)
         if xs:
             new_paths.extend(xs)
+        else:
+            if args.verbose:
+                print(p)
+
         paths.add(p)  # add path to paths even if it has unreceived messages
     print(
         f"{len(paths)} paths, longest path: {longest_path}")
