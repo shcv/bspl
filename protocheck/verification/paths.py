@@ -1,7 +1,7 @@
 from ..protocol import Message, Role, Parameter
 from pprint import pformat
-import sys
 import configargparse
+from ttictoc import Timer
 
 parser = configargparse.get_argument_parser()
 parser.add('-v', '--verbose', action="store_true",
@@ -426,29 +426,39 @@ def max_paths(U):
 
 
 def path_liveness(protocol, args=None):
+    t = Timer()
+    t.start()
     U = UoD.from_protocol(protocol)
     if args.debug:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     new_paths = [empty_path()]
     checked = 0
+    max_paths = 0
     while len(new_paths):
         p = new_paths.pop()
+        if args.debug:
+            print(p)
         checked += 1
         xs = extensions(U, p)
         if xs:
             new_paths.extend(xs)
         else:
-            if args.verbose:
+            max_paths += 1
+            if args.verbose and not args.debug:
                 print(p)
             if total_knowledge(U, p).intersection(protocol.outs) < protocol.outs:
                 return {"live": False,
                         "reason": "Found path that does not extend to completion",
                         "path": p,
-                        "checked": checked}
-    return {"live": True, "checked": checked}
+                        "checked": checked,
+                        "maximal paths": max_paths,
+                        "elapsed": t.stop()}
+    return {"live": True, "checked": checked, "maximal paths": max_paths, "elapsed": t.stop()}
 
 
 def path_safety(protocol, args=None):
+    t = Timer()
+    t.start()
     U = UoD.from_protocol(protocol)
     if args.debug:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
@@ -458,13 +468,15 @@ def path_safety(protocol, args=None):
     max_paths = 0
     while len(new_paths):
         path = new_paths.pop()
+        if args.debug:
+            print(path)
         checked += 1
         xs = extensions(U, path)
         if xs:
             new_paths.extend(xs)
         else:
             max_paths += 1
-            if args.verbose:
+            if args.verbose and not args.debug:
                 print(path)
 
         for p in parameters:
@@ -474,8 +486,9 @@ def path_safety(protocol, args=None):
                         "path": path,
                         "parameter": p,
                         "checked": checked,
-                        "maximal paths": max_paths}
-    return {"safe": True, "checked": checked, "maximal paths": max_paths}
+                        "maximal paths": max_paths,
+                        "elapsed": t.stop()}
+    return {"safe": True, "checked": checked, "maximal paths": max_paths, "elapsed": t.stop()}
 
 
 def total_knowledge(U, path):
@@ -487,13 +500,18 @@ def total_knowledge(U, path):
 
 
 def all_paths(U, verbose=False):
+    t = Timer()
+    t.start()
     paths = set()
     new_paths = [empty_path()]
     longest_path = 0
+    max_paths = 0
     if args.debug:
         print(f"incompatible: {pformat(U.tangle.incompatible)}")
     while new_paths:
         p = new_paths.pop()
+        if args.debug:
+            print(p)
         if len(p) > longest_path:
             longest_path = len(p)
         if len(p) > len(U.messages)*2:
@@ -503,10 +521,11 @@ def all_paths(U, verbose=False):
         if xs:
             new_paths.extend(xs)
         else:
-            if args.verbose:
+            max_paths += 1
+            if args.verbose and not args.debug:
                 print(p)
 
         paths.add(p)  # add path to paths even if it has unreceived messages
     print(
-        f"{len(paths)} paths, longest path: {longest_path}")
+        f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}, elapsed: {t.stop()}")
     return paths
