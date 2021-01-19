@@ -25,16 +25,16 @@ ProviderCollection {
   roles P, L
   parameters in order key, out collection, out specimen
 
-  P -> L: Ship[in order, out collection, out specimen]
+  P -> L: Ship[in order key, out collection, out specimen]
 }
 
 LabCollection {
   roles S, P, L
   parameters in order key, out collection, out specimen
-  private instructions
+  private instructions, appointment
 
-  P -> S: Instructions[in order, out instructions, out collection]
-  S -> L: Visit[in order, in instructions, out specimen]
+  P -> S: Instructions[in order key, out instructions, out collection]
+  S -> L: Visit[in order key, in instructions, out specimen, nil appointment]
 }
 
 ThirdPartyCollection {
@@ -42,9 +42,9 @@ ThirdPartyCollection {
   parameters in order key, out collection, out specimen
   private instructions, appointment
 
-  P -> S: Instructions[in order, out instructions, out collection]
-  S -> C: SetupAppointment[in order, in instructions, out appointment]
-  C -> L: Specimen[in order, in appointment, out specimen]
+  P -> S: Instructions[in order key, out instructions, out collection]
+  S -> C: SetupAppointment[in order key, in instructions, out appointment, nil specimen]
+  C -> L: Specimen[in order key, in appointment, out specimen]
 }
 
 GetOrder {
@@ -57,8 +57,8 @@ GetOrder {
 
 QueryResults {
   roles P, L
-  parameters in order, in results-id, out results
+  parameters in order key, in results-id, out results
 
-  P -> L: Query[in order, in results-id]
-  L -> P: Results[in order, in results-id, out results]
+  P -> L: Query[in order key, in results-id]
+  L -> P: Results[in order key, in results-id, out results]
 }
