@@ -1,8 +1,14 @@
 from ..protocol import Message, Role, Parameter
 from pprint import pformat
 import sys
+import configargparse
 
-verbose = '-v' in sys.argv or '--verbose' in sys.argv
+parser = configargparse.get_argument_parser()
+parser.add('-v', '--verbose', action="store_true",
+           help='Print additional details: spec, formulas, stats, etc.')
+parser.add('--debug', action="store_true", help='Debug mode')
+args = parser.parse_known_args()[0]
+print(args)
 
 
 def empty_path():
@@ -142,7 +148,7 @@ class Tangle():
                              if a != b and disables(a, b)}
                          for a in self.events}
 
-        if verbose:
+        if args.debug:
             print(f"disables: {pformat(self.disables)}")
             print(f"enables: {pformat(self.enables)}")
 
@@ -179,7 +185,7 @@ class Tangle():
                 else:
                     self.endows[a] = {b}
 
-        if verbose:
+        if args.debug:
             print(f"endows: {pformat(self.endows)}")
 
         # propagate enablements; a |- b & b |- c => a |- c
@@ -375,7 +381,7 @@ def extensions(U, path):
         xs = {path + (min(safe, key=lambda p: p.name), )}
     else:
         parts = partition(U.tangle.incompatible, ps)
-        print(f'parts: {parts}')
+        # print(f'parts: {parts}')
         branches = {min(p, key=lambda p: p.name) for p in parts}
         xs = {path + (b,) for b in branches}
     return xs
@@ -396,7 +402,7 @@ def max_paths(U):
 
 def path_liveness(protocol, args=None):
     U = UoD.from_protocol(protocol)
-    if args.verbose:
+    if args.debug:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     new_paths = [empty_path()]
     checked = 0
@@ -419,7 +425,7 @@ def path_liveness(protocol, args=None):
 
 def path_safety(protocol, args=None):
     U = UoD.from_protocol(protocol)
-    if args.verbose:
+    if args.debug:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     parameters = {p for m in protocol.messages.values() for p in m.outs}
     new_paths = [empty_path()]
@@ -454,7 +460,7 @@ def all_paths(U, verbose=False):
     paths = set()
     new_paths = [empty_path()]
     longest_path = 0
-    if verbose:
+    if args.debug:
         print(f"incompatible: {pformat(U.tangle.incompatible)}")
     while new_paths:
         p = new_paths.pop()
