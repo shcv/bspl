@@ -7,6 +7,12 @@ parser = configargparse.get_argument_parser()
 parser.add('-v', '--verbose', action="store_true",
            help='Print additional details: spec, formulas, stats, etc.')
 parser.add('--debug', action="store_true", help='Debug mode')
+parser.add('--no-safe', action="store_true",
+           help='Disable safe event heuristic')
+parser.add('--by-degree', action="store_true",
+           help='Select events by degree, default by name')
+parser.add('--no-reduction', action="store_true",
+           help='Disable all path reductions')
 args = parser.parse_known_args()[0]
 print(args)
 
@@ -379,21 +385,29 @@ def partition(graph, ps):
         color.add(vertex)
         coloring[vertex] = color
 
-    # print(parts)
     return parts
 
 
 def extensions(U, path):
     ps = possibilities(U, path)
     safe = U.tangle.safe(ps, path)
-    # expand all non-disabling events first
-    if safe:
-        # print(f"free: {free}")
-        xs = {path + (min(safe, key=lambda p: p.name), )}
+    # default to selecting branches by message name
+    def sort(p): return p.name
+
+    if args.by_degree:
+        # select events by degree instead
+        def sort(p): return len(U.tangle.incompatible[p])
+    if args.no_reduction:
+        # all the possibilities
+        xs = {path + (p,) for p in ps}
+    elif not args.no_safe and safe:
+        # expand all non-disabling events first
+        xs = {path + (min(safe, key=sort), )}
     else:
         parts = partition(U.tangle.incompatible, ps)
-        # print(f'parts: {parts}')
-        branches = {min(p, key=lambda p: p.name) for p in parts}
+        if args.debug:
+            print(f'parts: {parts}')
+        branches = {min(p, key=sort) for p in parts}
         xs = {path + (b,) for b in branches}
     return xs
 
