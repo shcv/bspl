@@ -140,18 +140,6 @@ class Tangle():
         self.receptions = {Reception(e) for e in self.emissions}
         self.events = self.emissions.union(self.receptions)
 
-        # initialize graph with direct enable and disablements, O(m^2)
-        self.enables = {a: {b for b in self.events
-                            if a != b and enables(a, b)}
-                        for a in self.events}
-        self.disables = {a: {b for b in self.events
-                             if a != b and disables(a, b)}
-                         for a in self.events}
-
-        if args.debug:
-            print(f"disables: {pformat(self.disables)}")
-            print(f"enables: {pformat(self.enables)}")
-
         # sources for parameters, for computing endowment
         self.sources = {}
         for R in roles:
@@ -174,7 +162,7 @@ class Tangle():
                               for p, ms in self.sources[R].items() if len(ms) == 1}
 
         # a endows b if a is the sole source of an 'in' parameter of b
-        self.endows = {}
+        self.endows = {e: {Reception(e)} for e in self.emissions}
         for b in self.emissions:
             for p in b.ins:
                 a = self.source[b.sender].get(p)
@@ -185,8 +173,29 @@ class Tangle():
                 else:
                     self.endows[a] = {b}
 
+        # propagate endowment, since it is transitive
+        def propagate(a, b):
+            self.endows[a].update(self.endows.get(b, []))
+            for c in self.endows.get(b, []).copy():
+                propagate(a, c)
+
+        for a in self.endows:
+            propagate(a, a)
+
         if args.debug:
             print(f"endows: {pformat(self.endows)}")
+
+        # initialize graph with direct enable and disablements, O(m^2)
+        self.enables = {a: {b for b in self.events
+                            if a != b and enables(a, b)}
+                        for a in self.events}
+        self.disables = {a: {b for b in self.events
+                             if a != b and not a in self.endows.get(b, []) and disables(a, b)}
+                         for a in self.events}
+
+        if args.debug:
+            print(f"disables: {pformat(self.disables)}")
+            print(f"enables: {pformat(self.enables)}")
 
         # propagate enablements; a |- b & b |- c => a |- c
         def enablees(m):
@@ -229,7 +238,9 @@ class Tangle():
 
     def safe(self, possibilities, path):
         ps = possibilities.copy()
-        risky = {e for e in self.events if self.disables[e].difference(path)}
+        risky = {e for e in self.events if self.disables[e].difference(
+            path) or any(e in self.disables[b] for b in self.events)}
+        # print(f"risky: {risky}")
         choices = {p for p in ps if self.disables[p].intersection(
             ps) or any(p in self.disables[b] for b in ps)}
         # print(choices)
