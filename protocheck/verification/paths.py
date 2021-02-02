@@ -14,7 +14,6 @@ parser.add('--by-degree', action="store_true",
 parser.add('--no-reduction', action="store_true",
            help='Disable all path reductions')
 args = parser.parse_known_args()[0]
-print(args)
 
 
 def empty_path():
@@ -246,11 +245,7 @@ class Tangle():
         ps = possibilities.copy()
         risky = {e for e in self.events if self.disables[e].difference(
             path) or any(e in self.disables[b] for b in self.events)}
-        # print(f"risky: {risky}")
-        choices = {p for p in ps if self.disables[p].intersection(
-            ps) or any(p in self.disables[b] for b in ps)}
-        # print(choices)
-        return ps.difference(risky).difference(choices)
+        return ps.difference(risky)
 
 
 class UoD():
@@ -402,7 +397,7 @@ def extensions(U, path):
         xs = {path + (p,) for p in ps}
     elif not args.no_safe and safe:
         # expand all non-disabling events first
-        xs = {path + (min(safe, key=sort), )}
+        xs = {path + (min(safe, key=sort),)}
     else:
         parts = partition(U.tangle.incompatible, ps)
         if args.debug:
