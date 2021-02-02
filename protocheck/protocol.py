@@ -1,4 +1,4 @@
-from .sat.logic import merge
+from .verification.logic import merge
 from collections import OrderedDict
 
 
@@ -276,6 +276,8 @@ class Message(Protocol):
             self.configure(sender, recipient, parameters, parent)
         else:
             super().__init__(name, parent=parent, type="message")
+
+        self.msg = self
 
     def configure(self, sender=None, recipient=None, parameters=None, parent=None):
         parent = parent or getattr(self, 'parent', None)

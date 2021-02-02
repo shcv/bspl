@@ -1,6 +1,7 @@
 from protocheck.bspl import load_file, model, strip_latex
-from protocheck.sat.verification import handle_enactability, handle_liveness, handle_safety, handle_atomicity
-from protocheck.refinement import handle_refinement, path_liveness, path_safety
+from protocheck.verification.sat import handle_enactability, handle_liveness, handle_safety, handle_atomicity
+from protocheck.verification.paths import path_liveness, path_safety, all_paths, UoD
+from protocheck.verification.refinement import handle_refinement
 from protocheck.node_red import handle_node_flow
 import configargparse
 import sys
@@ -63,6 +64,12 @@ def check_syntax(*args):
     print("Syntax: correct")
 
 
+def handle_all_paths(protocol, args):
+    verbose = args.verbose
+    U = UoD.from_protocol(protocol)
+    all_paths(U, verbose)
+
+
 # Actions that only take one argument, and therefore can be repeated for each input file
 unary_actions = {
     'enactability': handle_enactability,
@@ -74,6 +81,7 @@ unary_actions = {
     'syntax': check_syntax,
     'all': handle_all,
     'json': handle_json,
+    'all-paths': handle_all_paths,
 }
 
 # Actions with more complex argument schemes
