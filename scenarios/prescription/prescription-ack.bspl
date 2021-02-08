@@ -4,9 +4,12 @@ Prescription {
   private symptoms, rID, ackID
 
   Patient -> Doctor: Complain[out cID key, out symptoms]
-  Patient -> Doctor: Repeat[in cID key, in symptoms, out rID key]
+  Patient -> Doctor: RepeatComplaint[in cID key, in symptoms, out rID key]
   Doctor -> Patient: Confirm[in cID key, out ackID key]
 
   Doctor -> Pharmacist: Prescribe[in cID key, in symptoms, out Rx]
+  Doctor -> Pharmacist: RepeatPrescription[in cID key, in symptoms, in Rx, out rpID key]
+
   Pharmacist -> Patient: Filled[in cID key, in Rx, out package]
+  Pharmacist -> Patient: RepeatFilled[in cID key, in Rx, in package, out rfID key]
 }
