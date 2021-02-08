@@ -16,8 +16,7 @@ treatment = {
 }
 
 
-# @adapter.reaction(Complain)
-@adapter.reaction(Complain, Repeat)
+@adapter.reaction(Complain)
 async def request(message, enactment, adapter):
     print(message)
 
