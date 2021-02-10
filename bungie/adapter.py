@@ -19,18 +19,13 @@ from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
 from . import policies
 
-FORMAT = '%(asctime)-15s %(module)s: %(message)s'
+FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
-logger = logging.getLogger('bungie')
+logger = logging.getLogger("bungie")
 
 
 class Adapter:
-    def __init__(self,
-                 role,
-                 protocol,
-                 configuration,
-                 emitter=Emitter(),
-                 receiver=None):
+    def __init__(self, role, protocol, configuration, emitter=Emitter(), receiver=None):
         """
         Initialize the agent adapter.
 
@@ -54,18 +49,19 @@ class Adapter:
 
     def inject(self, protocol):
         """Install helper methods into schema objects"""
+
         def match(schema, **params):
             """Construnct instances of schema that match params"""
             # identify keys
             # search history for objects that match keys
             print(f"you asked {schema} to match {params}")
+
         for m in protocol.messages.values():
             m.match = MethodType(match, m)
 
     async def receive(self, payload):
         if not isinstance(payload, dict):
-            logger.warn(
-                "Payload does not parse to a dictionary: {}".format(payload))
+            logger.warn("Payload does not parse to a dictionary: {}".format(payload))
             return
 
         schema = self.protocol.find_schema(payload, to=self.role)
@@ -73,17 +69,17 @@ class Adapter:
             logger.warn("No schema matching payload: {}".format(payload))
             return
         message = Message(schema, payload)
-        message.meta['received'] = datetime.datetime.now()
-        increment('receptions')
+        message.meta["received"] = datetime.datetime.now()
+        increment("receptions")
         if self.history.duplicate(message):
             logger.debug("Duplicate message: {}".format(message))
-            increment('dups')
+            increment("dups")
             # Don't react to duplicate messages
             # message.duplicate = True
             # await self.react(message)
         elif self.history.check_integrity(message):
             logger.debug("Observing message: {}".format(message))
-            increment('observations')
+            increment("observations")
             self.history.observe(message)
             await self.react(message)
 
@@ -91,8 +87,7 @@ class Adapter:
         if isinstance(payload, Message):
             m = payload
         else:
-            schema = schema or self.protocol.find_schema(
-                payload, name=name, to=to)
+            schema = schema or self.protocol.find_schema(payload, name=name, to=to)
             m = Message(schema, payload)
 
         loop = asyncio.get_running_loop()
@@ -141,10 +136,10 @@ class Adapter:
             return False
 
     async def bulk_send(self, messages):
-        if hasattr(self.emitter, 'bulk_send'):
+        if hasattr(self.emitter, "bulk_send"):
             ms = await asyncio.gather(*[self.prepare_send(m) for m in messages])
             to_send = [m for m in ms if m]
-            logger.debug(f'bulk sending {len(to_send)} messages')
+            logger.debug(f"bulk sending {len(to_send)} messages")
             await self.emitter.bulk_send(to_send)
         else:
             for m in messages:
@@ -157,12 +152,10 @@ class Adapter:
             rs = self.reactors[schema]
             if handler not in rs:
                 rs.insert(index if index is not None else len(rs), handler)
-                self.signatures[schema][handler] = inspect.signature(
-                    handler).parameters
+                self.signatures[schema][handler] = inspect.signature(handler).parameters
         else:
             self.reactors[schema] = [handler]
-            self.signatures[schema] = {
-                handler: inspect.signature(handler).parameters}
+            self.signatures[schema] = {handler: inspect.signature(handler).parameters}
 
     def register_reactors(self, handler, schemas=[]):
         for s in schemas:
@@ -193,21 +186,21 @@ class Adapter:
     async def task(self):
         loop = asyncio.get_running_loop()
 
-        if hasattr(self.receiver, 'task'):
+        if hasattr(self.receiver, "task"):
             await self.receiver.task(self)
-        if hasattr(self.emitter, 'task'):
+        if hasattr(self.emitter, "task"):
             await self.emitter.task()
         for s in self.schedulers:
             loop.create_task(s.task(self))
 
-    def add_policies(self, *ps, when='reactive'):
+    def add_policies(self, *ps, when="reactive"):
         for policy in ps:
             # action = policy.get('action')
             # if type(action) is str:
             #     action = policies.parse(self.protocol, action)
             for schema, reactor in policy.reactors.items():
                 self.register_reactor(schema, reactor, policy.priority)
-            if when != 'reactive':
+            if when != "reactive":
                 s = Scheduler(when)
                 self.schedulers.append(s)
                 s.add(policy)

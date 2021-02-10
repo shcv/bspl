@@ -4,11 +4,11 @@ import socket
 import json
 from asyncio.queues import Queue
 
-logger = logging.getLogger('bungie')
+logger = logging.getLogger("bungie")
 
 
 def encode(msg):
-    s = json.dumps(msg.payload, separators=(',', ':'))
+    s = json.dumps(msg.payload, separators=(",", ":"))
     b = s.encode()
     return b
 
@@ -16,19 +16,20 @@ def encode(msg):
 class Emitter:
     """An Emitter just needs one method: send(message)."""
 
-    def __init__(self, encoder=encode, mtu=1500-48):
+    def __init__(self, encoder=encode, mtu=1500 - 48):
         """Each component is a function that """
         self.encode = encoder
         self.mtu = mtu
 
-        self.socket = socket.socket(socket.AF_INET,  # Internet
-                                    socket.SOCK_DGRAM)  # UDP
-        self.stats = {'bytes': 0, 'packets': 0}
+        self.socket = socket.socket(
+            socket.AF_INET, socket.SOCK_DGRAM  # Internet
+        )  # UDP
+        self.stats = {"bytes": 0, "packets": 0}
 
     async def send(self, message):
         """Send bun via UDP"""
         packet = self.encode(message)
-        self.transmit(b'['+packet+b']', message.dest)
+        self.transmit(b"[" + packet + b"]", message.dest)
 
     async def bulk_send(self, messages):
         packets = {}
@@ -38,42 +39,43 @@ class Emitter:
                 if len(packets[m.dest]) + len(data) + 3 > self.mtu:
                     if len(packets[m.dest]) + 2 > self.mtu:
                         raise Exception(
-                            f'Message is too long to fit in a single packet: {packets[m.dest]}')
+                            f"Message is too long to fit in a single packet: {packets[m.dest]}"
+                        )
                     else:
                         # send what we have so far and reset
-                        packet = b'[' + packets[m.dest] + b']'
+                        packet = b"[" + packets[m.dest] + b"]"
                         self.transmit(packet, m.dest)
                         packets[m.dest] = data
                 else:
                     # add one more message
-                    packets[m.dest] += b',' + data
+                    packets[m.dest] += b"," + data
             else:
                 packets[m.dest] = data
         # all messages have been encoded and sorted; send any remaining
         for dest in packets:
-            self.transmit(b'['+packets[dest]+b']', dest)
+            self.transmit(b"[" + packets[dest] + b"]", dest)
 
     def transmit(self, packet, dest):
-        logger.debug('Sending packet {} to {}'.format(packet, dest))
-        self.stats['bytes'] += len(packet)
-        self.stats['packets'] += 1
+        logger.debug("Sending packet {} to {}".format(packet, dest))
+        self.stats["bytes"] += len(packet)
+        self.stats["packets"] += 1
         self.socket.sendto(packet, dest)
 
 
 class Bundle:
     def __init__(self, max_size):
         self.max_size = max_size
-        self.contents = b''
+        self.contents = b""
 
     def add(self, message):
         """
         Add a message to contents, using ',' as the separator.
         """
         if type(message) is str:
-            message = bytes(message, 'utf-8')
+            message = bytes(message, "utf-8")
 
         if len(self.contents) > 0:
-            self.contents += b',' + message
+            self.contents += b"," + message
         else:
             self.contents = message
 
@@ -91,9 +93,12 @@ class Bundle:
                     break
                 else:
                     raise Exception(
-                        'Message is too long to fit in a single packet: {}'.format(deque[0]))
+                        "Message is too long to fit in a single packet: {}".format(
+                            deque[0]
+                        )
+                    )
 
-        return b'[' + self.contents + b']'
+        return b"[" + self.contents + b"]"
 
 
 def bundle(mtu, queue):
@@ -104,16 +109,17 @@ def bundle(mtu, queue):
 class BundlingEmitter:
     """An Emitter just needs the send(message) method."""
 
-    def __init__(self, encoder=encode, bundler=bundle, mtu=1500-48):
+    def __init__(self, encoder=encode, bundler=bundle, mtu=1500 - 48):
         """Each component is a function that """
         self.encode = encoder
         self.bundle = bundler
         self.mtu = mtu
 
         self.channels = {}
-        self.socket = socket.socket(socket.AF_INET,  # Internet
-                                    socket.SOCK_DGRAM)  # UDP
-        self.stats = {'bytes': 0, 'packets': 0}
+        self.socket = socket.socket(
+            socket.AF_INET, socket.SOCK_DGRAM  # Internet
+        )  # UDP
+        self.stats = {"bytes": 0, "packets": 0}
 
     async def sort(self):
         while True:
@@ -147,9 +153,9 @@ class BundlingEmitter:
 
     def transmit(self, packet, dest):
         """Send binary-encoded bun via UDP"""
-        logger.debug('Sending packet {} to {}'.format(packet, dest))
-        self.stats['bytes'] += len(packet)
-        self.stats['packets'] += 1
+        logger.debug("Sending packet {} to {}".format(packet, dest))
+        self.stats["bytes"] += len(packet)
+        self.stats["packets"] += 1
         self.socket.sendto(packet, dest)
 
 
@@ -160,7 +166,7 @@ class TCPEmitter:
         """Each component is a function that """
         self.encode = encoder
         self.channels = {}
-        self.stats = {'bytes': 0, 'packets': 0}
+        self.stats = {"bytes": 0, "packets": 0}
 
     async def process(self):
         while True:
@@ -172,11 +178,11 @@ class TCPEmitter:
                 # need to think about when to close the connections...
                 _, writer = await asyncio.open_connection(*message.dest)
                 self.channels[message.dest] = writer
-                writer.write(b'[')
-                self.stats['bytes'] += 1
+                writer.write(b"[")
+                self.stats["bytes"] += 1
 
-            writer.write(m + b',')
-            self.stats['bytes'] += len(m) + 1
+            writer.write(m + b",")
+            self.stats["bytes"] += len(m) + 1
             # await writer.drain()
 
     async def task(self):

@@ -3,7 +3,7 @@ from protocheck import protocol
 from protocheck.bspl import load_file
 import logging
 
-logger = logging.getLogger('bungie')
+logger = logging.getLogger("bungie")
 
 
 def instantiate(schema, *args, **kwargs):

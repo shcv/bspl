@@ -2,12 +2,14 @@ import random
 import asyncio
 import logging
 from bungie import Adapter
+
 # from configuration import config, prescription, Patient, Complain, Filled
 from bungie.policies import Resend
 from configuration_resend import config, prescription, Patient, Complain, Map, Filled
+
 # from configuration_ack import config, prescription, Patient, Complain, Map, Filled
 
-logging.getLogger('bungie').setLevel(logging.DEBUG)
+logging.getLogger("bungie").setLevel(logging.DEBUG)
 
 # adapter
 adapter = Adapter(Patient, prescription, config)
@@ -23,7 +25,7 @@ async def request_generator():
         "Hemorrhage",
         "Death",
     ]
-    while(cID <= 0):
+    while cID <= 0:
         # construct mesage
         msg = Complain(cID=cID, symptoms=random.sample(symptoms, 1)[0])
 
@@ -49,8 +51,8 @@ if __name__ == "__main__":
 
     # resend policy
     adapter.add_policies(
-        Resend(Complain).With(Map).after(1).until.received(Filled),
-        when='every 1s')
+        Resend(Complain).With(Map).after(1).until.received(Filled), when="every 1s"
+    )
 
     # acknowledgment policy
     # adapter.add_policies(

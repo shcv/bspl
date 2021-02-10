@@ -5,7 +5,7 @@ import logging
 import datetime
 import uuid
 
-logger = logging.getLogger('bungie')
+logger = logging.getLogger("bungie")
 
 
 def autoincrement(parameter):
@@ -14,6 +14,7 @@ def autoincrement(parameter):
         for m in enactment.messages:
             current = max(current, m.payload.get(parameter))
         return current + 1
+
     return _autoinc
 
 
@@ -21,16 +22,11 @@ def guid():
     return str(uuid.uuid4())
 
 
-generators = {
-    'autoincrement': autoincrement,
-    'guid': guid
-}
+generators = {"autoincrement": autoincrement, "guid": guid}
 
 
 def map_message(map, kind, m):
-    return map[kind][m.schema][0](
-        **m.payload,
-        **{map[kind][m.schema][1]: guid()})
+    return map[kind][m.schema][0](**m.payload, **{map[kind][m.schema][1]: guid()})
 
 
 def map_messages(map, kind, messages):
@@ -38,10 +34,10 @@ def map_messages(map, kind, messages):
         yield map_message(map, kind, m)
 
 
-logger = logging.getLogger('bungie')
+logger = logging.getLogger("bungie")
 
 grammar_path = os.path.join(os.path.dirname(__file__), "policy.gr")
-with open(grammar_path, 'r', encoding='utf8') as grammar:
+with open(grammar_path, "r", encoding="utf8") as grammar:
     model = tatsu.compile(grammar.read())
 
 
@@ -50,30 +46,30 @@ def lookup(protocol, names):
 
 
 def from_ast(protocol, ast):
-    if ast['action'] == 'resend':
+    if ast["action"] == "resend":
         cls = Resend
-    elif ast['action'] == 'forward':
+    elif ast["action"] == "forward":
         cls = Forward
-    elif ast['action'] == 'send':
+    elif ast["action"] == "send":
         cls = Send
 
-    policy = cls(*lookup(protocol, ast['messages']))
+    policy = cls(*lookup(protocol, ast["messages"]))
 
-    if ast['delay']:
-        policy.after(float(ast['delay']))
+    if ast["delay"]:
+        policy.after(float(ast["delay"]))
 
-    if ast['prep'] == 'until':
+    if ast["prep"] == "until":
         policy.until
-    elif ast['prep'] == 'upon':
+    elif ast["prep"] == "upon":
         policy.upon
     else:
-        raise Exception("Unknown preposition: {}".format(ast['prep']))
+        raise Exception("Unknown preposition: {}".format(ast["prep"]))
 
     def add_event(event):
         if type(event) is tuple:
-            if event[0] == 'or':
+            if event[0] == "or":
                 policy.Or
-            elif event[0] == 'and':
+            elif event[0] == "and":
                 policy.And
             else:
                 raise Exception("Unknown conjunction: {}".format(event[0]))
@@ -82,14 +78,14 @@ def from_ast(protocol, ast):
                 add_event(e)
             return
 
-        kind = event['type']
-        messages = lookup(protocol, event['messages'])
-        if kind == 'received':
+        kind = event["type"]
+        messages = lookup(protocol, event["messages"])
+        if kind == "received":
             policy.received(*messages)
-        elif kind == 'acknowledged':
+        elif kind == "acknowledged":
             policy.acknowledged
 
-    add_event(ast['events'])
+    add_event(ast["events"])
 
     return policy
 
@@ -115,14 +111,16 @@ class Acknowledge:
     @property
     def reactors(self):
         async def ack(message):
-            if hasattr(self, 'map'):
-                m = map_message(self.map, 'acknowledgments', message)
-            elif hasattr(self, 'ack'):
+            if hasattr(self, "map"):
+                m = map_message(self.map, "acknowledgments", message)
+            elif hasattr(self, "ack"):
                 m = self.ack[0](**message.payload, **{self.ack[1]: guid()})
             else:
                 logging.error(
-                    f'Need to configure acknowledgment mapping for message: {message}')
+                    f"Need to configure acknowledgment mapping for message: {message}"
+                )
             await adapter.process_send(m)
+
         return {s: ack for s in self.schemas}
 
 
@@ -197,15 +195,18 @@ class Resend:
 
         if self.reactive:
             for s in expectations:
+
                 async def reactor(msg):
                     enactment = msg.adapter.history.enactment(msg)
                     for r in self.schemas:
                         # resend message schema r in the same enactment as msg
                         await self.action(adapter, r, enactment)
+
                 self.reactors[s] = reactor
         else:
+
             async def activate(message):
-                message.meta['sent'] = datetime.datetime.now()
+                message.meta["sent"] = datetime.datetime.now()
                 self.active.add(message)
 
             for s in self.schemas:
@@ -225,7 +226,7 @@ class Resend:
                 if not self.delay:
                     messages = []
                     for m in self.active:
-                        messages.append(map_message(self.map, 'forward', m))
+                        messages.append(map_message(self.map, "forward", m))
                         if len(messages) >= 500:
                             break
                     return messages
@@ -234,15 +235,15 @@ class Resend:
                     messages = []
                     i = 0
                     for m in self.active:
-                        if (now - m.meta['sent']).total_seconds() >= self.delay:
+                        if (now - m.meta["sent"]).total_seconds() >= self.delay:
                             i += 1
-                            messages.append(map_message(
-                                self.map, 'forwards', m))
+                            messages.append(map_message(self.map, "forwards", m))
                         if i >= 500:
                             break
 
                     logger.info(
-                        f'resending: {len(messages)}, delta: {len(self.active) - len(messages)}')
+                        f"resending: {len(messages)}, delta: {len(self.active) - len(messages)}"
+                    )
                     return messages
 
             self.proactors.append(process)
@@ -269,8 +270,9 @@ class Resend:
         if self.reactive:
             pass
         else:
+
             async def activate(message):
-                message.meta['sent'] = datetime.datetime.now()
+                message.meta["sent"] = datetime.datetime.now()
                 self.active.add(message)
 
             for m in self.schemas:
@@ -279,31 +281,30 @@ class Resend:
             def gen_deactivate(schema):
                 async def deactivate(message):
                     key = message.project_key(schema)
-                    logger.debug(f'received ack; key: {key}')
-                    m = message.adapter.history.messages.get(
-                        schema, {}).get(key)
-                    logger.debug(f'matching message: {m}')
+                    logger.debug(f"received ack; key: {key}")
+                    m = message.adapter.history.messages.get(schema, {}).get(key)
+                    logger.debug(f"matching message: {m}")
                     if m and m in self.active:
                         logger.debug(f"deactivating: {m}")
                         self.active.remove(m)
+
                 return deactivate
 
             for s in self.schemas:
-                self.reactors[self.map['acknowledgments'][s][0]]\
-                    = gen_deactivate(s)
+                self.reactors[self.map["acknowledgments"][s][0]] = gen_deactivate(s)
 
             def process_acknowledged(history):
                 if not self.delay:
                     messages = self.active
-                    return map_messages(self.map, 'forwards', messages)
+                    return map_messages(self.map, "forwards", messages)
                 else:
                     now = datetime.datetime.now()
                     messages = []
                     i = 0
                     for m in self.active:
-                        if (now - m.meta['sent']).total_seconds() >= self.delay:
+                        if (now - m.meta["sent"]).total_seconds() >= self.delay:
                             messages.append(m)
-                    return map_messages(self.map, 'forwards', messages)
+                    return map_messages(self.map, "forwards", messages)
 
             self.proactors.append(process_acknowledged)
         return self
