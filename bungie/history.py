@@ -30,11 +30,19 @@ class Message:
     def __hash__(self):
         return hash(self.schema.qualified_name+self.key)
 
-    def __getitem__(self, key):
-        return self.payload[key]
+    def __getitem__(self, name):
+        return self.payload[name]
+
+    def __setitem__(self, name, value):
+        self.payload[name] = value
+        return value
 
     def __getattr__(self, key):
-        return self.payload[key]
+        return self.payload[name]
+
+    def __setattr__(self, name, value):
+        self.payload[name] = value
+        return value
 
     def keys_match(self, other):
         return all(self.payload[k] == other.payload[k]
