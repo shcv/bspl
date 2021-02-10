@@ -14,7 +14,7 @@ logger = logging.getLogger('bungie')
 
 
 @adapter.reaction(Labeled)
-async def labeled(message, enactment, adapter):
+async def labeled(message):
     if message.duplicate:
         return
 
@@ -36,7 +36,7 @@ async def labeled(message, enactment, adapter):
 
 
 @adapter.reaction(Wrapped)
-async def wrapped(message, enactment, adapter):
+async def wrapped(message):
     if message.duplicate:
         logger.debug(f'duplicate: {message}')
         return
