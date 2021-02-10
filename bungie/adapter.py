@@ -159,7 +159,7 @@ class Adapter:
 
         Example:
         @adapter.reaction(MessageSchema)
-        def handle_message(message, enactment):
+        def handle_message(message):
             'do stuff'
         """
         return partial(self.register_reactors, schemas=schemas)
@@ -170,10 +170,10 @@ class Adapter:
         """
         reactors = self.reactors.get(message.schema)
         if reactors:
-            enactment = self.history.enactment(message)
             for r in reactors:
                 logger.debug("Invoking reactor: {}".format(r))
-                await r(message, enactment, self)
+                message.adapter = self
+                await r(message)
 
     async def task(self):
         loop = asyncio.get_running_loop()

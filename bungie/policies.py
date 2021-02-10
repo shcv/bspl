@@ -116,7 +116,7 @@ class Acknowledge:
 
     @property
     def reactors(self):
-        async def ack(message, enactment, adapter):
+        async def ack(message):
             if hasattr(self, 'map'):
                 m = map_message(self.map, 'acknowledgments', message)
             elif hasattr(self, 'ack'):
@@ -200,23 +200,24 @@ class Resend:
 
         if self.reactive:
             for s in expectations:
-                async def reactor(msg, enactment, adapter):
+                async def reactor(msg):
+                    enactment = msg.adapter.history.enactment(msg)
                     for r in self.schemas:
                         # resend message schema r in the same enactment as msg
                         await self.action(adapter, r, enactment)
                 self.reactors[s] = reactor
         else:
-            async def activate(message, enactment, adapter):
+            async def activate(message):
                 message.meta['sent'] = datetime.datetime.now()
                 self.active.add(message)
 
             for s in self.schemas:
                 self.reactors[s] = activate
 
-            async def deactivate(message, enactment, adapter):
+            async def deactivate(message):
                 for s in self.schemas:
                     key = message.project_key(s)
-                    m = adapter.history.messages.get(s, {}).get(key)
+                    m = message.adapter.history.messages.get(s, {}).get(key)
                     if m and m in self.active:
                         self.active.remove(m)
 
@@ -271,7 +272,7 @@ class Resend:
         if self.reactive:
             pass
         else:
-            async def activate(message, enactment, adapter):
+            async def activate(message):
                 message.meta['sent'] = datetime.datetime.now()
                 self.active.add(message)
 
@@ -279,10 +280,11 @@ class Resend:
                 self.reactors[m] = activate
 
             def gen_deactivate(schema):
-                async def deactivate(message, enactment, adapter):
+                async def deactivate(message):
                     key = message.project_key(schema)
                     logger.debug(f'received ack; key: {key}')
-                    m = adapter.history.messages.get(schema, {}).get(key)
+                    m = message.adapter.history.messages.get(
+                        schema, {}).get(key)
                     logger.debug(f'matching message: {m}')
                     if m and m in self.active:
                         logger.debug(f"deactivating: {m}")
@@ -319,11 +321,12 @@ class Resend:
         React to duplicate instances of any message in *messages
         """
         for s in schemas:
-            async def reactor(msg, enactment, adapter):
+            async def reactor(msg):
                 if msg.duplicate:
+                    enactment = msg.adapter.history.enactment(msg)
                     for r in self.schemas:
                         # resend message schema r in the same enactment as msg
-                        await self.action(adapter, r, enactment)
+                        await self.action(msg.adapter, r, enactment)
             self.reactors[s] = reactor
         return self
 
@@ -343,7 +346,7 @@ class Forward(Resend):
         return self
 
     def action(self, adapter, schema, enactment):
-        adapter.forward(schema, self.to or schema.recipient, enactment)
+        pass
 
 
 Send = Forward  # alias

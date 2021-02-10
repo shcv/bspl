@@ -10,7 +10,7 @@ Wrapped = logistics.messages['Wrapped']
 
 
 @adapter.reaction(RequestWrapping)
-async def request_wrapping(message, enactment, adapter):
+async def request_wrapping(message):
     if message.duplicate:
         return
     item = message.payload['item']

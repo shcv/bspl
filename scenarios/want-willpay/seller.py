@@ -30,7 +30,7 @@ stats.update({'finished': 0})
 
 
 @adapter.reaction(WillPay)
-async def will_pay(msg, enactment, adapter):
+async def will_pay(msg):
     if not msg.duplicate:
         stats['finished'] += 1
         if 'first' not in stats:
