@@ -1,4 +1,4 @@
-Prescription {
+PrescriptionForward {
   roles Patient, Doctor, Pharmacist
   parameters out cID key, out Rx, out package
   private symptoms, rID, copyID, fID

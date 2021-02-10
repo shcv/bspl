@@ -1,7 +1,7 @@
 from bungie import Adapter
 from bungie.statistics import stats, stats_logger
 from bungie.emitter import TCPEmitter
-from configuration import config, protocol, Buyer, Want, WillPay, WillPayAck
+from configuration import config, protocol, Buyer, Want, WillPay, RemindWillPay, WillPayAck
 import random
 import logging
 import asyncio
@@ -41,7 +41,7 @@ stats.update({'initiated': 0})
 
 
 @adapter.reaction(Want)
-async def want(msg, enactment, adapter):
+async def want(msg):
     stats['initiated'] += 1
     if 'first' not in stats:
         stats['first'] = datetime.datetime.now()

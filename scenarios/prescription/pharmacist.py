@@ -6,7 +6,7 @@ adapter = Adapter(Pharmacist, prescription, config)
 
 
 @adapter.reaction(Prescribe)
-async def handle_prescription(message, enactment, adapter):
+async def handle_prescription(message):
     print(message)
 
     msg = Filled(cID=message.cID,

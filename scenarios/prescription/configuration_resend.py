@@ -1,35 +1,26 @@
 from protocheck import bspl
+prescription_resend = bspl.load_file("prescription-resend.bspl") \
+                          .export('PrescriptionResend')
 
-prescription = bspl.load_file(
-    "prescription-resend.bspl").protocols['Prescription']
+with open('/proc/self/cgroup', 'r') as cgroups:
+    from PrescriptionResend import Complain, Repeat, Prescribe, Filled
+    in_docker = 'docker' in cgroups.read()
 
-Patient = prescription.roles['Patient']
-Doctor = prescription.roles['Doctor']
-Pharmacist = prescription.roles['Pharmacist']
-
-Complain = prescription.messages['Complain']
-Repeat = prescription.messages['Repeat']
-Prescribe = prescription.messages['Prescribe']
-Filled = prescription.messages['Filled']
+if in_docker:
+    config = {
+        Patient: ('patient', 8000),
+        Doctor: ('doctor', 8000),
+        Pharmacist: ('pharmacist', 8000),
+    }
+else:
+    config = {
+        Patient: ('0.0.0.0', 8000),
+        Doctor: ('0.0.0.0', 8001),
+        Pharmacist: ('0.0.0.0', 8002),
+    }
 
 Map = {
     "forwards": {
         Complain: (Repeat, 'rID')
     }
 }
-
-with open('/proc/self/cgroup', 'r') as cgroups:
-    in_docker = 'docker' in cgroups.read()
-
-if in_docker:
-    config = {
-        prescription.roles['Patient']: ('patient', 8000),
-        prescription.roles['Doctor']: ('doctor', 8000),
-        prescription.roles['Pharmacist']: ('pharmacist', 8000),
-    }
-else:
-    config = {
-        prescription.roles['Patient']: ('0.0.0.0', 8000),
-        prescription.roles['Doctor']: ('0.0.0.0', 8001),
-        prescription.roles['Pharmacist']: ('0.0.0.0', 8002),
-    }
