@@ -8,7 +8,8 @@ Seller = protocol.roles['Seller']
 
 Want = protocol.messages['Want']
 WillPay = protocol.messages['WillPay']
-WillPayAck = protocol.messages['@WillPay']
+RemindWillPay = protocol.messages['RemindWillPay']
+WillPayAck = protocol.messages['WillPayAck']
 
 with open('/proc/self/cgroup', 'r') as cgroups:
     in_docker = 'docker' in cgroups.read()

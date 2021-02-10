@@ -35,12 +35,12 @@ async def request_generator():
 
 
 @adapter.reaction(Complain)
-async def complained(message, enactment, adapter):
+async def complained(message):
     print(message)
 
 
 @adapter.reaction(Filled)
-async def filled(message, enactment, adapter):
+async def filled(message):
     print(message)
 
 

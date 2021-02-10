@@ -17,7 +17,7 @@ treatment = {
 
 
 @adapter.reaction(Complain)
-async def request(message, enactment, adapter):
+async def request(message):
     print(message)
 
     msg = Prescribe(cID=message.cID,
