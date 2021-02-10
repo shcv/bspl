@@ -9,6 +9,7 @@ import math
 import socket
 import inspect
 import yaml
+from types import MethodType
 from asyncio.queues import Queue
 from .history import History, Message
 from functools import partial
@@ -48,6 +49,18 @@ class Adapter:
         self.emitter = emitter
         self.receiver = receiver or Receiver(self.configuration[self.role])
         self.schedulers = []
+
+        self.inject(protocol)
+
+    def inject(self, protocol):
+        """Install helper methods into schema objects"""
+        def match(schema, **params):
+            """Construnct instances of schema that match params"""
+            # identify keys
+            # search history for objects that match keys
+            print(f"you asked {schema} to match {params}")
+        for m in protocol.messages.values():
+            m.match = MethodType(match, m)
 
     async def receive(self, payload):
         if not isinstance(payload, dict):
