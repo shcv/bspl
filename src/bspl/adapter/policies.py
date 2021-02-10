@@ -88,8 +88,6 @@ def from_ast(protocol, ast):
             policy.received(*messages)
         elif kind == 'acknowledged':
             policy.acknowledged
-        elif kind == 'duplicate':
-            policy.duplicate(*messages)
 
     add_event(ast['events'])
 
@@ -138,7 +136,6 @@ class Resend:
     Other example policies:
 
       Resend(Accept).until.acknowledged(Accept)
-      Resend(Shipment).upon.duplicate(Accept)
     """
 
     def __init__(self, *schemas):
@@ -316,25 +313,11 @@ class Resend:
         self.reactive = True
         return self
 
-    def duplicate(self, *schemas):
-        """
-        React to duplicate instances of any message in *messages
-        """
-        for s in schemas:
-            async def reactor(msg):
-                if msg.duplicate:
-                    enactment = msg.adapter.history.enactment(msg)
-                    for r in self.schemas:
-                        # resend message schema r in the same enactment as msg
-                        await self.action(msg.adapter, r, enactment)
-            self.reactors[s] = reactor
-        return self
-
 
 class Forward(Resend):
     """
     Forwarding policy; sends a message to a specified recipient.
-    E.g.: Forward(Deliver).to(Seller).upon.duplicate(Shipment)
+    E.g.: Forward(Deliver).to(Seller).upon.received(Deliver)
     """
 
     def __init__(self, *schemas):

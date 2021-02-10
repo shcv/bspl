@@ -12,9 +12,6 @@ Labeled = logistics.messages['Labeled']
 
 @adapter.reaction(RequestLabel)
 async def request_label(message):
-    if message.duplicate:
-        return
-
     payload = {
         'orderID': message.payload['orderID'],
         'address': message.payload['address'],

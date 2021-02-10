@@ -8,10 +8,9 @@ def get_key(schema, payload):
 
 
 class Message:
-    def __init__(self, schema, payload, duplicate=False, acknowledged=False, dest=None, adapter=None):
+    def __init__(self, schema, payload, acknowledged=False, dest=None, adapter=None):
         self.schema = schema
         self.payload = payload
-        self.duplicate = duplicate
         self.acknowledged = acknowledged
         self.dest = dest
         self.adapter = adapter
