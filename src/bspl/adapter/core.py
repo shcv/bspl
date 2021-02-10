@@ -78,8 +78,9 @@ class Adapter:
         if self.history.duplicate(message):
             logger.debug("Duplicate message: {}".format(message))
             increment('dups')
-            message.duplicate = True
-            await self.react(message)
+            # Don't react to duplicate messages
+            # message.duplicate = True
+            # await self.react(message)
         elif self.history.check_integrity(message):
             logger.debug("Observing message: {}".format(message))
             increment('observations')
@@ -124,13 +125,14 @@ class Adapter:
         if not message.dest:
             message.dest = self.configuration[message.schema.recipient]
         if self.history.duplicate(message):
-            logger.debug(f"Resending message: {message}")
-            stats['retries'] = stats.get('retries', 0)+1
-            message.meta['retries'] = message.meta.get('retries', 0) + 1
-            stats['max retries'] = max(
-                stats.get('max retries', 0), message.meta['retries'])
-            message.meta['last-retry'] = datetime.datetime.now()
-            return message
+            logger.debug(f"Skipping duplicate message: {message}")
+            # stats['retries'] = stats.get('retries', 0)+1
+            # message.meta['retries'] = message.meta.get('retries', 0) + 1
+            # stats['max retries'] = max(
+            #    stats.get('max retries', 0), message.meta['retries'])
+            # message.meta['last-retry'] = datetime.datetime.now()
+            # return message
+            return False
         elif self.history.validate_send(message):
             self.history.observe(message)
             await self.react(message)
