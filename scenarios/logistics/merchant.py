@@ -41,15 +41,11 @@ async def order_generator():
 
 @adapter.reaction(RequestWrapping)
 async def requested(message):
-    if message.duplicate:
-        return
     stats['init_keys'].add(message.key)
 
 
 @adapter.reaction(Packed)
 async def packed(message):
-    if message.duplicate:
-        return
     stats['finished_keys'].add(message.key)
 
 

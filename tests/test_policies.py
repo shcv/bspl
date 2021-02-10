@@ -98,29 +98,6 @@ def test_resend_until_conjunction():
     assert(m not in selected)
 
 
-def test_resend_upon_dup():
-    r = Resend(Deliver).upon.duplicate(Buy)
-    assert(r)
-    assert(r.reactors)
-    assert(not r.proactors)
-    assert(Buy in r.reactors)
-
-    # should not react to initial message
-    h = History()
-    m = Message(Buy, {'item': 'shoe'})
-    h.observe(m)
-    assert(not asyncio.run(r.reactors[Buy](m, None, None)))
-
-    # should react to duplicate
-    deliver = Message(Deliver, {'item': 'shoe', 'done': 'yep'})
-    h.observe(deliver)
-    assert(h.duplicate(m))
-    m.duplicate = True
-    with pytest.raises(AttributeError):
-        # raises an attribute error if it tries to resend the message using None as the adapter
-        asyncio.run(r.reactors[Buy](m, None, None))
-
-
 def test_parser():
     p = model.parse(
         "resend RequestLabel, RequestWrapping until received Packed")

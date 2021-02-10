@@ -15,9 +15,6 @@ logger = logging.getLogger('bungie')
 
 @adapter.reaction(Labeled)
 async def labeled(message):
-    if message.duplicate:
-        return
-
     orderID = message.payload['orderID']
 
     unpacked = [m for m in adapter.history.by_param['orderID'][orderID].get(Wrapped, [])
@@ -37,9 +34,6 @@ async def labeled(message):
 
 @adapter.reaction(Wrapped)
 async def wrapped(message):
-    if message.duplicate:
-        logger.debug(f'duplicate: {message}')
-        return
     orderID = message.payload['orderID']
     label = adapter.history.bindings.get(f'orderID:{orderID}', {}).get('label')
 

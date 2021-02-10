@@ -31,13 +31,12 @@ stats.update({'finished': 0})
 
 @adapter.reaction(WillPay)
 async def will_pay(msg):
-    if not msg.duplicate:
-        stats['finished'] += 1
-        if 'first' not in stats:
-            stats['first'] = datetime.datetime.now()
-        stats['duration'] = (datetime.datetime.now() -
-                             stats['first']).total_seconds()
-        stats['rate'] = stats['finished'] / stats['duration']
+    stats['finished'] += 1
+    if 'first' not in stats:
+        stats['first'] = datetime.datetime.now()
+    stats['duration'] = (datetime.datetime.now() -
+                         stats['first']).total_seconds()
+    stats['rate'] = stats['finished'] / stats['duration']
 
 
 if __name__ == '__main__':
