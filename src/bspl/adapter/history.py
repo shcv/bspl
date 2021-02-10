@@ -1,10 +1,11 @@
 import logging
-logger = logging.getLogger('bungie')
+
+logger = logging.getLogger("bungie")
 
 
 def get_key(schema, payload):
     # schema.keys should be ordered, or sorted for consistency
-    return ','.join(k + ':' + str(payload[k]) for k in schema.keys)
+    return ",".join(k + ":" + str(payload[k]) for k in schema.keys)
 
 
 class Message:
@@ -19,15 +20,14 @@ class Message:
         self.key = get_key(self.schema, self.payload)
 
     def __repr__(self):
-        payload = ','.join('{0}={1!r}'.format(k, v)
-                           for k, v in self.payload.items())
+        payload = ",".join("{0}={1!r}".format(k, v) for k, v in self.payload.items())
         return f"{self.schema.name}({payload})"
 
     def __eq__(self, other):
         return self.payload == other.payload and self.schema == other.schema
 
     def __hash__(self):
-        return hash(self.schema.qualified_name+self.key)
+        return hash(self.schema.qualified_name + self.key)
 
     def __getitem__(self, name):
         return self.payload[name]
@@ -44,13 +44,15 @@ class Message:
         return value
 
     def keys_match(self, other):
-        return all(self.payload[k] == other.payload[k]
-                   for k in self.schema.keys
-                   if k in other.schema.parameters)
+        return all(
+            self.payload[k] == other.payload[k]
+            for k in self.schema.keys
+            if k in other.schema.parameters
+        )
 
     def ack(self):
         payload = {k: self.payload[k] for k in self.schema.keys}
-        payload['$ack'] = self.schema.name
+        payload["$ack"] = self.schema.name
         self.acknowledged = True
         schema = self.schema.acknowledgment()
         return Message(schema, payload)
@@ -61,7 +63,7 @@ class Message:
         for k in schema.keys:
             if k in self.schema.keys:
                 key.append(k)
-        return ','.join(k + ':' + str(self.payload[k]) for k in key)
+        return ",".join(k + ":" + str(self.payload[k]) for k in key)
 
 
 class Enactment:
@@ -120,9 +122,9 @@ class History:
         Returns true if the parameters are consistent with all messages in the matching enactment.
         """
         bindings = self.bindings.get(message.key, {})
-        result = all(message.payload[p] == bindings[p]
-                     for p in message.payload
-                     if p in bindings)
+        result = all(
+            message.payload[p] == bindings[p] for p in message.payload if p in bindings
+        )
         return result
 
     def check_outs(self, message):
@@ -131,14 +133,18 @@ class History:
         Only use this check if the message is being sent.
         Assumes message is not a duplicate.
         """
-        return not any(p in self.bindings.get(message.key, {}) for p in message.schema.outs)
+        return not any(
+            p in self.bindings.get(message.key, {}) for p in message.schema.outs
+        )
 
     def check_dependencies(self, message):
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
         """
-        return not any(message.payload[p] not in self.all_bindings.get(p, [])
-                       for p in message.schema.ins)
+        return not any(
+            message.payload[p] not in self.all_bindings.get(p, [])
+            for p in message.schema.ins
+        )
 
     def validate_send(self, message):
         # message assumed not to be duplicate; otherwise recheck unnecessary
@@ -159,7 +165,7 @@ class History:
 
     def observe(self, message):
         """Observe an instance of a given message specification.
-           Check integrity, and add the message to the history."""
+        Check integrity, and add the message to the history."""
 
         # index messages by key
         if message.schema in self.messages:
@@ -214,7 +220,9 @@ class History:
         elif match:
             raise Exception(
                 "Message found with matching key {} but different parameters: {}, {}".format(
-                    message.key, message, match))
+                    message.key, message, match
+                )
+            )
         else:
             return False
 
@@ -240,5 +248,6 @@ class History:
                 message.payload[p] = v
             else:
                 raise Exception(
-                    f"Cannot complete message {message} with enactment {enactment}")
+                    f"Cannot complete message {message} with enactment {enactment}"
+                )
         return message
