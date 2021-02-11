@@ -1,17 +1,16 @@
 from bungie import Adapter, Resend, Scheduler
 from bungie.performance import perf_logger
-from configuration import config, logistics
+from configuration import config
 import random
 import time
 import datetime
 import asyncio
 import logging
 
-RequestLabel = logistics.messages["RequestLabel"]
-RequestWrapping = logistics.messages["RequestWrapping"]
-Packed = logistics.messages["Packed"]
+import Logistics
+from Logistics import Merchant, RequestLabel, RequestWrapping, Packed
 
-adapter = Adapter(logistics.roles["Merchant"], logistics, config)
+adapter = Adapter(Merchant, Logistics.protocol, config)
 logger = logging.getLogger("merchant")
 # logging.getLogger('bungie').setLevel(logging.DEBUG)
 
