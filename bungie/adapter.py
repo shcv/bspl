@@ -50,14 +50,12 @@ class Adapter:
     def inject(self, protocol):
         """Install helper methods into schema objects"""
 
-        def match(schema, **params):
-            """Construnct instances of schema that match params"""
-            # identify keys
-            # search history for objects that match keys
-            print(f"you asked {schema} to match {params}")
+        from protocheck.protocol import Message
+
+        Message.__call__ = bungie.schema.instantiate(self)
 
         for m in protocol.messages.values():
-            m.match = MethodType(match, m)
+            m.match = MethodType(bungie.schema.match, m)
 
     async def receive(self, payload):
         if not isinstance(payload, dict):
