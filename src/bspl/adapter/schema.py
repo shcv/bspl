@@ -6,20 +6,27 @@ import logging
 logger = logging.getLogger("bungie")
 
 
-def instantiate(schema, *args, **kwargs):
-    payload = {}
-    for i, p in enumerate(schema.parameters.values()):
-        if i < len(args):
-            payload[p] = args[i]
+def instantiate(adapter):
+    def inner(schema, *args, **kwargs):
+        payload = {}
+        for i, p in enumerate(schema.parameters.values()):
+            if i < len(args):
+                payload[p] = args[i]
 
-    for k in kwargs:
-        if k in schema.parameters:
-            payload[k] = kwargs[k]
-        # else:
-        #     logger.error(f'Parameter not in schema: {k}')
-        #     return None
+        for k in kwargs:
+            if k in schema.parameters:
+                payload[k] = kwargs[k]
+            # else:
+            #     logger.error(f'Parameter not in schema: {k}')
+            #     return None
 
-    return Message(schema, payload)
+        return Message(schema, payload, adapter=adapter)
+
+    return inner
 
 
-protocol.Message.__call__ = instantiate
+def match(schema, **params):
+    """Construnct instances of schema that match params"""
+    # identify keys
+    # search history for objects that match keys
+    print(f"you asked {schema} to match {params}")
