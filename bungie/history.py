@@ -9,6 +9,14 @@ def get_key(schema, payload):
 
 
 class Message:
+    schema = None
+    payload = {}
+    acknowledged = False
+    dest = None
+    adapter = None
+    meta = {}
+    key = None
+
     def __init__(self, schema, payload, acknowledged=False, dest=None, adapter=None):
         self.schema = schema
         self.payload = payload
@@ -16,7 +24,7 @@ class Message:
         self.dest = dest
         self.adapter = adapter
         self.meta = {}
-
+        print(f"schema: {self.schema}")
         self.key = get_key(self.schema, self.payload)
 
     def __repr__(self):
@@ -40,7 +48,10 @@ class Message:
         return self.payload[name]
 
     def __setattr__(self, name, value):
-        self.payload[name] = value
+        if hasattr(self, name):
+            super().__setattr__(name, value)
+        else:
+            self.payload[name] = value
         return value
 
     def keys_match(self, other):
