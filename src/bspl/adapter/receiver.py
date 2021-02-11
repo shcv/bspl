@@ -38,6 +38,7 @@ class Receiver:
         self.address = address
         self.decode = decoder
         self.unbundle = unbundler
+        self.listening = False
 
     async def task(self, adapter):
         """Start loop for transmitting messages in outgoing queue"""
@@ -49,16 +50,23 @@ class Receiver:
             lambda: UDPReceiverProtocol(self.queue),
             local_addr=("0.0.0.0", self.address[1]),
         )
+        self.listening = True
+        self.transport = transport
         logger.info(f"Listening on {self.address}")
         loop.create_task(self.process())
 
     async def process(self):
-        while True:
+        while self.listening:
             data = await self.queue.get()
             bundle = self.decode(data)
             messages = self.unbundle(bundle)
             for m in messages:
                 await self.adapter.receive(m)
+        logger.info("Stopped listening")
+
+    async def stop(self):
+        self.listening = False
+        self.transport.close()
 
 
 class TCPReceiver:
@@ -72,6 +80,7 @@ class TCPReceiver:
         loop = asyncio.get_running_loop()
 
         server = await asyncio.start_server(self.process, "0.0.0.0", self.address[1])
+        self.server = server
 
         addr = server.sockets[0].getsockname()
         logger.info(f"Listening on {addr}")
@@ -83,7 +92,11 @@ class TCPReceiver:
                 await server.serve_forever()
 
         loop.create_task(serve())
+        self.stop(adapter.stop_event)
 
     async def process(self, reader, writer):
         async for obj in ijson.items(reader, "item"):
             await self.adapter.receive(obj)
+
+    async def stop(self):
+        await self.server.close()

@@ -18,6 +18,7 @@ from .receiver import Receiver
 from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
 from . import policies
+import bungie
 
 FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
@@ -58,11 +59,13 @@ class Adapter:
             m.match = MethodType(bungie.schema.match, m)
 
     async def receive(self, payload):
+        logger.debug(f"Received payload: {payload}")
         if not isinstance(payload, dict):
             logger.warn("Payload does not parse to a dictionary: {}".format(payload))
             return
 
         schema = self.protocol.find_schema(payload, to=self.role)
+        logger.debug(f"Found schema: {schema}")
         if not schema:
             logger.warn("No schema matching payload: {}".format(payload))
             return
@@ -184,11 +187,12 @@ class Adapter:
     async def task(self):
         loop = asyncio.get_running_loop()
 
-        if hasattr(self.receiver, "task"):
-            await self.receiver.task(self)
+        await self.receiver.task(self)
+
         if hasattr(self.emitter, "task"):
             await self.emitter.task()
         for s in self.schedulers:
+            # todo: add stop event support
             loop.create_task(s.task(self))
 
     def add_policies(self, *ps, when="reactive"):
@@ -227,3 +231,7 @@ class Adapter:
                 loop.create_task(t)
 
         aiorun.run(main(), stop_on_unhandled_errors=True, use_uvloop=True)
+
+    async def stop(self):
+        await self.receiver.stop()
+        await self.emitter.stop()

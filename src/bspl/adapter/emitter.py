@@ -61,6 +61,9 @@ class Emitter:
         self.stats["packets"] += 1
         self.socket.sendto(packet, dest)
 
+    async def stop(self):
+        self.socket.close()
+
 
 class Bundle:
     def __init__(self, max_size):
@@ -114,6 +117,7 @@ class BundlingEmitter:
         self.encode = encoder
         self.bundle = bundler
         self.mtu = mtu
+        self.running = False
 
         self.channels = {}
         self.socket = socket.socket(
@@ -122,7 +126,7 @@ class BundlingEmitter:
         self.stats = {"bytes": 0, "packets": 0}
 
     async def sort(self):
-        while True:
+        while self.running:
             message = await self.queue.get()
             m = self.encode(message)
             if message.dest in self.channels:
@@ -134,7 +138,7 @@ class BundlingEmitter:
                 await self.channels[message.dest].put(m)
 
     async def process(self, dest, queue):
-        while True:
+        while self.running:
             message = await queue.get()
             q = queue._queue
             q.appendleft(message)
@@ -145,6 +149,7 @@ class BundlingEmitter:
         """Start loop for transmitting messages in outgoing queue"""
         loop = asyncio.get_running_loop()
         self.queue = Queue()
+        self.running = True
         loop.create_task(self.sort())
 
     async def send(self, message):
@@ -158,6 +163,10 @@ class BundlingEmitter:
         self.stats["packets"] += 1
         self.socket.sendto(packet, dest)
 
+    async def stop(self):
+        self.running = False
+        self.socket.close()
+
 
 class TCPEmitter:
     """An Emitter just needs the send(message) method."""
@@ -167,15 +176,15 @@ class TCPEmitter:
         self.encode = encoder
         self.channels = {}
         self.stats = {"bytes": 0, "packets": 0}
+        self.running = False
 
     async def process(self):
-        while True:
+        while self.running:
             message = await self.queue.get()
             m = self.encode(message)
             if message.dest in self.channels:
                 writer = self.channels[message.dest]
             else:
-                # need to think about when to close the connections...
                 _, writer = await asyncio.open_connection(*message.dest)
                 self.channels[message.dest] = writer
                 writer.write(b"[")
@@ -190,8 +199,15 @@ class TCPEmitter:
         loop = asyncio.get_running_loop()
         self.queue = Queue()
 
+        self.running = True
         loop.create_task(self.process())
 
     async def send(self, message):
         # Do mangling and encoding first; then bundler can process the queue directly
         await self.queue.put(message)
+
+    async def stop(self):
+        self.running = False
+        for writer in self.channels.values():
+            writer.close()
+            await writer.wait_closed()
