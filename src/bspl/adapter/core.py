@@ -57,6 +57,7 @@ class Adapter:
 
         for m in protocol.messages.values():
             m.match = MethodType(bungie.schema.match, m)
+            m.adapter = self
 
     async def receive(self, payload):
         logger.debug(f"Received payload: {payload}")
