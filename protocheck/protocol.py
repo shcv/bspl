@@ -339,6 +339,20 @@ class Protocol(Base):
             ):
                 return schema
 
+    def determines(self, a, b):
+        """
+        a determines b if a is 'in' in all messages b is 'out'
+        Expects a and b as str names
+        """
+        sources = {m for m in self.messages.values() if b in m.outs}
+        for m in sources:
+            if a not in m.ins:
+                return False
+        return True
+
+    def ordered_params(self):
+        return sorted(self.parameters.values())
+
 
 class Message(Protocol):
     def __init__(self, name, sender=None, recipient=None, parameters=None, parent=None):
@@ -481,3 +495,6 @@ class Parameter(Base):
             return base + " key"
         else:
             return base
+
+    def __lt__(self, other):
+        return self.parent_protocol.determines(self.name, other.name)
