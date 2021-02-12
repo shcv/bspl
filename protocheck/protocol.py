@@ -54,10 +54,19 @@ class Specification:
 class Base:
     """Class containing elements common to protocols, messages, etc."""
 
-    def __init__(self, name, parent, type):
+    def __init__(self, name, parent, kind):
         self.raw_name = name.strip()
         self.parent = parent
-        self.type = type
+        self.type = kind
+        if type(parent) is Specification:
+            self.spec = parent
+            self.parent_protocol = None
+        elif type(parent) is Protocol:
+            self.spec = parent.spec
+            self.parent_protocol = parent
+        elif parent:
+            self.spec = parent.spec
+            self.parent_protocol = parent.parent_protocol
 
     @property
     def name(self):
