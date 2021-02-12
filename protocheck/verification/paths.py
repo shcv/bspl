@@ -4,15 +4,18 @@ import configargparse
 from ttictoc import Timer
 
 parser = configargparse.get_argument_parser()
-parser.add('-v', '--verbose', action="store_true",
-           help='Print additional details: spec, formulas, stats, etc.')
-parser.add('--debug', action="store_true", help='Debug mode')
-parser.add('--no-safe', action="store_true",
-           help='Disable safe event heuristic')
-parser.add('--by-degree', action="store_true",
-           help='Select events by degree, default by name')
-parser.add('--no-reduction', action="store_true",
-           help='Disable all path reductions')
+parser.add(
+    "-v",
+    "--verbose",
+    action="store_true",
+    help="Print additional details: spec, formulas, stats, etc.",
+)
+parser.add("--debug", action="store_true", help="Debug mode")
+parser.add("--no-safe", action="store_true", help="Disable safe event heuristic")
+parser.add(
+    "--by-degree", action="store_true", help="Select events by degree, default by name"
+)
+parser.add("--no-reduction", action="store_true", help="Disable all path reductions")
 args = parser.parse_known_args()[0]
 
 
@@ -56,9 +59,11 @@ def known(path, keys, R):
     time = 0
     k = set()
     for instance in path:
-        if (set(instance.msg.parameters).intersection(set(keys))
-            and (isinstance(instance, Emission) and instance.sender.name == R.name
-                 or (isinstance(instance, Reception) and instance.recipient.name == R.name))):
+        if set(instance.msg.parameters).intersection(set(keys)) and (
+            isinstance(instance, Emission)
+            and instance.sender.name == R.name
+            or (isinstance(instance, Reception) and instance.recipient.name == R.name)
+        ):
             k.update(instance.ins)
             k.update(instance.outs)
         time += 1
@@ -72,7 +77,12 @@ def sources(path, p):
 
 def viable(path, msg):
     msg_count = len([i.msg for i in path if i.msg == msg])
-    if not msg.ins.union(msg.nils).symmetric_difference({p.name for p in msg.parameters.values()}) and msg_count > 0:
+    if (
+        not msg.ins.union(msg.nils).symmetric_difference(
+            {p.name for p in msg.parameters.values()}
+        )
+        and msg_count > 0
+    ):
         # only allow one copy of an all "in"/"nil" message
         # print("Only one copy of all in message allowed")
         return False
@@ -94,9 +104,7 @@ def viable(path, msg):
         # print("Don't allow multiple key bindings on the same path; they're different enactments")
         return False
     k = known(path, msg.keys, msg.sender)
-    return k.issuperset(msg.ins) \
-        and k.isdisjoint(msg.outs) \
-        and k.isdisjoint(msg.nils)
+    return k.issuperset(msg.ins) and k.isdisjoint(msg.outs) and k.isdisjoint(msg.nils)
 
 
 def disables(a, b):
@@ -106,14 +114,14 @@ def disables(a, b):
         for p in a.outs:
             # out disables out or nil
             if p in b.parameters:
-                if b.parameters[p].adornment in ['out', 'nil']:
+                if b.parameters[p].adornment in ["out", "nil"]:
                     return True
 
     if isinstance(a, Reception) and isinstance(b, Emission) and a.recipient == b.sender:
         for p in a.outs.union(a.ins):
             # out or in disables out or nil
             if p in b.parameters:
-                if b.parameters[p].adornment in ['out', 'nil']:
+                if b.parameters[p].adornment in ["out", "nil"]:
                     return True
 
 
@@ -123,9 +131,13 @@ def enables(a, b):
         # emissions enable their reception
         return True
 
-    if not isinstance(b, Emission) \
-       or isinstance(a, Emission) and a.sender != b.sender \
-       or isinstance(a, Reception) and a.recipient != b.sender:
+    if (
+        not isinstance(b, Emission)
+        or isinstance(a, Emission)
+        and a.sender != b.sender
+        or isinstance(a, Reception)
+        and a.recipient != b.sender
+    ):
         # only emissions can be enabled by other messages, and only at the sender
         return False
 
@@ -133,11 +145,11 @@ def enables(a, b):
         # out enables in
         for p in a.outs:
             if p in b.parameters:
-                if b.parameters[p].adornment == 'in':
+                if b.parameters[p].adornment == "in":
                     return True
 
 
-class Tangle():
+class Tangle:
     "Graph representation of entanglements between messages"
 
     def __init__(self, messages, roles):
@@ -150,8 +162,12 @@ class Tangle():
         for R in roles:
             self.sources[R] = {}
             for e in self.events:
-                if isinstance(e, Emission) and e.sender != R \
-                   or isinstance(e, Reception) and e.recipient != R:
+                if (
+                    isinstance(e, Emission)
+                    and e.sender != R
+                    or isinstance(e, Reception)
+                    and e.recipient != R
+                ):
                     continue
 
                 for p in e.outs:
@@ -163,8 +179,9 @@ class Tangle():
         # track messages that are the sole source of a given parameter
         self.source = {}
         for R in roles:
-            self.source[R] = {p: ms[0]
-                              for p, ms in self.sources[R].items() if len(ms) == 1}
+            self.source[R] = {
+                p: ms[0] for p, ms in self.sources[R].items() if len(ms) == 1
+            }
 
         # a endows b if a is the sole source of an 'in' parameter of b
         self.endows = {e: {Reception(e)} for e in self.emissions}
@@ -191,12 +208,17 @@ class Tangle():
             print(f"endows: {pformat(self.endows)}")
 
         # initialize graph with direct enable and disablements, O(m^2)
-        self.enables = {a: {b for b in self.events
-                            if a != b and enables(a, b)}
-                        for a in self.events}
-        self.disables = {a: {b for b in self.events
-                             if a != b and not a in self.endows.get(b, []) and disables(a, b)}
-                         for a in self.events}
+        self.enables = {
+            a: {b for b in self.events if a != b and enables(a, b)} for a in self.events
+        }
+        self.disables = {
+            a: {
+                b
+                for b in self.events
+                if a != b and not a in self.endows.get(b, []) and disables(a, b)
+            }
+            for a in self.events
+        }
 
         if args.debug:
             print(f"disables: {pformat(self.disables)}")
@@ -214,11 +236,17 @@ class Tangle():
         # a -|| c if:
         #  1. a does not endow c
         #  2. a -| c or a -| b and c |- b
-        self.tangles = {a: self.disables[a]
-                        .union({c for c in self.enables
-                                if c not in self.endows.get(a, [])
-                                and self.enables[c].intersection(self.disables[a])})
-                        for a in self.events}
+        self.tangles = {
+            a: self.disables[a].union(
+                {
+                    c
+                    for c in self.enables
+                    if c not in self.endows.get(a, [])
+                    and self.enables[c].intersection(self.disables[a])
+                }
+            )
+            for a in self.events
+        }
 
         # initialize incompatibility graph
         self.incompatible = {}
@@ -231,24 +259,36 @@ class Tangle():
         for a in self.tangles:
             for b in self.tangles[a]:
                 if isinstance(a, Emission):
-                    if isinstance(b, Emission) and a.sender == b.sender \
-                       or isinstance(b, Reception) and a.sender == b.recipient:
+                    if (
+                        isinstance(b, Emission)
+                        and a.sender == b.sender
+                        or isinstance(b, Reception)
+                        and a.sender == b.recipient
+                    ):
                         self.incompatible[a].add(b)
                         self.incompatible[b].add(a)
                 elif isinstance(a, Reception):
-                    if isinstance(b, Emission) and a.recipient == b.sender \
-                       or isinstance(b, Reception) and a.recipient == b.recipient:
+                    if (
+                        isinstance(b, Emission)
+                        and a.recipient == b.sender
+                        or isinstance(b, Reception)
+                        and a.recipient == b.recipient
+                    ):
                         self.incompatible[a].add(b)
                         self.incompatible[b].add(a)
 
     def safe(self, possibilities, path):
         ps = possibilities.copy()
-        risky = {e for e in self.events if self.disables[e].difference(
-            path) or any(e in self.disables[b] for b in self.events)}
+        risky = {
+            e
+            for e in self.events
+            if self.disables[e].difference(path)
+            or any(e in self.disables[b] for b in self.events)
+        }
         return ps.difference(risky)
 
 
-class UoD():
+class UoD:
     def __init__(self, messages=set(), roles={}):
         self.messages = set(messages)
         self.roles = set(roles)
@@ -266,18 +306,19 @@ class UoD():
                 keys = protocol.ins.intersection(protocol.keys)
                 # generate messages that provide p to each sender
                 msg = Message(
-                    'external->{r.name}',
+                    "external->{r.name}",
                     External,
                     r,
-                    [Parameter(k, 'in', True) for k in keys]
-                    + [Parameter(p, 'in')
-                       for p in protocol.ins.difference(keys)]
+                    [Parameter(k, "in", True) for k in keys]
+                    + [Parameter(p, "in") for p in protocol.ins.difference(keys)],
                 )
                 dependencies[r.name] = msg
             # hmmm; probably shouldn't modify protocol...
             protocol.roles[External.name] = External
-            uod = UoD(list(protocol.messages.values()) + list(dependencies.values()),
-                      protocol.roles.values())
+            uod = UoD(
+                list(protocol.messages.values()) + list(dependencies.values()),
+                protocol.roles.values(),
+            )
             return uod
 
     def __add__(self, other):
@@ -350,8 +391,7 @@ def partition(graph, ps):
     coloring = {}
     for vertex in vs:
         # Assign a color to each vertex that isn’t assigned to its neighbors
-        options = parts.difference(
-            {coloring.get(n) for n in neighbors[vertex]})
+        options = parts.difference({coloring.get(n) for n in neighbors[vertex]})
 
         # generate a new color if necessary
         if not len(options):
@@ -365,6 +405,7 @@ def partition(graph, ps):
 
             #  (2) within such, the color whose vertex of highest degree has the smallest degree
             if len(options) > 1:
+
                 def max_degree(color):
                     return max(degree(v) for v in color)
 
@@ -387,11 +428,14 @@ def extensions(U, path):
     ps = possibilities(U, path)
     safe = U.tangle.safe(ps, path)
     # default to selecting branches by message name
-    def sort(p): return p.name
+    def sort(p):
+        return p.name
 
     if args.by_degree:
         # select events by degree instead
-        def sort(p): return len(U.tangle.incompatible[p])
+        def sort(p):
+            return len(U.tangle.incompatible[p])
+
     if args.no_reduction:
         # all the possibilities
         xs = {path + (p,) for p in ps}
@@ -401,7 +445,7 @@ def extensions(U, path):
     else:
         parts = partition(U.tangle.incompatible, ps)
         if args.debug:
-            print(f'parts: {parts}')
+            print(f"parts: {parts}")
         branches = {min(p, key=sort) for p in parts}
         xs = {path + (b,) for b in branches}
     return xs
@@ -442,13 +486,20 @@ def path_liveness(protocol, args=None):
             if args.verbose and not args.debug:
                 print(p)
             if total_knowledge(U, p).intersection(protocol.outs) < protocol.outs:
-                return {"live": False,
-                        "reason": "Found path that does not extend to completion",
-                        "path": p,
-                        "checked": checked,
-                        "maximal paths": max_paths,
-                        "elapsed": t.stop()}
-    return {"live": True, "checked": checked, "maximal paths": max_paths, "elapsed": t.stop()}
+                return {
+                    "live": False,
+                    "reason": "Found path that does not extend to completion",
+                    "path": p,
+                    "checked": checked,
+                    "maximal paths": max_paths,
+                    "elapsed": t.stop(),
+                }
+    return {
+        "live": True,
+        "checked": checked,
+        "maximal paths": max_paths,
+        "elapsed": t.stop(),
+    }
 
 
 def path_safety(protocol, args=None):
@@ -476,14 +527,21 @@ def path_safety(protocol, args=None):
 
         for p in parameters:
             if len(sources(path, p)) > 1:
-                return {"safe": False,
-                        "reason": "Found parameter with multiple sources in a path",
-                        "path": path,
-                        "parameter": p,
-                        "checked": checked,
-                        "maximal paths": max_paths,
-                        "elapsed": t.stop()}
-    return {"safe": True, "checked": checked, "maximal paths": max_paths, "elapsed": t.stop()}
+                return {
+                    "safe": False,
+                    "reason": "Found parameter with multiple sources in a path",
+                    "path": path,
+                    "parameter": p,
+                    "checked": checked,
+                    "maximal paths": max_paths,
+                    "elapsed": t.stop(),
+                }
+    return {
+        "safe": True,
+        "checked": checked,
+        "maximal paths": max_paths,
+        "elapsed": t.stop(),
+    }
 
 
 def total_knowledge(U, path):
@@ -509,7 +567,7 @@ def all_paths(U, verbose=False):
             print(p)
         if len(p) > longest_path:
             longest_path = len(p)
-        if len(p) > len(U.messages)*2:
+        if len(p) > len(U.messages) * 2:
             print("Path too long: ", p)
             exit(1)
         xs = extensions(U, p)
@@ -522,5 +580,6 @@ def all_paths(U, verbose=False):
 
         paths.add(p)  # add path to paths even if it has unreceived messages
     print(
-        f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}, elapsed: {t.stop()}")
+        f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}, elapsed: {t.stop()}"
+    )
     return paths

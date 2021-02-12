@@ -11,8 +11,13 @@ arg_parser = configargparse.get_argument_parser()
 arg_parser.add("-t", "--tseytin", action="store_true")
 arg_parser.add("-e", "--exhaustive", action="store_false")
 arg_parser.add("-v", "--verbose", action="store_true")
-arg_parser.add("-d", "--depth", default=1, help="Longest transitive relationship to generate. \
-Only need log2(max-chain) to prevent cycles.")
+arg_parser.add(
+    "-d",
+    "--depth",
+    default=1,
+    help="Longest transitive relationship to generate. \
+Only need log2(max-chain) to prevent cycles.",
+)
 ctx = bx.Context()
 aux = bx.Context()
 flatten = chain.from_iterable
@@ -28,12 +33,12 @@ def reset_stats():
 
 def name(var):
     "convert name or var to name"
-    if hasattr(var, 'qualified_name'):
+    if hasattr(var, "qualified_name"):
         return var.qualified_name
-    if hasattr(var, 'name'):
+    if hasattr(var, "name"):
         return var.name
-    if hasattr(var, 'get') and var.get('name', None):
-        return var.get('name')
+    if hasattr(var, "get") and var.get("name", None):
+        return var.get("name")
     return str(var)
 
 
@@ -46,10 +51,13 @@ def var(n):
 
 def wrap(fn):
     "Apply function to all arguments on a function"
+
     def wrapper(target):
         def transform(*args):
             return target(*map(lambda a: fn(a), args))
+
         return transform
+
     return wrapper
 
 
@@ -84,10 +92,9 @@ def simultaneous(a, b, *rest):
 @wrap(var)
 def ordered(*args):
     "Arguments happen in some order; not simultaneously"
-    return and_(*pairwise(lambda a, b: ~a | ~b
-                          | sequential(a, b)
-                          | sequential(b, a),
-                          args))
+    return and_(
+        *pairwise(lambda a, b: ~a | ~b | sequential(a, b) | sequential(b, a), args)
+    )
 
 
 def causal(event, causes):
@@ -98,24 +105,20 @@ def causal(event, causes):
     return expr
 
 
-relation = {
-    '<': sequential,
-    '*': simultaneous,
-    '>': lambda a, b: sequential(b, a)
-}
+relation = {"<": sequential, "*": simultaneous, ">": lambda a, b: sequential(b, a)}
 
 
 def relationships(statements):
     inputs = flatten([s.support() for s in statements])
     rs = {}
     for i in inputs:
-        s = re.search('[<.*]', name(i))
+        s = re.search("[<.*]", name(i))
         if s:
             rel = s.group()
             t = tuple(name(i).split(rel))
             p = pair(*t)
-            if rel == '<' and t != p:
-                rel = '>'
+            if rel == "<" and t != p:
+                rel = ">"
 
             if p in rs:
                 rs[p].add(rel)
@@ -129,8 +132,12 @@ def timeline(relationships):
     between each pair of events; a<b, b<a, or a*b"""
     clauses = []
     for pair, rels in relationships.items():
-        clauses.append(impl(var(pair[0]) & var(pair[1]),
-                            onehot(*[relation[rel](*pair) for rel in rels])))
+        clauses.append(
+            impl(
+                var(pair[0]) & var(pair[1]),
+                onehot(*[relation[rel](*pair) for rel in rels]),
+            )
+        )
     return clauses
 
 
@@ -138,15 +145,12 @@ def occurrence(relationships):
     clauses = []
     for pair, rels in relationships.items():
         for r in rels:
-            clauses.append(
-                impl(relation[r](*pair), var(pair[0]) & var(pair[1])))
+            clauses.append(impl(relation[r](*pair), var(pair[0]) & var(pair[1])))
     return clauses
 
 
 def invert(relationships):
-    inverses = {"*": "*",
-                ">": "<",
-                "<": ">"}
+    inverses = {"*": "*", ">": "<", "<": ">"}
     return set(map(lambda r: inverses[r], relationships))
 
 
@@ -203,11 +207,15 @@ def triples(relationships):
             if r is not s and pivot(r, s):
                 a, b = align(r, s)
                 if antipivot(a, b) in r:
-                    triples[a + b[1:]] = (match(a, r, relationships[r]),
-                                          match(b, s, relationships[s]))
+                    triples[a + b[1:]] = (
+                        match(a, r, relationships[r]),
+                        match(b, s, relationships[s]),
+                    )
                 else:
-                    triples[a + b[1:]] = (match(a, s, relationships[s]),
-                                          match(b, r, relationships[r]))
+                    triples[a + b[1:]] = (
+                        match(a, s, relationships[s]),
+                        match(b, r, relationships[r]),
+                    )
     return triples
 
 
@@ -220,11 +228,18 @@ def transitivity(triples):
         for rel_a in rels_a:
             for rel_b in rels_b:
                 if rel_a == "*":
-                    clauses.append(impl(simultaneous(*a) & relation[rel_b](*b),
-                                        relation[rel_b](*o)))
+                    clauses.append(
+                        impl(
+                            simultaneous(*a) & relation[rel_b](*b), relation[rel_b](*o)
+                        )
+                    )
                 elif rel_b == "*" or rel_b == rel_a:
-                    clauses.append(impl(relation[rel_a](*a) & relation[rel_b](*b),
-                                        relation[rel_a](*o)))
+                    clauses.append(
+                        impl(
+                            relation[rel_a](*a) & relation[rel_b](*b),
+                            relation[rel_a](*o),
+                        )
+                    )
     return clauses
 
 
@@ -240,14 +255,17 @@ def consistency(statements):
 
 def extract_events(statements):
     inputs = flatten([s.support() for s in statements])
-    return set(flatten([re.split('[<.*]', name(i)) for i in inputs]))
+    return set(flatten([re.split("[<.*]", name(i)) for i in inputs]))
 
 
 def transitive(fn):
     def inner(a, b, c):
-        return and_(impl(fn(a, b) & fn(b, c), fn(a, c)),
-                    impl(simultaneous(a, b) & fn(b, c), fn(a, c)),
-                    impl(fn(a, b) & simultaneous(b, c), fn(a, c)))
+        return and_(
+            impl(fn(a, b) & fn(b, c), fn(a, c)),
+            impl(simultaneous(a, b) & fn(b, c), fn(a, c)),
+            impl(fn(a, b) & simultaneous(b, c), fn(a, c)),
+        )
+
     return inner
 
 
@@ -266,11 +284,12 @@ def exhaustive_transitivity(events):
 @wrap(var)
 def exhaustive_occurrence(*events):
     "Relationships between events imply that the events themselves occur"
-    return pairwise(lambda a, b: impl(or_(simultaneous(a, b),
-                                          sequential(a, b),
-                                          sequential(b, a)),
-                                      a & b),
-                    events)
+    return pairwise(
+        lambda a, b: impl(
+            or_(simultaneous(a, b), sequential(a, b), sequential(b, a)), a & b
+        ),
+        events,
+    )
 
 
 @wrap(var)
@@ -279,16 +298,21 @@ def exhaustive_timeline(*events):
     A timeline is linear, and allows only a single relationship between
     each pair of events; a<b, b<a, or a*b
     """
-    return pairwise(lambda a, b: impl(a & b, onehot(simultaneous(a, b),
-                                                    sequential(a, b),
-                                                    sequential(b, a))), events)
+    return pairwise(
+        lambda a, b: impl(
+            a & b, onehot(simultaneous(a, b), sequential(a, b), sequential(b, a))
+        ),
+        events,
+    )
 
 
 def exhaustive_consistency(statements):
     events = extract_events(statements)
-    return exhaustive_timeline(*events) \
-        + exhaustive_occurrence(*events) \
+    return (
+        exhaustive_timeline(*events)
+        + exhaustive_occurrence(*events)
         + exhaustive_transitivity(events)
+    )
 
 
 def cycle(enactment):
@@ -308,12 +332,13 @@ def cycle(enactment):
             queue = queue.union(step.get(current, set())) - visited
             if queue:
                 inner(queue.pop(), queue, visited)
+
         inner(start)
 
     for e in enactment:
         e = name(e)
-        if '<' in e:
-            a, b = e.split('<')
+        if "<" in e:
+            a, b = e.split("<")
             if b in precedes.get(a, []):
                 return precedes[a].union({a})
             else:

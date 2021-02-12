@@ -3,23 +3,26 @@ import re
 import tatsu
 import sys
 import os
+
 debug = True
 
 
 try:
     from .bspl_parser import BsplParser
+
     model = BsplParser()
 except:
     grammar_path = os.path.join(os.path.dirname(__file__), "bspl.gr")
-    with open(grammar_path, 'r', encoding='utf8') as grammar:
+    with open(grammar_path, "r", encoding="utf8") as grammar:
         # warning: dynamically compiled grammar is different from precompiled code
         model = tatsu.compile(grammar.read())
     try:
         parser_path = os.path.join(os.path.dirname(__file__), "bspl_parser.py")
-        with open(grammar_path, 'r', encoding='utf8') as grammar:
+        with open(grammar_path, "r", encoding="utf8") as grammar:
             bspl_parser = tatsu.to_python_sourcecode(
-                grammar.read(), 'Bspl', 'bspl_parser.py')
-            with open(parser_path, 'w', encoding='utf8') as parser_file:
+                grammar.read(), "Bspl", "bspl_parser.py"
+            )
+            with open(parser_path, "w", encoding="utf8") as parser_file:
                 parser_file.write(bspl_parser)
     except:
         # Couldn't save the file properly; eat the error and continue with dynamically loaded parser
@@ -27,7 +30,7 @@ except:
 
 
 def parse(definition):
-    return from_ast(model.parse(definition, rule_name='document'))
+    return from_ast(model.parse(definition, rule_name="document"))
 
 
 def load(definition, path=None):
@@ -45,7 +48,7 @@ def load(definition, path=None):
 
 
 def load_file(path):
-    with open(path, 'r', encoding='utf8') as file:
+    with open(path, "r", encoding="utf8") as file:
         raw = file.read()
         raw = strip_latex(raw)
 
@@ -55,46 +58,43 @@ def load_file(path):
 
 def strip_latex(spec):
     """Remove all instances of '\\mapsto' and '\\msf{}' from a latex listing, to make it proper BSPL"""
-    spec = re.sub(r'\$\\msf{(\w+)}\$', r'\1', spec)
-    spec = re.sub(r'\$\\mapsto\$', r'->', spec)
+    spec = re.sub(r"\$\\msf{(\w+)}\$", r"\1", spec)
+    spec = re.sub(r"\$\\mapsto\$", r"->", spec)
 
-    spec = re.sub(r'\$\\role\$', r'roles', spec)
-    spec = re.sub(r'\$\\param\$', r'parameters', spec)
-    spec = re.sub(r'\$\\mo\$', r'->', spec)
+    spec = re.sub(r"\$\\role\$", r"roles", spec)
+    spec = re.sub(r"\$\\param\$", r"parameters", spec)
+    spec = re.sub(r"\$\\mo\$", r"->", spec)
     return spec
 
 
 def ast_reference(ast, parent):
-    r = Reference(ast['name'], parent=parent)
-    r.parameters = [ast_parameter(p, r) for p in ast['params']]
+    r = Reference(ast["name"], parent=parent)
+    r.parameters = [ast_parameter(p, r) for p in ast["params"]]
     return r
 
 
 def ast_parameter(ast, parent):
-    return Parameter(ast['name'], ast.get('adornment'), ast.get('key'), parent)
+    return Parameter(ast["name"], ast.get("adornment"), ast.get("key"), parent)
 
 
 def ast_message(ast, parent):
     msg = Message(ast["name"], ast["sender"], ast["recipient"], parent=parent)
-    parameters = [ast_parameter(p, msg) for p in ast.get('parameters') or []]
+    parameters = [ast_parameter(p, msg) for p in ast.get("parameters") or []]
     msg.set_parameters(parameters)
     return msg
 
 
 def ast_protocol(ast, parent):
     protocol = Protocol(ast["name"], parent=parent)
-    roles = [Role(r['name'], protocol)
-             for r in ast.get('roles', [])]
+    roles = [Role(r["name"], protocol) for r in ast.get("roles", [])]
     protocol.configure(roles=roles)
-    public_parameters = [ast_parameter(p, protocol)
-                         for p in ast['parameters']]
-    private_parameters = [ast_parameter(p, protocol)
-                          for p in ast.get('private') or []]
+    public_parameters = [ast_parameter(p, protocol) for p in ast["parameters"]]
+    private_parameters = [ast_parameter(p, protocol) for p in ast.get("private") or []]
 
     references = []
     messages = {}
     acks = False
-    for r in ast.get('references', []):
+    for r in ast.get("references", []):
         type = r["type"]
         if type == "message":
             if r["name"][0] is "@":
@@ -111,14 +111,9 @@ def ast_protocol(ast, parent):
             raise Exception(f"Unknown type: {type}")
 
     if acks:
-        private_parameters.append(Parameter('$ack', 'out', key=True))
+        private_parameters.append(Parameter("$ack", "out", key=True))
 
-    protocol.configure(
-        roles,
-        public_parameters,
-        references,
-        private_parameters
-    )
+    protocol.configure(roles, public_parameters, references, private_parameters)
     return protocol
 
 

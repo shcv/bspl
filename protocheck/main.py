@@ -1,5 +1,10 @@
 from protocheck.bspl import load_file, model, strip_latex
-from protocheck.verification.sat import handle_enactability, handle_liveness, handle_safety, handle_atomicity
+from protocheck.verification.sat import (
+    handle_enactability,
+    handle_liveness,
+    handle_safety,
+    handle_atomicity,
+)
 from protocheck.verification.paths import path_liveness, path_safety, all_paths, UoD
 from protocheck.verification.refinement import handle_refinement
 from protocheck.node_red import handle_node_flow
@@ -46,15 +51,16 @@ def handle_ast(args):
         raw = file.read()
         raw = strip_latex(raw)
 
-        spec = model.parse(raw, rule_name='document')
+        spec = model.parse(raw, rule_name="document")
 
         def remove_parseinfo(d):
             if not isinstance(d, (dict, list)):
                 return d
             if isinstance(d, list):
                 return [remove_parseinfo(v) for v in d]
-            return {k: remove_parseinfo(v) for k, v in d.items()
-                    if k not in {'parseinfo'}}
+            return {
+                k: remove_parseinfo(v) for k, v in d.items() if k not in {"parseinfo"}
+            }
 
         for p in spec:
             print(json.dumps(remove_parseinfo(p.asjson()), indent=2))
@@ -72,48 +78,60 @@ def handle_all_paths(protocol, args):
 
 # Actions that only take one argument, and therefore can be repeated for each input file
 unary_actions = {
-    'enactability': handle_enactability,
-    'liveness': handle_liveness,
-    'safety': handle_safety,
-    'path-safety': path_safety,
-    'path-liveness': path_liveness,
-    'atomicity': handle_atomicity,
-    'syntax': check_syntax,
-    'all': handle_all,
-    'json': handle_json,
-    'all-paths': handle_all_paths,
+    "enactability": handle_enactability,
+    "liveness": handle_liveness,
+    "safety": handle_safety,
+    "path-safety": path_safety,
+    "path-liveness": path_liveness,
+    "atomicity": handle_atomicity,
+    "syntax": check_syntax,
+    "all": handle_all,
+    "json": handle_json,
+    "all-paths": handle_all_paths,
 }
 
 # Actions with more complex argument schemes
 actions = {
-    'flow': handle_node_flow,
-    'refinement': handle_refinement,
-    'projection': handle_projection,
-    'ast': handle_ast,
+    "flow": handle_node_flow,
+    "refinement": handle_refinement,
+    "projection": handle_projection,
+    "ast": handle_ast,
 }
 
 
 def main():
 
     parser = configargparse.get_argument_parser()
-    parser.description = 'BSPL Protocol property checker'
-    parser.add('-s', '--stats', action="store_true",
-               help='Print statistics')
-    parser.add('-v', '--verbose', action="store_true",
-               help='Print additional details: spec, formulas, stats, etc.')
-    parser.add('-q', '--quiet', action="store_true",
-               help='Prevent printing of violation and formula output')
-    parser.add('-f', '--filter', default='.*',
-               help='Only process protocols matching regexp')
-    parser.add('-i', '--indent', type=int, help='Amount to indent json')
-    parser.add('--version', action="store_true", help='Print version number')
-    parser.add('--debug', action="store_true", help='Debug mode')
-    parser.add('action', help='Primary action to perform',
-               choices=set(actions.keys()).union(unary_actions.keys()))
-    parser.add('input', nargs='+',
-               help='additional parameters or protocol description file(s)')
+    parser.description = "BSPL Protocol property checker"
+    parser.add("-s", "--stats", action="store_true", help="Print statistics")
+    parser.add(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print additional details: spec, formulas, stats, etc.",
+    )
+    parser.add(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Prevent printing of violation and formula output",
+    )
+    parser.add(
+        "-f", "--filter", default=".*", help="Only process protocols matching regexp"
+    )
+    parser.add("-i", "--indent", type=int, help="Amount to indent json")
+    parser.add("--version", action="store_true", help="Print version number")
+    parser.add("--debug", action="store_true", help="Debug mode")
+    parser.add(
+        "action",
+        help="Primary action to perform",
+        choices=set(actions.keys()).union(unary_actions.keys()),
+    )
+    parser.add(
+        "input", nargs="+", help="additional parameters or protocol description file(s)"
+    )
 
-    if '--version' in sys.argv:
+    if "--version" in sys.argv:
         print(__version__)
         sys.exit(0)
     else:
@@ -127,7 +145,7 @@ def main():
             spec = load_file(path)
             for protocol in spec.protocols.values():
                 if re.match(args.filter, protocol.name):
-                    if args.action != 'json':
+                    if args.action != "json":
                         print("%s (%s): " % (protocol.name, path))
                     result = unary_actions[args.action](protocol, args)
                     if result:

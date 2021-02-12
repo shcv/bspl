@@ -2,11 +2,11 @@ from .verification.logic import merge
 from collections import OrderedDict
 
 
-class Specification():
+class Specification:
     def __init__(self, protocols=None):
         self.protocols = {}  # name : protocol
-        self.type = 'specification'
-        if (protocols):
+        self.type = "specification"
+        if protocols:
             self.add_protocols(protocols)
 
     def add_protocols(self, protocols=list()):
@@ -26,7 +26,7 @@ class Specification():
         return set(m for p in self.protocols.values() for m in p.messages.values())
 
 
-class Base():
+class Base:
     """Class containing elements common to protocols, messages, etc."""
 
     def __init__(self, name, parent, type):
@@ -49,8 +49,11 @@ class Role(Base):
 
     def messages(self, protocol=None):
         protocol = protocol or self.parent
-        return {m.name: m for m in protocol.messages.values()
-                if m.sender == self or m.recipient == self}
+        return {
+            m.name: m
+            for m in protocol.messages.values()
+            if m.sender == self or m.recipient == self
+        }
 
     def sent_messages(self, protocol):
         return [m for m in protocol.messages.values() if m.sender == self]
@@ -62,36 +65,42 @@ class Reference(Base):
         super().__init__(name, parent, "reference")
 
     def format(self, ref=True):
-        return "{}({}, {})".format(self.name,
-                                   ", ".join([r.name for r in self.roles]),
-                                   ", ".join([p.format() for p in self.parameters]))
+        return "{}({}, {})".format(
+            self.name,
+            ", ".join([r.name for r in self.roles]),
+            ", ".join([p.format() for p in self.parameters]),
+        )
 
 
 class Protocol(Base):
-    def __init__(self,
-                 name,
-                 roles=None,
-                 public_parameters=None,
-                 references=None,
-                 parent=None,
-                 private_parameters=None,
-                 type="protocol"
-                 ):
+    def __init__(
+        self,
+        name,
+        roles=None,
+        public_parameters=None,
+        references=None,
+        parent=None,
+        private_parameters=None,
+        type="protocol",
+    ):
         super().__init__(name, parent, type)
         self.public_parameters = {}
         self.private_parameters = {}
         self.roles = {}
         self.references = {}
-        Protocol.configure(self, roles, public_parameters,
-                           references, private_parameters)
+        Protocol.configure(
+            self, roles, public_parameters, references, private_parameters
+        )
 
-    def configure(self,
-                  roles=None,
-                  public_parameters=None,
-                  references=None,
-                  private_parameters=None,
-                  parent=None):
-        parent = self.parent = getattr(self, 'parent', parent)
+    def configure(
+        self,
+        roles=None,
+        public_parameters=None,
+        references=None,
+        private_parameters=None,
+        parent=None,
+    ):
+        parent = self.parent = getattr(self, "parent", parent)
         if roles:
             for r in roles or []:
                 if type(r) is Role:
@@ -99,12 +108,13 @@ class Protocol(Base):
                 elif type(r) is str:
                     self.roles[r] = Role(r, self)
                 else:
-                    raise("{} is unexpected type: {}".format(r, type(r)))
+                    raise ("{} is unexpected type: {}".format(r, type(r)))
         if public_parameters:
             self.set_parameters(public_parameters)
         if private_parameters:
             self.private_parameters = OrderedDict(
-                (p.name, p) for p in private_parameters)
+                (p.name, p) for p in private_parameters
+            )
         if references:
             self.references = {r.name: r for r in references or []}
 
@@ -113,7 +123,7 @@ class Protocol(Base):
 
     @property
     def parameters(self):
-        if hasattr(self, 'private_parameters'):
+        if hasattr(self, "private_parameters"):
             params = self.public_parameters.copy()
             params.update(self.private_parameters)
             return params
@@ -126,37 +136,42 @@ class Protocol(Base):
 
     @property
     def keys(self):
-        if not hasattr(self, '_keys'):
-            self._keys = [p.name for p in self.parameters.values()
-                          if p.key
-                          or self.parent
-                          and self.parent.type == 'protocol'
-                          and p.name in self.parent.parameters
-                          and self.parent.parameters[p.name].key]
+        if not hasattr(self, "_keys"):
+            self._keys = [
+                p.name
+                for p in self.parameters.values()
+                if p.key
+                or self.parent
+                and self.parent.type == "protocol"
+                and p.name in self.parent.parameters
+                and self.parent.parameters[p.name].key
+            ]
         return self._keys
 
     def _adorned(self, adornment):
         "helper method for selecting parameters with a particular adornment"
-        return {p.name for p in self.public_parameters.values()
-                if p.adornment == adornment}
+        return {
+            p.name for p in self.public_parameters.values() if p.adornment == adornment
+        }
 
     @property
     def ins(self):
-        return self._adorned('in')
+        return self._adorned("in")
 
     @property
     def outs(self):
-        return self._adorned('out')
+        return self._adorned("out")
 
     @property
     def nils(self):
-        return self._adorned('nil')
+        return self._adorned("nil")
 
     @property
     def messages(self):
-        if not hasattr(self, '_messages') or not self._messages:
-            self._messages = {k: v for r in self.references.values()
-                              for k, v in r.messages.items()}
+        if not hasattr(self, "_messages") or not self._messages:
+            self._messages = {
+                k: v for r in self.references.values() for k, v in r.messages.items()
+            }
         return self._messages
 
     @property
@@ -171,22 +186,26 @@ class Protocol(Base):
 
     def format(self, ref=False):
         if ref:
-            return "{}({}, {})".format(self.name,
-                                       ", ".join(self.roles),
-                                       ", ".join([p.format() for p in self.public_parameters.values()]))
+            return "{}({}, {})".format(
+                self.name,
+                ", ".join(self.roles),
+                ", ".join([p.format() for p in self.public_parameters.values()]),
+            )
         else:
             return """{} {{
   roles {}
   parameters {}
 {}
   {}
-}}""".format(self.name,
-             ", ".join(self.roles.keys()),
-             ", ".join([p.format() for p in self.public_parameters.values()]),
-             "  private " +
-             ", ".join([p for p in self.private_parameters]) +
-             "\n" if self.private_parameters else "",
-             "\n  ".join([r.format(ref=True) for r in self.references.values()]))
+}}""".format(
+                self.name,
+                ", ".join(self.roles.keys()),
+                ", ".join([p.format() for p in self.public_parameters.values()]),
+                "  private " + ", ".join([p for p in self.private_parameters]) + "\n"
+                if self.private_parameters
+                else "",
+                "\n  ".join([r.format(ref=True) for r in self.references.values()]),
+            )
 
     def to_dict(self):
         data = {
@@ -202,30 +221,44 @@ class Protocol(Base):
             data["roles"] = [r for r in self.roles.keys()]
         # should we output references, or just flatten to messages?
         if self.referegnces:
-            data["messages"] = {r.name: r.to_dict()
-                                for r in self.messages.values()}
+            data["messages"] = {r.name: r.to_dict() for r in self.messages.values()}
         return data
 
     def projection(protocol, role):
         references = [
-            r for r in protocol.references if role in r.roles.values()
-            or r.type == 'message' and (role == r.sender or role == r.recipient)]
+            r
+            for r in protocol.references
+            if role in r.roles.values()
+            or r.type == "message"
+            and (role == r.sender or role == r.recipient)
+        ]
 
-        messages = [m for m in references if m.type == 'message']
+        messages = [m for m in references if m.type == "message"]
 
         if len(messages) > 0:
             return Protocol(
                 protocol.name,
-                public_parameters=[p for p in protocol.public_parameters.values()
-                                   if any(p.name in m.parameters for m in messages)],
-                private_parameters=[p for p in protocol.private_parameters.values()
-                                    if any(p.name in m.parameters for m in messages)],
-                roles=[r for r in protocol.roles
-                       if any(m.sender.name == r.name
-                              or m.recipient.name == r.name
-                              for m in messages)],
+                public_parameters=[
+                    p
+                    for p in protocol.public_parameters.values()
+                    if any(p.name in m.parameters for m in messages)
+                ],
+                private_parameters=[
+                    p
+                    for p in protocol.private_parameters.values()
+                    if any(p.name in m.parameters for m in messages)
+                ],
+                roles=[
+                    r
+                    for r in protocol.roles
+                    if any(
+                        m.sender.name == r.name or m.recipient.name == r.name
+                        for m in messages
+                    )
+                ],
                 references=[r.schema for r in references],
-                parent=protocol.parent)
+                parent=protocol.parent,
+            )
 
     def resolve_references(self, spec):
         refs = {}
@@ -240,18 +273,20 @@ class Protocol(Base):
         self.references = refs
 
     def instance(self, spec, parent, reference):
-        p = Protocol(self.name,
-                     self.roles.values(),
-                     public_parameters=self.public_parameters.values(),
-                     private_parameters=self.private_parameters.values(),
-                     references=self.references.values(),
-                     parent=parent)
+        p = Protocol(
+            self.name,
+            self.roles.values(),
+            public_parameters=self.public_parameters.values(),
+            private_parameters=self.private_parameters.values(),
+            references=self.references.values(),
+            parent=parent,
+        )
         for i, r in enumerate(self.roles.values()):
-            p.roles[r.name] = parent.roles.get(
-                reference.parameters[i].name)
+            p.roles[r.name] = parent.roles.get(reference.parameters[i].name)
         for i, par in enumerate(self.public_parameters.values()):
-            p.public_parameters[par.name] = parent.parameters[reference.parameters[i+len(
-                p.roles)].name]
+            p.public_parameters[par.name] = parent.parameters[
+                reference.parameters[i + len(p.roles)].name
+            ]
         p.resolve_references(spec)
         return p
 
@@ -263,16 +298,21 @@ class Protocol(Base):
             if to and schema.recipient is not to:
                 continue
             # find schema with exactly the same parameters (except nils, which should not be bound)
-            if not set(schema.ins).union(schema.outs).symmetric_difference(payload.keys()):
+            if (
+                not set(schema.ins)
+                .union(schema.outs)
+                .symmetric_difference(payload.keys())
+            ):
                 return schema
 
 
 class Message(Protocol):
     def __init__(self, name, sender=None, recipient=None, parameters=None, parent=None):
         self.idx = 1
-        if (sender and recipient):
-            super().__init__(name, roles=[
-                sender, recipient], parent=parent, type="message")
+        if sender and recipient:
+            super().__init__(
+                name, roles=[sender, recipient], parent=parent, type="message"
+            )
             self.configure(sender, recipient, parameters, parent)
         else:
             super().__init__(name, parent=parent, type="message")
@@ -280,31 +320,35 @@ class Message(Protocol):
         self.msg = self
 
     def configure(self, sender=None, recipient=None, parameters=None, parent=None):
-        parent = parent or getattr(self, 'parent', None)
+        parent = parent or getattr(self, "parent", None)
         if parent:
-            self.sender = parent.roles.get(sender) \
-                or parent.roles.get(getattr(sender, 'name', None))
-            self.recipient = parent.roles.get(recipient) \
-                or parent.roles.get(getattr(recipient, 'name', None))
+            self.sender = parent.roles.get(sender) or parent.roles.get(
+                getattr(sender, "name", None)
+            )
+            self.recipient = parent.roles.get(recipient) or parent.roles.get(
+                getattr(recipient, "name", None)
+            )
             for p in parameters or []:
                 if p.name not in parent.parameters:
                     raise LookupError("Undeclared parameter", p.name)
                 elif parent.parameters[p.name].key:
                     p.key = True
         else:
-            self.sender = sender if isinstance(
-                sender, Role) else Role(sender, self)
-            self.recipient = recipient if isinstance(
-                recipient, Role) else Role(recipient, self)
+            self.sender = sender if isinstance(sender, Role) else Role(sender, self)
+            self.recipient = (
+                recipient if isinstance(recipient, Role) else Role(recipient, self)
+            )
 
         if not self.sender:
             raise LookupError("Role not found", sender, self.name, parent)
         if not self.recipient:
             raise LookupError("Role not found", recipient, self.name, parent)
 
-        super().configure(roles=[self.sender, self.recipient],
-                          public_parameters=parameters,
-                          parent=parent)
+        super().configure(
+            roles=[self.sender, self.recipient],
+            public_parameters=parameters,
+            parent=parent,
+        )
 
     @property
     def qualified_name(self):
@@ -320,14 +364,13 @@ class Message(Protocol):
             self.name,
             self.sender.name,
             self.recipient.name,
-            [p.format() for p in self.parameters.values()])
+            [p.format() for p in self.parameters.values()],
+        )
 
     def instance(self, parent):
-        msg = Message(self.raw_name,
-                      self.sender,
-                      self.recipient,
-                      self.parameters.values(),
-                      parent)
+        msg = Message(
+            self.raw_name, self.sender, self.recipient, self.parameters.values(), parent
+        )
 
         # handle duplicates
         for m in parent.references.values():
@@ -341,10 +384,7 @@ class Message(Protocol):
             # Make a new parameter, to preserve message adornments
             parent_parameter = parent.parameters[par.name]
             msg.public_parameters[par.name] = Parameter(
-                parent_parameter.raw_name,
-                par.adornment,
-                par.key,
-                self
+                parent_parameter.raw_name, par.adornment, par.key, self
             )
 
         return msg
@@ -354,10 +394,12 @@ class Message(Protocol):
         return {self.name: self}
 
     def format(self, ref=False):
-        return "{} -> {}: {}[{}]".format(self.sender.name,
-                                         self.recipient.name,
-                                         self.name,
-                                         ', '.join([p.format() for p in self.parameters.values()]))
+        return "{} -> {}: {}[{}]".format(
+            self.sender.name,
+            self.recipient.name,
+            self.name,
+            ", ".join([p.format() for p in self.parameters.values()]),
+        )
 
     def to_dict(self):
         data = super(Message, self).to_dict()
@@ -367,21 +409,22 @@ class Message(Protocol):
 
     @property
     def contents(self):
-        return [p for p in self.parameters.values() if p.adornment in ['out', 'any', 'in']]
+        return [
+            p for p in self.parameters.values() if p.adornment in ["out", "any", "in"]
+        ]
 
     def acknowledgment(self):
-        name = '@'+self.raw_name
+        name = "@" + self.raw_name
         if name in self.parent.messages:
             return self.parent.messages[name]
         else:
             m = Message(
-                '@' + self.raw_name,
-                self.recipient,
-                self.sender,
-                parent=self.parent
+                "@" + self.raw_name, self.recipient, self.sender, parent=self.parent
             )
-            m.set_parameters([Parameter(k, 'in', key=True)
-                              for k in self.keys] + [Parameter('$ack', 'out', key=True)])
+            m.set_parameters(
+                [Parameter(k, "in", key=True) for k in self.keys]
+                + [Parameter("$ack", "out", key=True)]
+            )
             return m
 
     def validate(self, payload):

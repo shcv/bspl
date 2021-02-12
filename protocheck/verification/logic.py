@@ -20,6 +20,7 @@ import boolexpr as bx
 from boolexpr import *
 from itertools import combinations, permutations, chain
 
+
 def merge(*dicts):
     """
     Given any number of dicts, shallow copy and merge into a new dict,
@@ -30,8 +31,10 @@ def merge(*dicts):
         result.update(dictionary)
     return result
 
+
 def Name(statement, name):
     return {name: statement}
+
 
 def And(*statements):
     o = {}
@@ -39,8 +42,10 @@ def And(*statements):
         o = merge(o, s)
     return o
 
+
 def Or(*statements):
     return statements
+
 
 def count(statements):
     if type(statements) is list or type(statements) is tuple:
@@ -53,6 +58,7 @@ def count(statements):
         # atomic statement
         return 1
 
+
 def compile(statements):
     if type(statements) is list or type(statements) is tuple:
         # disjunction
@@ -64,13 +70,16 @@ def compile(statements):
         # atomic statement
         return statements
 
+
 def named(arg):
     def wrap(fn, name=arg):
         """Wrapper for functions that return logic statements, to track where
-they came from"""
+        they came from"""
+
         def wrapped(*args, **kwds):
             n = name or "-".join([a.name for a in args] + [fn.__name__])
             return Name(fn(*args, **kwds), n)
+
         return wrapped
 
     if type(arg) is str:

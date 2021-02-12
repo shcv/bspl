@@ -1,6 +1,20 @@
-from .precedence import consistent, pairwise,     \
-    and_, or_, bx, sequential, simultaneous, impl, ordered, \
-    reset_stats, stats, wrap, var, name, onehot
+from .precedence import (
+    consistent,
+    pairwise,
+    and_,
+    or_,
+    bx,
+    sequential,
+    simultaneous,
+    impl,
+    ordered,
+    reset_stats,
+    stats,
+    wrap,
+    var,
+    name,
+    onehot,
+)
 from . import logic
 from .logic import merge, onehot0
 from functools import lru_cache, partial
@@ -21,10 +35,9 @@ def atomic(P):
     m = maximal(P)
 
     def inner(Q, r):
-        formula = logic.And(c, m,
-                            enactability(r),
-                            incomplete(Q))
+        formula = logic.And(c, m, enactability(r), incomplete(Q))
         return formula
+
     return inner
 
 
@@ -53,15 +66,26 @@ def minimality(role, protocol):
 
     # keep track of 'in' parameters being sent without sources
     # unsourced parameters cannot be observed
-    unsourced = [logic.Name(~observes(role, p), p)
-                 for p in outgoing - set(sources.keys())]
+    unsourced = [
+        logic.Name(~observes(role, p), p) for p in outgoing - set(sources.keys())
+    ]
 
     # sourced parameters must be received or sent to be observed
-    sourced = [logic.Name(impl(observes(role, p),
-                               or_(*[simultaneous(observes(role, m), observes(role, p))
-                                     for m in sources[p]])),
-                          p)
-               for p in sources]
+    sourced = [
+        logic.Name(
+            impl(
+                observes(role, p),
+                or_(
+                    *[
+                        simultaneous(observes(role, m), observes(role, p))
+                        for m in sources[p]
+                    ]
+                ),
+            ),
+            p,
+        )
+        for p in sources
+    ]
 
     return logic.And(*(unsourced + sourced))
 
@@ -72,6 +96,7 @@ def nonsimultaneity(self, protocol):
         return ordered(*msgs)
     else:
         return bx.ONE
+
 
 # Protocol
 
@@ -138,17 +163,19 @@ def p_cover(P, parameter):
 
 @logic.named
 def cover(P):
-    return logic.And(*[logic.Name(or_(*[received(m) for m in p_cover(P, p)]),
-                                  p.name + "-cover")
-                       for p in P.public_parameters.values()])
+    return logic.And(
+        *[
+            logic.Name(or_(*[received(m) for m in p_cover(P, p)]), p.name + "-cover")
+            for p in P.public_parameters.values()
+        ]
+    )
 
 
 @logic.named
 def unsafe(P):
     clauses = []
     for p in P.all_parameters:
-        sources = [m for m in p_cover(P, p)
-                   if m.parameters[p].adornment == 'out']
+        sources = [m for m in p_cover(P, p) if m.parameters[p].adornment == "out"]
         if len(sources) > 1:
             alts = []
             for r in P.roles.values():
@@ -161,8 +188,7 @@ def unsafe(P):
 
             # only consider cases where more than one at once is possible
             if more_than_one:
-                clauses.append(
-                    logic.Name(more_than_one, p + "-unsafe"))
+                clauses.append(logic.Name(more_than_one, p + "-unsafe"))
     if clauses:
         # at least one conflict
         return logic.And(correct(P), logic.Name(clauses, "unsafe"))
@@ -198,8 +224,7 @@ def correct(P):
     clauses["Reception"] = {m.name: reception(m) for m in msgs}
     clauses["Transmission"] = {m.name: transmission(m) for m in msgs}
     clauses["Non-lossy"] = {m.name: non_lossy(m) for m in msgs}
-    clauses["Non-simultaneity"] = {r.name: nonsimultaneity(r, P)
-                                   for r in roles}
+    clauses["Non-simultaneity"] = {r.name: nonsimultaneity(r, P) for r in roles}
     clauses["Minimality"] = {r.name: minimality(r, P) for r in roles}
     clauses["Uniqueness"] = {k: uniqueness(P, k) for k in P.keys}
     return clauses
@@ -225,8 +250,7 @@ def uniqueness(P, key):
     candidates = set()
     for m in P.messages.values():
         if key in m.outs:
-            candidates.add(simultaneous(
-                sent(m), observes(m.sender, key)))
+            candidates.add(simultaneous(sent(m), observes(m.sender, key)))
     if candidates:
         return onehot0(*candidates)
     else:
@@ -237,8 +261,15 @@ def complete(P):
     "Each out parameter must be observed by at least one role"
     clauses = []
     for p in P.outs:
-        clauses.append(or_(*[received(m) for m in p_cover(P, p)
-                             if m.parameters[p].adornment is 'out']))
+        clauses.append(
+            or_(
+                *[
+                    received(m)
+                    for m in p_cover(P, p)
+                    if m.parameters[p].adornment is "out"
+                ]
+            )
+        )
     return and_(*clauses)
 
 
@@ -259,8 +290,10 @@ def received(m):
 def blocked(msg):
     s = partial(observes, msg.sender)
     ins = [~s(p) for p in msg.ins]
-    nils = [and_(s(p), ~(sequential(s(p), sent(msg)) |
-                         simultaneous(s(p), sent(msg)))) for p in msg.nils]
+    nils = [
+        and_(s(p), ~(sequential(s(p), sent(msg)) | simultaneous(s(p), sent(msg))))
+        for p in msg.nils
+    ]
     outs = [s(p) for p in msg.outs]
     return or_(*(nils + outs + ins))
 
@@ -277,30 +310,29 @@ def non_lossy(msg):
 
 def emission(msg):
     """Sending a message must be preceded by observation of its ins,
-       but cannot be preceded by observation of any nils or outs"""
+    but cannot be preceded by observation of any nils or outs"""
     s = partial(observes, msg.sender)
-    ins = [impl(sent(msg), sequential(s(p), sent(msg)))
-           for p in msg.ins]
-    nils = [impl(and_(sent(msg), s(p)), sequential(sent(msg), s(p)))
-            for p in msg.nils]
-    outs = [impl(sent(msg), simultaneous(s(p), sent(msg)))
-            for p in msg.outs]
+    ins = [impl(sent(msg), sequential(s(p), sent(msg))) for p in msg.ins]
+    nils = [impl(and_(sent(msg), s(p)), sequential(sent(msg), s(p))) for p in msg.nils]
+    outs = [impl(sent(msg), simultaneous(s(p), sent(msg))) for p in msg.outs]
     return and_(*(ins + nils + outs))
 
 
 def reception(msg):
     "Each message reception is accompanied by the observation of its parameters; either they are observed, or the message itmsg is not"
-    clauses = [impl(received(msg),
-                    or_(sequential(p, received(msg)),
-                        simultaneous(p, received(msg))))
-               for p in map(partial(observes, msg.recipient), msg.ins | msg.outs)]
+    clauses = [
+        impl(
+            received(msg),
+            or_(sequential(p, received(msg)), simultaneous(p, received(msg))),
+        )
+        for p in map(partial(observes, msg.recipient), msg.ins | msg.outs)
+    ]
     return and_(*clauses)
 
 
 def print_formula(*formulas):
     print("\nFormula:")
-    print(json.dumps(logic.merge(*formulas),
-                     default=str, sort_keys=True, indent=2))
+    print(json.dumps(logic.merge(*formulas), default=str, sort_keys=True, indent=2))
     print()
 
 

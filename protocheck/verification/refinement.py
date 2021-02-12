@@ -1,5 +1,13 @@
 from ..bspl import load_file
-from .paths import key_sets, UoD, all_paths, possibilities, any_unreceived, sources, known
+from .paths import (
+    key_sets,
+    UoD,
+    all_paths,
+    possibilities,
+    any_unreceived,
+    sources,
+    known,
+)
 import sys
 
 
@@ -9,8 +17,7 @@ def handle_refinement(args):
     Q = spec.protocols[args.input[1]]
     P = spec.protocols[args.input[2]]
 
-    result = refines(UoD(), P.public_parameters.keys(),
-                     Q, P, verbose=args.verbose)
+    result = refines(UoD(), P.public_parameters.keys(), Q, P, verbose=args.verbose)
     if result["ok"] == True:
         print("  {} Refines {}".format(Q.name, P.name))
         return True
@@ -29,8 +36,7 @@ def subsumes(U, params, a, b, verbose=False):
         sources_b = sources(b, p)
         if sources_a != sources_b:
             if verbose:
-                print("sources don't match: {} != {}".format(
-                    sources_a, sources_b))
+                print("sources don't match: {} != {}".format(sources_a, sources_b))
             return False
 
     for r in U.roles:
@@ -41,8 +47,11 @@ def subsumes(U, params, a, b, verbose=False):
             known_b = known(b, keys, r).intersection(params)
             if known_a != known_b:
                 if verbose:
-                    print("{}'s knowledge doesn't match: {} != {}".format(
-                        r.name, known_a, known_b))
+                    print(
+                        "{}'s knowledge doesn't match: {} != {}".format(
+                            r.name, known_a, known_b
+                        )
+                    )
                 return False
             elif verbose:
                 print("{} knows: {}".format(r.name, known_a))
@@ -71,7 +80,7 @@ def refines(U, params, Q, P, verbose=False):
             "p_keys": p_keys,
             "q_keys": q_keys,
             "diff": p_keys.symmetric_difference(q_keys),
-            "reason": "{} uses keys that do not appear in {}".format(Q.name, P.name)
+            "reason": "{} uses keys that do not appear in {}".format(Q.name, P.name),
         }
 
     paths_Q = all_paths(U_Q, verbose)
@@ -86,11 +95,9 @@ def refines(U, params, Q, P, verbose=False):
             longest_P = p
 
     if verbose:
-        print("{}: {} paths, longest path: {}".format(
-            P.name, len(paths_P), longest_P))
+        print("{}: {} paths, longest path: {}".format(P.name, len(paths_P), longest_P))
         # print(paths_P)
-        print("{}: {} paths, longest path: {}".format(
-            Q.name, len(paths_Q), longest_Q))
+        print("{}: {} paths, longest path: {}".format(Q.name, len(paths_Q), longest_Q))
         # print(paths_Q)
 
     checked = 0
@@ -109,20 +116,28 @@ def refines(U, params, Q, P, verbose=False):
             return {
                 "ok": False,
                 "path": q,
-                "reason": "{} has path that does not subsume any path in {}".format(Q.name, P.name)
+                "reason": "{} has path that does not subsume any path in {}".format(
+                    Q.name, P.name
+                ),
             }
         if possibilities(U_P, match) and not possibilities(U_Q, q):
-            #subsumes(U_P, params, q, match, True)
+            # subsumes(U_P, params, q, match, True)
             return {
                 "ok": False,
                 "path": q,
                 "match": match,
-                "reason": "path in {} has branches, but path in {} does not".format(P.name, Q.name)
+                "reason": "path in {} has branches, but path in {} does not".format(
+                    P.name, Q.name
+                ),
             }
         checked += 1
         if verbose:
-            print("\r checked: {} of {} paths ({:.1f}%)".format(
-                checked, len(paths_Q), checked / len(paths_Q) * 100), end='')
+            print(
+                "\r checked: {} of {} paths ({:.1f}%)".format(
+                    checked, len(paths_Q), checked / len(paths_Q) * 100
+                ),
+                end="",
+            )
     if verbose:
         print()
     return {"ok": True}
