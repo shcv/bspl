@@ -1,8 +1,8 @@
 import pytest
 from ttictoc import Timer
 from statistics import median
-from protocheck.refinement import *
-from protocheck.sat.verification import *
+from protocheck.verification.refinement import *
+from protocheck.verification.sat import *
 
 
 def perf_test(objects, properties):
@@ -18,27 +18,28 @@ def perf_test(objects, properties):
                     times.append(elapsed * 1000)  # use milliseconds
             mean = sum(times) / len(times)
             print(
-                f"{obj.name}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}, {times}")
+                f"{obj.name}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}, {times}"
+            )
 
 
 @pytest.fixture(scope="module")
 def Concurrent():
-    return load_file('samples/bspl/performance/concurrent.bspl')
+    return load_file("samples/bspl/performance/concurrent.bspl")
 
 
 @pytest.fixture(scope="module")
 def Linear():
-    return load_file('samples/bspl/performance/linear.bspl')
+    return load_file("samples/bspl/performance/linear.bspl")
 
 
 @pytest.fixture(scope="module")
 def OneIndependent():
-    return load_file('samples/bspl/performance/one-independent.bspl')
+    return load_file("samples/bspl/performance/one-independent.bspl")
 
 
 @pytest.fixture(scope="module")
 def PurchaseComposition():
-    return load_file('samples/bspl/refinement/purchase-composition.bspl')
+    return load_file("samples/bspl/refinement/purchase-composition.bspl")
 
 
 # def test_linear(Linear):
@@ -104,8 +105,8 @@ def test_refinement_performance(PurchaseComposition):
     t = Timer()
     print("Refinement: ")
     print("Protocol, Min, Avg, Max")
-    Ps = ['Either-Starts', 'Lookup-Prices', 'Flexible-Payment']
-    Qs = ['Buyer-Starts', 'Single-Lookup', 'Pay-First']
+    Ps = ["Either-Starts", "Lookup-Prices", "Flexible-Payment"]
+    Qs = ["Buyer-Starts", "Single-Lookup", "Pay-First"]
     for i, name in enumerate(Ps):
         P = PurchaseComposition.protocols[Ps[i]]
         Q = PurchaseComposition.protocols[Qs[i]]
@@ -122,26 +123,23 @@ def test_refinement_performance(PurchaseComposition):
 def test_sat_composition_performance(PurchaseComposition):
     t = Timer()
     print("SAT (composition): ")
-    print('Protocol, Property, Min, Mean, Max, Times')
-    properties = {
-        "Liveness": lambda P: is_live(P),
-        "Safety": lambda P: is_safe(P)
-    }
-    perf_test([PurchaseComposition.protocols['Refined-Commerce']], properties)
+    print("Protocol, Property, Min, Mean, Max, Times")
+    properties = {"Liveness": lambda P: is_live(P), "Safety": lambda P: is_safe(P)}
+    perf_test([PurchaseComposition.protocols["Refined-Commerce"]], properties)
 
 
 def test_sat_subprotocol_performance(PurchaseComposition):
     t = Timer()
     print("SAT (components): ")
-    print('Protocol, Property, Min, Mean, Max')
+    print("Protocol, Property, Min, Mean, Max")
 
     for P in PurchaseComposition.protocols.values():
-        if 'Commerce' in P.name:
+        if "Commerce" in P.name:
             continue
         properties = {
             "Enactability": lambda: is_enactable(P),
             "Liveness": lambda: is_live(P),
-            "Safety": lambda: is_safe(P)
+            "Safety": lambda: is_safe(P),
         }
         for name, fn in properties.items():
             times = []
@@ -154,25 +152,20 @@ def test_sat_subprotocol_performance(PurchaseComposition):
                 times.append(elapsed * 1000)  # use milliseconds
             mean = sum(times) / len(times)
             print(
-                f"{P.name}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}")
+                f"{P.name}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}"
+            )
 
 
 def test_single_sub_performance(PurchaseComposition):
     t = Timer()
     print("SAT (single sub): ")
-    print('Protocol, Property, Min, Mean, Max, Times')
+    print("Protocol, Property, Min, Mean, Max, Times")
 
-    specs = ['sub-buyer-starts.bspl',
-             'sub-pay-first.bspl',
-             'sub-single-lookup.bspl']
+    specs = ["sub-buyer-starts.bspl", "sub-pay-first.bspl", "sub-single-lookup.bspl"]
 
     for s in specs:
-        P = load_file('samples/bspl/performance/' +
-                      s).protocols['Refined-Commerce']
-        properties = {
-            "Liveness": lambda: is_live(P),
-            "Safety": lambda: is_safe(P)
-        }
+        P = load_file("samples/bspl/performance/" + s).protocols["Refined-Commerce"]
+        properties = {"Liveness": lambda: is_live(P), "Safety": lambda: is_safe(P)}
         for name, fn in properties.items():
             times = []
             for x in range(10 + 1):
@@ -183,35 +176,33 @@ def test_single_sub_performance(PurchaseComposition):
                     times.append(elapsed * 1000)  # use milliseconds
             mean = sum(times) / len(times)
             print(
-                f"{s}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}, {times}")
+                f"{s}, {name}, {int(min(times))}, {int(mean)}, {int(max(times))}, {times}"
+            )
 
 
 def test_single_sub_path_performance(PurchaseComposition):
     print("SAT (single sub): ")
-    print('Protocol, Property, Min, Mean, Max, Times')
+    print("Protocol, Property, Min, Mean, Max, Times")
 
     specs = [  # 'sub-buyer-starts.bspl',
         # 'sub-pay-first.bspl',
         # 'sub-single-lookup.bspl',
-        'purchase-composition.bspl']
+        "purchase-composition.bspl"
+    ]
 
     for s in specs:
-        P = load_file('samples/bspl/performance/' +
-                      s).protocols['Refined-Commerce']
-        properties = {
-            "Liveness": path_liveness,
-            "Safety": path_safety
-        }
+        P = load_file("samples/bspl/performance/" + s).protocols["Refined-Commerce"]
+        properties = {"Liveness": path_liveness, "Safety": path_safety}
         perf_test([P], properties)
 
 
 def test_netbill_refinement(PurchaseComposition):
     print("NetBill refinement: ")
-    print('Protocol, Property, Min, Mean, Max, Times')
+    print("Protocol, Property, Min, Mean, Max, Times")
 
-    spec = load_file('samples/bspl/refinement/netbill.bspl')
-    P = spec.protocols['NetBill-Bliss']
-    Q = spec.protocols['Original-NetBill']
+    spec = load_file("samples/bspl/refinement/netbill.bspl")
+    P = spec.protocols["NetBill-Bliss"]
+    Q = spec.protocols["Original-NetBill"]
     properties = {
         "Refinement": lambda q: refines(UoD(), P.public_parameters, q, P),
         "Liveness": lambda p: is_live(p),
@@ -224,11 +215,11 @@ def test_netbill_refinement(PurchaseComposition):
 
 def test_CreateLabOrder_refinement(PurchaseComposition):
     print("CreateLabOrder refinement: ")
-    print('Protocol, Property, Min, Mean, Max, Times')
+    print("Protocol, Property, Min, Mean, Max, Times")
 
-    spec = load_file('samples/bspl/refinement/lab-order-refinement.bspl')
-    P = spec.protocols['CreateOrder']
-    Q = spec.protocols['CreateOrder2']
+    spec = load_file("samples/bspl/refinement/lab-order-refinement.bspl")
+    P = spec.protocols["CreateOrder"]
+    Q = spec.protocols["CreateOrder2"]
     properties = {
         "Refinement": lambda q: refines(UoD(), P.public_parameters, q, P),
         "Liveness": lambda p: is_live(p),
@@ -240,7 +231,6 @@ def test_CreateLabOrder_refinement(PurchaseComposition):
 
 
 def run_all():
-    test_linear(load_file('samples/bspl/performance/linear.bspl'))
-    test_concurrent(load_file('samples/bspl/performance/concurrent.bspl'))
-    test_one_independent(
-        load_file('samples/bspl/performance/one-independent.bspl'))
+    test_linear(load_file("samples/bspl/performance/linear.bspl"))
+    test_concurrent(load_file("samples/bspl/performance/concurrent.bspl"))
+    test_one_independent(load_file("samples/bspl/performance/one-independent.bspl"))

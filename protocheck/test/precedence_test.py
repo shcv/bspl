@@ -1,8 +1,12 @@
 import pytest
 from boolexpr import and_, not_, impl
-from protocheck.sat.precedence import (
-    transitivity, relationships, var,
-    occurrence, simultaneous, sequential,
+from protocheck.verification.precedence import (
+    transitivity,
+    relationships,
+    var,
+    occurrence,
+    simultaneous,
+    sequential,
     timeline,
     invert,
     normalize,
@@ -14,44 +18,46 @@ from protocheck.sat.precedence import (
     triples,
     consistent,
     ordered,
-    cycle
+    cycle,
 )
 
 
 def test_ordered():
-    assert not (ordered('a', 'b')
-                & var('a')
-                & var('b')
-                & ~sequential('a', 'b')
-                & ~sequential('b', 'a')).sat()[1]
+    assert not (
+        ordered("a", "b")
+        & var("a")
+        & var("b")
+        & ~sequential("a", "b")
+        & ~sequential("b", "a")
+    ).sat()[1]
 
 
 def test_occurrence():
-    occ = occurrence(relationships([simultaneous('a', 'b')]))
-    print('occurrence: ', occ)
-    formula = and_(simultaneous('a', 'b'), not_(var('a')), *occ)
-    print('formula: ', formula)
+    occ = occurrence(relationships([simultaneous("a", "b")]))
+    print("occurrence: ", occ)
+    formula = and_(simultaneous("a", "b"), not_(var("a")), *occ)
+    print("formula: ", formula)
     s = formula.sat()[1]
     if s:
-        print('solution: ', [k for k, v in s.items() if v])
+        print("solution: ", [k for k, v in s.items() if v])
     assert not s
 
 
 def test_relationships():
-    statements = [simultaneous('a', 'b'), sequential('a', 'b')]
+    statements = [simultaneous("a", "b"), sequential("a", "b")]
     rs = relationships(statements)
-    assert ('a', 'b') in rs and len(rs[('a', 'b')]) == 2
+    assert ("a", "b") in rs and len(rs[("a", "b")]) == 2
 
 
 def test_timeline():
-    statements = [simultaneous('a', 'b'), sequential('b', 'a')]
+    statements = [simultaneous("a", "b"), sequential("b", "a")]
     t = timeline(relationships(statements))
-    print('timeline: ', t)
-    formula = and_(var('a'), var('b'), *(t + statements))
-    print('formula: ', formula)
+    print("timeline: ", t)
+    formula = and_(var("a"), var("b"), *(t + statements))
+    print("formula: ", formula)
     s = formula.sat()[1]
     if s:
-        print('solution: ', [k for k, v in s.items() if v])
+        print("solution: ", [k for k, v in s.items() if v])
     assert not s
 
 
@@ -83,36 +89,44 @@ def test_outer():
 
 def test_match():
     a = (1, 2)
-    rels = {'<'}
+    rels = {"<"}
     assert rels == match(a, a, rels)
-    assert {'>'} == match(a, (2, 1), rels)
+    assert {">"} == match(a, (2, 1), rels)
 
 
 def test_triples():
-    assert len(triples(relationships([sequential('a', 'b'),
-                                      sequential('b', 'c')])).items()) == 1
+    assert (
+        len(
+            triples(relationships([sequential("a", "b"), sequential("b", "c")])).items()
+        )
+        == 1
+    )
 
-    assert len(triples(relationships([sequential('a', 'b'),
-                                      sequential('b', 'c'),
-                                      sequential('c', 'd')])).items()) == 2
+    assert (
+        len(
+            triples(
+                relationships(
+                    [sequential("a", "b"), sequential("b", "c"), sequential("c", "d")]
+                )
+            ).items()
+        )
+        == 2
+    )
 
 
 def test_transitivity():
     def trans(s):
         return transitivity(triples(relationships(s)))
 
-    statements = [sequential('a', 'b'),
-                  sequential('b', 'c'),
-                  sequential('d', 'e')]
+    statements = [sequential("a", "b"), sequential("b", "c"), sequential("d", "e")]
     assert len(trans(statements)) == 1
 
-    statements += sequential('a', 'c')
-    assert trans(statements)[0].equiv(
-        impl(and_(var("a<b"), var("b<c")), var("a<c")))
+    statements += sequential("a", "c")
+    assert trans(statements)[0].equiv(impl(and_(var("a<b"), var("b<c")), var("a<c")))
 
 
 def to_char(i):
-    return bytes([i + b'a'[0]]).decode()
+    return bytes([i + b"a"[0]]).decode()
 
 
 def chain(n):
@@ -124,27 +138,27 @@ def chain(n):
 
 def test_consistent():
     # check basic consistency
-    assert consistent(var('a'), var('b'), sequential('a', 'b'))
+    assert consistent(var("a"), var("b"), sequential("a", "b"))
 
 
 def test_consistent2():
     # see how long a causal loop can be before transitivity stops working
     for i in range(1, 5):
-        clauses = [sequential(to_char(i), 'a')] + chain(i)
+        clauses = [sequential(to_char(i), "a")] + chain(i)
         assert not consistent(and_(*clauses))
 
 
 def test_exhaustive_consistent():
     # check basic consistency
-    assert consistent(var('a'), var('b'), sequential('a', 'b'))
+    assert consistent(var("a"), var("b"), sequential("a", "b"))
 
     # see how long a causal loop can be before transitivity stops working
     for i in range(1, 5):
-        clauses = [sequential(to_char(i), 'a')] + chain(i)
+        clauses = [sequential(to_char(i), "a")] + chain(i)
         assert not consistent(and_(*clauses), exhaustive=True)
 
 
 def test_cycle():
-    assert not cycle(['a<b', 'b<c'])
-    assert cycle(['a<b', 'b<a'])
-    assert cycle(['a<b', 'b<c', 'c<a'])
+    assert not cycle(["a<b", "b<c"])
+    assert cycle(["a<b", "b<a"])
+    assert cycle(["a<b", "b<c", "c<a"])

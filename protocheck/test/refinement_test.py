@@ -1,5 +1,5 @@
 import pytest
-from protocheck.refinement import *
+from protocheck.verification.refinement import *
 
 
 @pytest.fixture(scope="module")

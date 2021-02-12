@@ -1,44 +1,43 @@
 import pytest
 from boolexpr import not_
 from protocheck.bspl import *
-from protocheck.sat import precedence, logic
-from protocheck.sat.verification import *
+from protocheck.verification import precedence, logic
+from protocheck.verification.sat import *
 
 
 @pytest.fixture(scope="module")
 def Auction():
-    return load_file('samples/bspl/auction').protocols['Auction']
+    return load_file("samples/bspl/auction").protocols["Auction"]
 
 
 @pytest.fixture(scope="module")
 def A(Auction):
-    return Auction.roles['A']
+    return Auction.roles["A"]
 
 
 @pytest.fixture(scope="module")
 def B(Auction):
-    return Auction.roles['B']
+    return Auction.roles["B"]
 
 
 @pytest.fixture(scope="module")
 def Bid(Auction):
-    return Auction.messages['Bid']
+    return Auction.messages["Bid"]
 
 
 @pytest.fixture(scope="module")
 def WithReject():
-    return load_file('samples/bspl/composition').protocols['With-Reject']
+    return load_file("samples/bspl/composition").protocols["With-Reject"]
 
 
 def test_observes(Bid, A):
-    assert str(observes(A, Bid)) == 'A:Auction/Bid'
+    assert str(observes(A, Bid)) == "A:Auction/Bid"
 
 
 def test_transmission(Bid, A, B):
     assert logic.compile(transmission(Bid)).equiv(
-        or_(not_(observes(A, Bid)),
-            sequential(observes(B, Bid),
-                       observes(A, Bid))))
+        or_(not_(observes(A, Bid)), sequential(observes(B, Bid), observes(A, Bid)))
+    )
 
 
 def test_reception(Bid, B):
