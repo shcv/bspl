@@ -43,7 +43,7 @@ async def test_receive_process():
     await a.receive({"item": "ball"})
     await a.stop()
 
-    print(f"all bindings: {a.history.all_bindings}")
+    print(f"messages: {a.history.messages}")
 
 
 @pytest.mark.asyncio
