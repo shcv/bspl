@@ -77,9 +77,9 @@ class Message:
         return ",".join(k + ":" + str(self.payload[k]) for k in key)
 
 
-class Enactment:
+class Context:
     def __init__(self, parent=None):
-        self.subenactments = {}
+        self.subecontexts = {}
         self._bindings = {}
         self._messages = []
         self.parent = parent
@@ -104,7 +104,7 @@ class Enactment:
         yield from self._messages
 
     def __repr__(self):
-        return f"Enactment(bindings={self.bindings},messages={[m for m in self.messages]},subenactments={self.subenactments})"
+        return f"Context(bindings={self.bindings},messages={[m for m in self.messages]},subcontexts={self.subcontexts})"
 
     def instance(self, schema):
         payload = {}
@@ -115,22 +115,29 @@ class Enactment:
 
 class History:
     def __init__(self):
-        # message index
+        # message indexes
         self.messages = {}
+        self.by_param = {}
 
         # parameter indexes
-        self.all_bindings = {}
         self.bindings = {}
 
-        # recursive (key -> value -> enactment -> subkey -> value -> subenactment...)
-        self.enactments = {}
+        # recursive (key -> value -> context -> subkey -> value -> subcontext...)
+        self.contexts = {}
+
+    def match(self, **params):
+        """Find messages that either have the same bindings, or don't have the parameter"""
+        candidates = set()
+        for p, v in params:
+            # collect all candidates that match on any parameter
+            candidates.update(self.by_param[p][v])
 
     def check_integrity(self, message):
         """
         Make sure payload can be received.
 
-        Each message in enactment should have the same keys.
-        Returns true if the parameters are consistent with all messages in the matching enactment.
+        Each message in context should have the same keys.
+        Returns true if the parameters are consistent with all messages in the matching context.
         """
         bindings = self.bindings.get(message.key, {})
         result = all(
@@ -193,33 +200,26 @@ class History:
         else:
             self.bindings[message.key] = message.payload.copy()
 
-        # record all unique parameter bindings
-        for p in message.payload:
-            if p in self.all_bindings:
-                self.all_bindings[p].add(message.payload[p])
-            else:
-                self.all_bindings[p] = set([message.payload[p]])
+        # log under the correct context
+        context = self.context(message)
+        context.add(message)
 
-        # log under the correct enactment
-        enactment = self.enactment(message)
-        enactment.add(message)
-
-    def enactment(self, message):
-        enactments = self.enactments
-        enactment = None
+    def context(self, message):
+        contexts = self.contexts
+        context = None
         for k in message.schema.keys:
             # assume sequential hierarchy of key parameters
             v = message.payload.get(k)
-            if k in enactments:
-                if v is not None and v in enactments[k]:
-                    enactment = enactments[k][v]
-                    enactments = enactment.subenactments
+            if k in contexts:
+                if v is not None and v in contexts[k]:
+                    context = contexts[k][v]
+                    contexts = context.subcontexts
                 else:
-                    enactment = enactments[k][v] = Enactment(parent=enactment)
+                    context = contexts[k][v] = Context(parent=context)
             else:
-                enactments[k] = {}
-                enactment = enactments[k][v] = Enactment(parent=enactment)
-        return enactment
+                contexts[k] = {}
+                context = contexts[k][v] = Context(parent=context)
+        return context
 
     def duplicate(self, message):
         """
@@ -250,8 +250,8 @@ class History:
                 match.acknowledged = True
 
     def fill(self, message):
-        Enactment = self.enactment(message)
-        bindings = enactment.bindings
+        context = self.context(message)
+        bindings = context.bindings
 
         for p in message.schema.parameters:
             v = bindings.get(p)
@@ -259,6 +259,6 @@ class History:
                 message.payload[p] = v
             else:
                 raise Exception(
-                    f"Cannot complete message {message} with enactment {enactment}"
+                    f"Cannot complete message {message} with context {context}"
                 )
         return message
