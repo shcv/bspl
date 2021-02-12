@@ -95,12 +95,12 @@ class Adapter:
         loop = asyncio.get_running_loop()
         loop.create_task(self.process_send(m))
 
-    def fill(self, schema, enactment):
-        bindings = enactment.bindings
+    def fill(self, schema, context):
+        bindings = context.bindings
         payload = {}
         for p in scehma.parameters:
             if p in self.generators:
-                payload[p] = self.generators[p](enactment)
+                payload[p] = self.generators[p](context)
             elif p in bindings:
                 payload[p] = bindings[p]
             else:

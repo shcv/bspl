@@ -9,9 +9,9 @@ logger = logging.getLogger("bungie")
 
 
 def autoincrement(parameter):
-    def _autoinc(enactment):
+    def _autoinc(context):
         current = 0
-        for m in enactment.messages:
+        for m in context.messages:
             current = max(current, m.payload.get(parameter))
         return current + 1
 
@@ -164,7 +164,7 @@ class Resend:
                 selected.intersection_update(p(history))
         return selected
 
-    async def action(self, adapter, schema, enactment):
+    async def action(self, adapter, schema, context):
         # resend message
         pass
 
@@ -197,10 +197,10 @@ class Resend:
             for s in expectations:
 
                 async def reactor(msg):
-                    enactment = msg.adapter.history.enactment(msg)
+                    context = msg.adapter.history.context(msg)
                     for r in self.schemas:
-                        # resend message schema r in the same enactment as msg
-                        await self.action(adapter, r, enactment)
+                        # resend message schema r in the same context as msg
+                        await self.action(adapter, r, context)
 
                 self.reactors[s] = reactor
         else:
@@ -329,7 +329,7 @@ class Forward(Resend):
         self.to = recipient
         return self
 
-    def action(self, adapter, schema, enactment):
+    def action(self, adapter, schema, context):
         pass
 
 
