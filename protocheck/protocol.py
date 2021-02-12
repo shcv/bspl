@@ -1,5 +1,16 @@
 from .verification.logic import merge
 from collections import OrderedDict
+import inspect
+import sys
+from types import ModuleType
+
+
+class ProtoMod(ModuleType):
+    def __setitem__(self, name, value):
+        return self.__setattr__(name, value)
+
+    def __getitem__(self, name):
+        return self.__getattribute__(name)
 
 
 class Specification:
@@ -16,6 +27,20 @@ class Specification:
 
         for p in self.protocols.values():
             p.resolve_references(self)
+
+    def export(self, protocol):
+        p = self.protocols[protocol]
+        pname = "".join(map(lambda s: s.capitalize(), p.name.split(" ")))
+        frm = inspect.stack()[1]
+        module = ProtoMod(pname)
+        for name, message in p.messages.items():
+            module[name.capitalize()] = message
+        for name, role in p.roles.items():
+            module[name.capitalize()] = role
+        module.protocol = p
+        sys.modules[pname] = module
+        p.module = module
+        return p
 
     # @classmethod
     # def from_json(cls, protocols):
