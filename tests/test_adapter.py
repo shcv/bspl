@@ -7,29 +7,24 @@ from bungie.emitter import Emitter
 
 specification = bspl.parse(
     """
-Order {
+RFQ {
   roles C, S // Customer, Seller
-  parameters out item key, out done
+  parameters out item key, out ship
+  private price, payment
 
-  C -> S: Buy[out item]
-  S -> C: Deliver[in item, out done]
-}
-
-With-Reject {
-  roles C, S
-  parameters out item key, out done
-
-  Order(C, S, out item, out done)
-  S -> C: Reject[in item, out done]
+  C -> S: req[out item]
+  S -> C: quote[in item, out price]
+  C -> S: pay[in item, in price, out payment]
+  S -> C: ship[in item, in payment, out ship]
 }
 """
 )
 
-with_reject = specification.protocols["With-Reject"]
+RFQ = specification.protocols["RFQ"]
 
 config = {
-    with_reject.roles["C"]: ("localhost", 8001),
-    with_reject.roles["S"]: ("localhost", 8002),
+    RFQ.roles["C"]: ("localhost", 8001),
+    RFQ.roles["S"]: ("localhost", 8002),
 }
 
 logger = logging.getLogger("bungie")
@@ -38,7 +33,7 @@ logger.setLevel(logging.DEBUG)
 
 @pytest.mark.asyncio
 async def test_receive_process():
-    a = Adapter(with_reject.roles["S"], with_reject, config)
+    a = Adapter(RFQ.roles["S"], RFQ, config)
     await a.task()
     await a.receive({"item": "ball"})
     await a.stop()
@@ -48,8 +43,8 @@ async def test_receive_process():
 
 @pytest.mark.asyncio
 async def test_send_process():
-    a = Adapter(with_reject.roles["C"], with_reject, config, emitter=Emitter())
-    m = Message(with_reject.messages["Buy"], {"item": "ball"})
+    a = Adapter(RFQ.roles["C"], RFQ, config, emitter=Emitter())
+    m = Message(RFQ.messages["req"], {"item": "ball"})
     await a.task()
     await a.process_send(m)
     await a.stop()
@@ -59,10 +54,16 @@ async def test_send_process():
 async def test_match():
     """Test that the schema.match(**params) method works"""
     # create adapter and inject methods
-    a = Adapter(with_reject.roles["S"], with_reject, config)
+    a = Adapter(RFQ.roles["S"], RFQ, config)
     await a.task()
-    # make sure there's a Buy in the history
+    # make sure there's a req in the history
     await a.receive({"item": "ball"})
-    ms = with_reject.messages["Deliver"].match(item="ball")
-    assert len(ms) > 0
+
+    # There should be one enabled 'quote'
+    ms = RFQ.messages["quote"].match(item="ball")
+    assert len(ms) == 1
+
+    # But not any enabled 'ship's
+    ms2 = RFQ.messages["ship"].match(item="ball")
+    assert len(ms2) == 0
     await a.stop()
