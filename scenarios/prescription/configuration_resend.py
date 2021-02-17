@@ -1,11 +1,17 @@
 from protocheck import bspl
 
-prescription_resend = bspl.load_file("prescription-resend.bspl").export(
-    "PrescriptionResend"
-)
+prescription = bspl.load_file("prescription-resend.bspl").export("PrescriptionResend")
 
 with open("/proc/self/cgroup", "r") as cgroups:
-    from PrescriptionResend import Complain, Repeat, Prescribe, Filled
+    from PrescriptionResend import (
+        Patient,
+        Doctor,
+        Pharmacist,
+        Complain,
+        Repeat,
+        Prescribe,
+        Filled,
+    )
 
     in_docker = "docker" in cgroups.read()
 
