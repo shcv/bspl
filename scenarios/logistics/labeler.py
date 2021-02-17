@@ -23,5 +23,5 @@ async def request_label(message):
 
 if __name__ == "__main__":
     logger.info("Starting Labeler...")
-    adapter.load_policy_file("policies.yaml")
+    # adapter.load_policy_file("policies.yaml")
     adapter.start()
