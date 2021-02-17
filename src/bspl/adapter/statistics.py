@@ -21,7 +21,7 @@ def splitlines(fd, sep=None, replace=None):
 def net_usage(dev):
     """Total network usage in bytes"""
     net = open("/proc/net/dev")
-    totals = {"sent": 0, "received": 0, "rx packets": 0, "tx packets": 0}
+    totals = {"rx bytes": 0, "tx bytes": 0, "rx packets": 0, "tx packets": 0}
     for line in splitlines(net, replace=":"):
         # logger.info(line)
         if len(line) < 17:
