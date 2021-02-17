@@ -44,29 +44,12 @@ class Message:
         self.payload[name] = value
         return value
 
-    def __getattr__(self, key):
-        return self.payload[name]
-
-    def __setattr__(self, name, value):
-        if hasattr(self, name):
-            super().__setattr__(name, value)
-        else:
-            self.payload[name] = value
-        return value
-
     def keys_match(self, other):
         return all(
             self.payload[k] == other.payload[k]
             for k in self.schema.keys
             if k in other.schema.parameters
         )
-
-    def ack(self):
-        payload = {k: self.payload[k] for k in self.schema.keys}
-        payload["$ack"] = self.schema.name
-        self.acknowledged = True
-        schema = self.schema.acknowledgment()
-        return Message(schema, payload)
 
     def project_key(self, schema):
         key = []
