@@ -27,6 +27,10 @@ def instantiate(adapter):
 
 def match(schema, **params):
     """Construnct instances of schema that match params"""
-    # identify keys
-    # search history for objects that match keys
-    print(f"you asked {schema} to match {params}")
+    h = schema.adapter.history
+    contexts = h.matching_contexts(**params)
+    candidates = set()
+    for c in contexts:
+        if h.check_outs(schema, c) and all(p in c.bindings for p in schema.ins):
+            candidates.add(schema(**c.bindings))
+    return candidates
