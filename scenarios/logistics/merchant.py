@@ -1,5 +1,5 @@
 from bungie import Adapter, Resend, Scheduler
-from bungie.performance import perf_logger
+from bungie.statistics import stats_logger
 from configuration import config
 import random
 import time
@@ -18,7 +18,7 @@ stats = {"init_keys": set(), "finished_keys": set(), "information": [0], "done":
 
 
 async def order_generator():
-    for orderID in range(10000):
+    for orderID in range(100):
         adapter.send(
             {
                 "orderID": orderID,
@@ -66,5 +66,6 @@ async def status_logger():
 
 if __name__ == "__main__":
     print("Starting Merchant...")
-    adapter.load_policy_file("policies.yaml")
-    adapter.start(order_generator(), perf_logger(3), status_logger())
+    # adapter.load_policy_file("policies.yaml")
+    adapter.start(order_generator(), stats_logger(3), status_logger())
+p
