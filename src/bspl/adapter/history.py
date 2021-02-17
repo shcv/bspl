@@ -61,6 +61,9 @@ class Message:
                 key.append(k)
         return ",".join(k + ":" + str(self.payload[k]) for k in key)
 
+    def send(self):
+        self.adapter.send(self)
+
 
 class Context:
     def __init__(self, parent=None):
