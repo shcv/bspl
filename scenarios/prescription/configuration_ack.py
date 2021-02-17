@@ -1,6 +1,6 @@
 from protocheck import bspl
 
-prescription_ack = bspl.load_file("prescription-ack.bspl").export("PrescriptionAck")
+prescription = bspl.load_file("prescription-ack.bspl").export("PrescriptionAck")
 
 with open("/proc/self/cgroup", "r") as cgroups:
     from Prescription import (

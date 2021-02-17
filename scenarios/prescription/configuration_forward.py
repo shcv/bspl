@@ -1,8 +1,6 @@
 from protocheck import bspl
 
-prescription_forward = bspl.load_file("prescription-forward.bspl").export(
-    "PrescriptionForward"
-)
+prescription = bspl.load_file("prescription-forward.bspl").export("PrescriptionForward")
 
 with open("/proc/self/cgroup", "r") as cgroups:
     from PrescriptionForward import (
