@@ -1,4 +1,5 @@
 import logging
+import itertools
 
 logger = logging.getLogger("bungie")
 
@@ -156,65 +157,91 @@ class History:
     def __init__(self):
         # message indexes
         self.messages = {}
-        self.by_param = {}
-
-        # parameter indexes
-        self.bindings = {}
 
         # recursive (key -> value -> context -> subkey -> value -> subcontext...)
-        self.contexts = {}
+        self.contexts = Context()
 
-    def match(self, **params):
-        """Find messages that either have the same bindings, or don't have the parameter"""
-        candidates = set()
-        for p, v in params:
-            # collect all candidates that match on any parameter
-            candidates.update(self.by_param[p][v])
+    def find_context(self, **params):
+        """Find context whose keys match params (ignoring extra parameters)"""
 
-    def check_integrity(self, message):
+        def step(context):
+            for k in set(context.keys()).intersection(params.keys()):
+                # assume only one
+                return context[k].get(params[k])
+
+        context = self.contexts
+        while True:
+            new_context = step(context)
+            if new_context:
+                context = new_context
+            else:
+                break
+        return context
+
+    def matching_contexts(self, **params):
+        """Find contexts that either have the same bindings, or don't have the parameter"""
+
+        context = self.find_context(**params)
+
+        if len(context.subcontexts):
+            return [
+                c
+                for c in context.flatten()
+                if all(
+                    c.bindings[p] == params[p] or p not in c.bindings for p in params
+                )
+            ]
+        else:
+            return [context]
+
+    def check_integrity(self, message, context=None):
         """
         Make sure payload can be received.
 
         Each message in context should have the same keys.
         Returns true if the parameters are consistent with all messages in the matching context.
         """
-        bindings = self.bindings.get(message.key, {})
+        context = context or self.find_context(**message.payload)
         result = all(
-            message.payload[p] == bindings[p] for p in message.payload if p in bindings
+            message.payload[p] == context.bindings[p]
+            for p in message.payload
+            if p in context.bindings
         )
         return result
 
-    def check_outs(self, message):
+    def check_outs(self, schema, context):
         """
         Make sure none of the outs have been previous bound to a different value.
         Only use this check if the message is being sent.
         Assumes message is not a duplicate.
         """
-        return not any(
-            p in self.bindings.get(message.key, {}) for p in message.schema.outs
-        )
+        # context may be parent, if there are no matches; possibly even the root
+        return not any(p in context.bindings for p in schema.outs)
 
-    def check_dependencies(self, message):
+    def check_dependencies(self, message, context):
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
         """
         return not any(
-            message.payload[p] not in self.all_bindings.get(p, [])
+            # aggregate across subcontexts
+            # permits 'lifting' parameters into a parent context
+            message.payload[p] not in context.all_bindings.get(p, [])
             for p in message.schema.ins
         )
 
-    def validate_send(self, message):
+    def validate_send(self, message, context=None):
         # message assumed not to be duplicate; otherwise recheck unnecessary
+        context = context or self.find_context(**message.payload)
 
-        if not self.check_outs(message):
+        if not self.check_outs(message.schema, context):
             logger.info("Failed out check: {}".format(message.payload))
             return False
 
-        if not self.check_integrity(message):
+        if not self.check_integrity(message, context):
             logger.info("Failed integrity check: {}".format(message.payload))
             return False
 
-        if not self.check_dependencies(message):
+        if not self.check_dependencies(message, context):
             logger.info("Failed dependency check: {}".format(message.payload))
             return False
 
@@ -230,34 +257,27 @@ class History:
         else:
             self.messages[message.schema] = {message.key: message}
 
-        # update bindings
-        if message.key in self.bindings:
-            bs = self.bindings[message.key]
-            for p in message.payload:
-                if p not in bs:
-                    bs[p] = message.payload[p]
-        else:
-            self.bindings[message.key] = message.payload.copy()
-
         # log under the correct context
         context = self.context(message)
         context.add(message)
 
     def context(self, message):
-        contexts = self.contexts
-        context = None
+        """Find or create a context for message"""
+        parent = None
+        context = self.contexts
         for k in message.schema.keys:
-            # assume sequential hierarchy of key parameters
             v = message.payload.get(k)
-            if k in contexts:
-                if v is not None and v in contexts[k]:
-                    context = contexts[k][v]
-                    contexts = context.subcontexts
+            if k in context:
+                if v is not None and v in context[k]:
+                    new_context = context[k][v]
                 else:
-                    context = contexts[k][v] = Context(parent=context)
+                    new_context = context[k][v] = Context(parent=parent)
             else:
-                contexts[k] = {}
-                context = contexts[k][v] = Context(parent=context)
+                context[k] = {}
+                context[k][v] = new_context = Context(parent=parent)
+            context = new_context
+            parent = context
+
         return context
 
     def duplicate(self, message):
