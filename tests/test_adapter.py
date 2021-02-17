@@ -1,55 +1,69 @@
 import asyncio
+import logging
+import pytest
 from protocheck import bspl
 from bungie.adapter import Adapter, Message
+from bungie.emitter import Emitter
 
-specification = bspl.parse("""
-Order {
+specification = bspl.parse(
+    """
+RFQ {
   roles C, S // Customer, Seller
-  parameters out item key, out done
+  parameters out item key, out ship
+  private price, payment
 
-  C -> S: Buy[out item]
-  S -> C: Deliver[in item, out done]
+  C -> S: req[out item]
+  S -> C: quote[in item, out price]
+  C -> S: pay[in item, in price, out payment]
+  S -> C: ship[in item, in payment, out ship]
 }
+"""
+)
 
-With-Reject {
-  roles C, S
-  parameters out item key, out done
-
-  Order(C, S, out item, out done)
-  S -> C: Reject[in item, out done]
-}
-""")
-
-with_reject = specification.protocols['With-Reject']
+RFQ = specification.protocols["RFQ"]
 
 config = {
-    with_reject.roles['C']: ('localhost', 8001),
-    with_reject.roles['S']: ('localhost', 8002)
+    RFQ.roles["C"]: ("localhost", 8001),
+    RFQ.roles["S"]: ("localhost", 8002),
 }
 
-
-def test_receive_process():
-    a = Adapter(with_reject.roles['S'], with_reject, config)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(a.task())
-    loop.run_until_complete(a.process_receive({"item": "ball"}))
-    print(a.history.all_bindings)
+logger = logging.getLogger("bungie")
+logger.setLevel(logging.DEBUG)
 
 
-def test_send_process():
-    a = Adapter(with_reject.roles['C'], with_reject, config)
-    m = Message(with_reject.messages['Buy'], {"item": "ball"})
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(a.task())
-    loop.run_until_complete(a.process_send(m))
+@pytest.mark.asyncio
+async def test_receive_process():
+    a = Adapter(RFQ.roles["S"], RFQ, config)
+    await a.task()
+    await a.receive({"item": "ball"})
+    await a.stop()
+
+    print(f"messages: {a.history.messages}")
 
 
-def test_load_policies():
-    a = Adapter(with_reject.roles['C'], with_reject, config)
-    policies = """
-    C:
-      every 1s:
-        - resend Buy until received Deliver
-    """
-    a.load_policies(policies)
-    assert(a.schedulers)
+@pytest.mark.asyncio
+async def test_send_process():
+    a = Adapter(RFQ.roles["C"], RFQ, config, emitter=Emitter())
+    m = Message(RFQ.messages["req"], {"item": "ball"})
+    await a.task()
+    await a.process_send(m)
+    await a.stop()
+
+
+@pytest.mark.asyncio
+async def test_match():
+    """Test that the schema.match(**params) method works"""
+    # create adapter and inject methods
+    a = Adapter(RFQ.roles["S"], RFQ, config)
+    await a.task()
+    # make sure there's a req in the history
+    await a.receive({"item": "ball"})
+
+    # There should be one enabled 'quote'
+    ms = RFQ.messages["quote"].match(item="ball")
+    assert len(ms) == 1
+
+    # But not any enabled 'ship's
+    ms2 = RFQ.messages["ship"].match(item="ball")
+    assert len(ms2) == 0
+    await a.stop()

@@ -1,51 +1,58 @@
 import logging
-logger = logging.getLogger('bungie')
+import itertools
+
+logger = logging.getLogger("bungie")
 
 
 def get_key(schema, payload):
     # schema.keys should be ordered, or sorted for consistency
-    return ','.join(k + ':' + str(payload[k]) for k in schema.keys)
+    return ",".join(k + ":" + str(payload[k]) for k in schema.keys)
 
 
 class Message:
-    def __init__(self, schema, payload, duplicate=False, acknowledged=False, dest=None):
+    schema = None
+    payload = {}
+    acknowledged = False
+    dest = None
+    adapter = None
+    meta = {}
+    key = None
+
+    def __init__(self, schema, payload, acknowledged=False, dest=None, adapter=None):
         self.schema = schema
         self.payload = payload
-        self.duplicate = duplicate
         self.acknowledged = acknowledged
         self.dest = dest
+        self.adapter = adapter
         self.meta = {}
 
-        self.key = get_key(self.schema, self.payload)
+    @property
+    def key(self):
+        return get_key(self.schema, self.payload)
 
     def __repr__(self):
-        payload = ','.join('{0}={1!r}'.format(k, v)
-                           for k, v in self.payload.items())
+        payload = ",".join("{0}={1!r}".format(k, v) for k, v in self.payload.items())
         return f"{self.schema.name}({payload})"
 
     def __eq__(self, other):
         return self.payload == other.payload and self.schema == other.schema
 
     def __hash__(self):
-        return hash(self.schema.qualified_name+self.key)
+        return hash(self.schema.qualified_name + self.key)
 
-    def __getitem__(self, key):
-        return self.payload[key]
+    def __getitem__(self, name):
+        return self.payload[name]
 
-    def __getattr__(self, key):
-        return self.payload[key]
+    def __setitem__(self, name, value):
+        self.payload[name] = value
+        return value
 
     def keys_match(self, other):
-        return all(self.payload[k] == other.payload[k]
-                   for k in self.schema.keys
-                   if k in other.schema.parameters)
-
-    def ack(self):
-        payload = {k: self.payload[k] for k in self.schema.keys}
-        payload['$ack'] = self.schema.name
-        self.acknowledged = True
-        schema = self.schema.acknowledgment()
-        return Message(schema, payload)
+        return all(
+            self.payload[k] == other.payload[k]
+            for k in self.schema.keys
+            if k in other.schema.parameters
+        )
 
     def project_key(self, schema):
         key = []
@@ -53,12 +60,15 @@ class Message:
         for k in schema.keys:
             if k in self.schema.keys:
                 key.append(k)
-        return ','.join(k + ':' + str(self.payload[k]) for k in key)
+        return ",".join(k + ":" + str(self.payload[k]) for k in key)
+
+    def send(self):
+        self.adapter.send(self)
 
 
-class Enactment:
+class Context:
     def __init__(self, parent=None):
-        self.subenactments = {}
+        self.subcontexts = {}
         self._bindings = {}
         self._messages = []
         self.parent = parent
@@ -69,12 +79,28 @@ class Enactment:
 
     @property
     def bindings(self):
+        """Return all parameters bound directly in this context or its ancestors"""
         # may not be efficient enough, since it collects all of the
         # bindings every time it's accessed
         if self.parent:
             return {**self.parent.bindings, **self._bindings}
         else:
-            return self._bindings
+            return self._bindings.copy()
+
+    def _all_bindings(self):
+        """
+        Return all bindings accessible from a context - including all bindings from subcontexts
+        """
+        bs = {}
+        for p in self.subcontexts:
+            bs[p] = self.subcontexts[p].keys()
+            for sub in self.subcontexts[p].values():
+                bs.update(**{k: v for k, v in sub.all_bindings.items() if k != p})
+        return bs
+
+    @property
+    def all_bindings(self):
+        return {**{k: [v] for k, v in self.bindings.items()}, **self._all_bindings()}
 
     @property
     def messages(self):
@@ -82,8 +108,21 @@ class Enactment:
             yield from self.parent.messages
         yield from self._messages
 
+    def _all_messages(self):
+        yield from self._messages
+        for p in self.subcontexts:
+            for sub in self.subcontexts[p].values():
+                yield from sub._all_messages()
+
+    @property
+    def all_messages(self):
+        if self.parent:
+            return set(itertools.chain(self.parent.messages, self._all_messages()))
+        else:
+            return set(self._all_messages())
+
     def __repr__(self):
-        return f"Enactment(bindings={self.bindings},messages={[m for m in self.messages]},subenactments={self.subenactments})"
+        return f"Context(bindings={self.bindings},messages={[m for m in self.messages]},subcontexts={self.subcontexts})"
 
     def instance(self, schema):
         payload = {}
@@ -91,59 +130,118 @@ class Enactment:
             payload[k] = self.bindings[k]
         return Message(schema, payload)
 
+    def __getitem__(self, key):
+        return self.subcontexts[key]
+
+    def __setitem__(self, key, value):
+        self.subcontexts[key] = value
+        return value
+
+    def __contains__(self, key):
+        return key in self.subcontexts
+
+    def keys(self):
+        return self.subcontexts.keys()
+
+    def flatten_subs(self):
+        for p in self.subcontexts:
+            for v in self.subcontexts[p]:
+                yield self.subcontexts[p][v]
+
+    def flatten(self):
+        yield self
+        yield from self.flatten_subs()
+
 
 class History:
     def __init__(self):
-        # message index
+        # message indexes
         self.messages = {}
 
-        # parameter indexes
-        self.all_bindings = {}
-        self.bindings = {}
+        # recursive (key -> value -> context -> subkey -> value -> subcontext...)
+        self.contexts = Context()
 
-        # recursive (key -> value -> enactment -> subkey -> value -> subenactment...)
-        self.enactments = {}
+    def find_context(self, **params):
+        """Find context whose keys match params (ignoring extra parameters)"""
 
-    def check_integrity(self, message):
+        def step(context):
+            for k in set(context.keys()).intersection(params.keys()):
+                # assume only one
+                return context[k].get(params[k])
+
+        context = self.contexts
+        while True:
+            new_context = step(context)
+            if new_context:
+                context = new_context
+            else:
+                break
+        return context
+
+    def matching_contexts(self, **params):
+        """Find contexts that either have the same bindings, or don't have the parameter"""
+
+        context = self.find_context(**params)
+
+        if len(context.subcontexts):
+            return [
+                c
+                for c in context.flatten()
+                if all(
+                    c.bindings[p] == params[p] or p not in c.bindings for p in params
+                )
+            ]
+        else:
+            return [context]
+
+    def check_integrity(self, message, context=None):
         """
         Make sure payload can be received.
 
-        Each message in enactment should have the same keys.
-        Returns true if the parameters are consistent with all messages in the matching enactment.
+        Each message in context should have the same keys.
+        Returns true if the parameters are consistent with all messages in the matching context.
         """
-        bindings = self.bindings.get(message.key, {})
-        result = all(message.payload[p] == bindings[p]
-                     for p in message.payload
-                     if p in bindings)
+        context = context or self.find_context(**message.payload)
+        result = all(
+            message.payload[p] == context.bindings[p]
+            for p in message.payload
+            if p in context.bindings
+        )
         return result
 
-    def check_outs(self, message):
+    def check_outs(self, schema, context):
         """
         Make sure none of the outs have been previous bound to a different value.
         Only use this check if the message is being sent.
         Assumes message is not a duplicate.
         """
-        return not any(p in self.bindings.get(message.key, {}) for p in message.schema.outs)
+        # context may be parent, if there are no matches; possibly even the root
+        return not any(p in context.bindings for p in schema.outs)
 
-    def check_dependencies(self, message):
+    def check_dependencies(self, message, context):
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
         """
-        return not any(message.payload[p] not in self.all_bindings.get(p, [])
-                       for p in message.schema.ins)
+        return not any(
+            # aggregate across subcontexts
+            # permits 'lifting' parameters into a parent context
+            message.payload[p] not in context.all_bindings.get(p, [])
+            for p in message.schema.ins
+        )
 
-    def validate_send(self, message):
+    def validate_send(self, message, context=None):
         # message assumed not to be duplicate; otherwise recheck unnecessary
+        context = context or self.find_context(**message.payload)
 
-        if not self.check_outs(message):
+        if not self.check_outs(message.schema, context):
             logger.info("Failed out check: {}".format(message.payload))
             return False
 
-        if not self.check_integrity(message):
+        if not self.check_integrity(message, context):
             logger.info("Failed integrity check: {}".format(message.payload))
             return False
 
-        if not self.check_dependencies(message):
+        if not self.check_dependencies(message, context):
             logger.info("Failed dependency check: {}".format(message.payload))
             return False
 
@@ -151,7 +249,7 @@ class History:
 
     def observe(self, message):
         """Observe an instance of a given message specification.
-           Check integrity, and add the message to the history."""
+        Check integrity, and add the message to the history."""
 
         # index messages by key
         if message.schema in self.messages:
@@ -159,42 +257,28 @@ class History:
         else:
             self.messages[message.schema] = {message.key: message}
 
-        # update bindings
-        if message.key in self.bindings:
-            bs = self.bindings[message.key]
-            for p in message.payload:
-                if p not in bs:
-                    bs[p] = message.payload[p]
-        else:
-            self.bindings[message.key] = message.payload.copy()
+        # log under the correct context
+        context = self.context(message)
+        context.add(message)
 
-        # record all unique parameter bindings
-        for p in message.payload:
-            if p in self.all_bindings:
-                self.all_bindings[p].add(message.payload[p])
-            else:
-                self.all_bindings[p] = set([message.payload[p]])
-
-        # log under the correct enactment
-        enactment = self.enactment(message)
-        enactment.add(message)
-
-    def enactment(self, message):
-        enactments = self.enactments
-        enactment = None
+    def context(self, message):
+        """Find or create a context for message"""
+        parent = None
+        context = self.contexts
         for k in message.schema.keys:
-            # assume sequential hierarchy of key parameters
             v = message.payload.get(k)
-            if k in enactments:
-                if v is not None and v in enactments[k]:
-                    enactment = enactments[k][v]
-                    enactments = enactment.subenactments
+            if k in context:
+                if v is not None and v in context[k]:
+                    new_context = context[k][v]
                 else:
-                    enactment = enactments[k][v] = Enactment(parent=enactment)
+                    new_context = context[k][v] = Context(parent=parent)
             else:
-                enactments[k] = {}
-                enactment = enactments[k][v] = Enactment(parent=enactment)
-        return enactment
+                context[k] = {}
+                context[k][v] = new_context = Context(parent=parent)
+            context = new_context
+            parent = context
+
+        return context
 
     def duplicate(self, message):
         """
@@ -206,7 +290,9 @@ class History:
         elif match:
             raise Exception(
                 "Message found with matching key {} but different parameters: {}, {}".format(
-                    message.key, message, match))
+                    message.key, message, match
+                )
+            )
         else:
             return False
 
@@ -223,8 +309,8 @@ class History:
                 match.acknowledged = True
 
     def fill(self, message):
-        Enactment = self.enactment(message)
-        bindings = enactment.bindings
+        context = self.context(message)
+        bindings = context.bindings
 
         for p in message.schema.parameters:
             v = bindings.get(p)
@@ -232,5 +318,6 @@ class History:
                 message.payload[p] = v
             else:
                 raise Exception(
-                    f"Cannot complete message {message} with enactment {enactment}")
+                    f"Cannot complete message {message} with context {context}"
+                )
         return message

@@ -8,27 +8,28 @@ import re
 import logging
 from . import policies
 
-logger = logging.getLogger('bungie')
+logger = logging.getLogger("bungie")
 
 
 def exponential(interval=1):
     def inner(message):
-        delay = interval * \
-            random.randint(0, 2 ** message.meta.get('retries', 0)-1)
+        delay = interval * random.randint(0, 2 ** message.meta.get("retries", 0) - 1)
         return delay
+
     return inner
 
 
 class Scheduler:
-    def __init__(self, schedule='* * * * *', policies=None, backoff=None):
+    def __init__(self, schedule="* * * * *", policies=None, backoff=None):
         self.ID = uuid.uuid4()
 
         if croniter.is_valid(schedule):
             self.schedule = schedule
-        elif re.match(r'(?:every\s?)?(\d+\.?\d*)?\s?(?:s|seconds?)', schedule):
+        elif re.match(r"(?:every\s?)?(\d+\.?\d*)?\s?(?:s|seconds?)", schedule):
             self.schedule = None
             match = re.match(
-                r'(?:every\s?)?(\d+\.?\d*)?\s?(?:s|seconds?)', schedule).groups()
+                r"(?:every\s?)?(\d+\.?\d*)?\s?(?:s|seconds?)", schedule
+            ).groups()
             if match[0] is not None:
                 self.interval = float(match[0])
             else:
@@ -44,8 +45,8 @@ class Scheduler:
         return self
 
     def backoff(self, message):
-        if 'last-retry' in message.meta:
-            delta = datetime.datetime.now() - message.meta['last-retry']
+        if "last-retry" in message.meta:
+            delta = datetime.datetime.now() - message.meta["last-retry"]
             delay = self._backoff(message)
             return delta.total_seconds() > delay
         else:
@@ -57,10 +58,11 @@ class Scheduler:
         while True:
             if self.schedule:
                 logger.debug(
-                    f'scheduler: Waiting for next occurrence of ({self.schedule})')
+                    f"scheduler: Waiting for next occurrence of ({self.schedule})"
+                )
                 await aiocron.crontab(self.schedule).next()
             else:
-                logger.debug(f'scheduler: Waiting {self.interval} seconds')
+                logger.debug(f"scheduler: Waiting {self.interval} seconds")
                 await asyncio.sleep(self.interval)
             await self.run()
 

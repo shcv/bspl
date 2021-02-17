@@ -6,15 +6,13 @@ adapter = Adapter(Pharmacist, prescription, config)
 
 
 @adapter.reaction(Prescribe)
-async def handle_prescription(message, enactment, adapter):
+async def handle_prescription(message):
     print(message)
 
-    msg = Filled(cID=message.cID,
-                 Rx=message.Rx,
-                 package=str(uuid.uuid4()))
+    msg = Filled(cID=message.cID, Rx=message.Rx, package=str(uuid.uuid4()))
     adapter.send(msg)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Starting Pharmacist agent...")
     adapter.start()

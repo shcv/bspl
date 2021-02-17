@@ -9,6 +9,7 @@ import math
 import socket
 import inspect
 import yaml
+from types import MethodType
 from asyncio.queues import Queue
 from .history import History, Message
 from functools import partial
@@ -17,19 +18,15 @@ from .receiver import Receiver
 from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
 from . import policies
+import bungie
 
-FORMAT = '%(asctime)-15s %(module)s: %(message)s'
+FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
-logger = logging.getLogger('bungie')
+logger = logging.getLogger("bungie")
 
 
 class Adapter:
-    def __init__(self,
-                 role,
-                 protocol,
-                 configuration,
-                 emitter=Emitter(),
-                 receiver=None):
+    def __init__(self, role, protocol, configuration, emitter=Emitter(), receiver=None):
         """
         Initialize the agent adapter.
 
@@ -49,27 +46,42 @@ class Adapter:
         self.receiver = receiver or Receiver(self.configuration[self.role])
         self.schedulers = []
 
+        self.inject(protocol)
+
+    def inject(self, protocol):
+        """Install helper methods into schema objects"""
+
+        from protocheck.protocol import Message
+
+        Message.__call__ = bungie.schema.instantiate(self)
+
+        for m in protocol.messages.values():
+            m.match = MethodType(bungie.schema.match, m)
+            m.adapter = self
+
     async def receive(self, payload):
+        logger.debug(f"Received payload: {payload}")
         if not isinstance(payload, dict):
-            logger.warn(
-                "Payload does not parse to a dictionary: {}".format(payload))
+            logger.warn("Payload does not parse to a dictionary: {}".format(payload))
             return
 
         schema = self.protocol.find_schema(payload, to=self.role)
+        logger.debug(f"Found schema: {schema}")
         if not schema:
             logger.warn("No schema matching payload: {}".format(payload))
             return
         message = Message(schema, payload)
-        message.meta['received'] = datetime.datetime.now()
-        increment('receptions')
+        message.meta["received"] = datetime.datetime.now()
+        increment("receptions")
         if self.history.duplicate(message):
             logger.debug("Duplicate message: {}".format(message))
-            increment('dups')
-            message.duplicate = True
-            await self.react(message)
+            increment("dups")
+            # Don't react to duplicate messages
+            # message.duplicate = True
+            # await self.react(message)
         elif self.history.check_integrity(message):
             logger.debug("Observing message: {}".format(message))
-            increment('observations')
+            increment("observations")
             self.history.observe(message)
             await self.react(message)
 
@@ -77,19 +89,18 @@ class Adapter:
         if isinstance(payload, Message):
             m = payload
         else:
-            schema = schema or self.protocol.find_schema(
-                payload, name=name, to=to)
+            schema = schema or self.protocol.find_schema(payload, name=name, to=to)
             m = Message(schema, payload)
 
         loop = asyncio.get_running_loop()
         loop.create_task(self.process_send(m))
 
-    def fill(self, schema, enactment):
-        bindings = enactment.bindings
+    def fill(self, schema, context):
+        bindings = context.bindings
         payload = {}
         for p in scehma.parameters:
             if p in self.generators:
-                payload[p] = self.generators[p](enactment)
+                payload[p] = self.generators[p](context)
             elif p in bindings:
                 payload[p] = bindings[p]
             else:
@@ -111,13 +122,14 @@ class Adapter:
         if not message.dest:
             message.dest = self.configuration[message.schema.recipient]
         if self.history.duplicate(message):
-            logger.debug(f"Resending message: {message}")
-            stats['retries'] = stats.get('retries', 0)+1
-            message.meta['retries'] = message.meta.get('retries', 0) + 1
-            stats['max retries'] = max(
-                stats.get('max retries', 0), message.meta['retries'])
-            message.meta['last-retry'] = datetime.datetime.now()
-            return message
+            logger.debug(f"Skipping duplicate message: {message}")
+            # stats['retries'] = stats.get('retries', 0)+1
+            # message.meta['retries'] = message.meta.get('retries', 0) + 1
+            # stats['max retries'] = max(
+            #    stats.get('max retries', 0), message.meta['retries'])
+            # message.meta['last-retry'] = datetime.datetime.now()
+            # return message
+            return False
         elif self.history.validate_send(message):
             self.history.observe(message)
             await self.react(message)
@@ -126,10 +138,10 @@ class Adapter:
             return False
 
     async def bulk_send(self, messages):
-        if hasattr(self.emitter, 'bulk_send'):
+        if hasattr(self.emitter, "bulk_send"):
             ms = await asyncio.gather(*[self.prepare_send(m) for m in messages])
             to_send = [m for m in ms if m]
-            logger.debug(f'bulk sending {len(to_send)} messages')
+            logger.debug(f"bulk sending {len(to_send)} messages")
             await self.emitter.bulk_send(to_send)
         else:
             for m in messages:
@@ -142,12 +154,10 @@ class Adapter:
             rs = self.reactors[schema]
             if handler not in rs:
                 rs.insert(index if index is not None else len(rs), handler)
-                self.signatures[schema][handler] = inspect.signature(
-                    handler).parameters
+                self.signatures[schema][handler] = inspect.signature(handler).parameters
         else:
             self.reactors[schema] = [handler]
-            self.signatures[schema] = {
-                handler: inspect.signature(handler).parameters}
+            self.signatures[schema] = {handler: inspect.signature(handler).parameters}
 
     def register_reactors(self, handler, schemas=[]):
         for s in schemas:
@@ -159,7 +169,7 @@ class Adapter:
 
         Example:
         @adapter.reaction(MessageSchema)
-        def handle_message(message, enactment):
+        def handle_message(message):
             'do stuff'
         """
         return partial(self.register_reactors, schemas=schemas)
@@ -170,29 +180,30 @@ class Adapter:
         """
         reactors = self.reactors.get(message.schema)
         if reactors:
-            enactment = self.history.enactment(message)
             for r in reactors:
                 logger.debug("Invoking reactor: {}".format(r))
-                await r(message, enactment, self)
+                message.adapter = self
+                await r(message)
 
     async def task(self):
         loop = asyncio.get_running_loop()
 
-        if hasattr(self.receiver, 'task'):
-            await self.receiver.task(self)
-        if hasattr(self.emitter, 'task'):
+        await self.receiver.task(self)
+
+        if hasattr(self.emitter, "task"):
             await self.emitter.task()
         for s in self.schedulers:
+            # todo: add stop event support
             loop.create_task(s.task(self))
 
-    def add_policies(self, *ps, when='reactive'):
+    def add_policies(self, *ps, when="reactive"):
         for policy in ps:
             # action = policy.get('action')
             # if type(action) is str:
             #     action = policies.parse(self.protocol, action)
             for schema, reactor in policy.reactors.items():
                 self.register_reactor(schema, reactor, policy.priority)
-            if when != 'reactive':
+            if when != "reactive":
                 s = Scheduler(when)
                 self.schedulers.append(s)
                 s.add(policy)
@@ -221,3 +232,7 @@ class Adapter:
                 loop.create_task(t)
 
         aiorun.run(main(), stop_on_unhandled_errors=True, use_uvloop=True)
+
+    async def stop(self):
+        await self.receiver.stop()
+        await self.emitter.stop()
