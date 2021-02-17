@@ -62,7 +62,7 @@ class Message:
 
 class Context:
     def __init__(self, parent=None):
-        self.subecontexts = {}
+        self.subcontexts = {}
         self._bindings = {}
         self._messages = []
         self.parent = parent
@@ -73,18 +73,47 @@ class Context:
 
     @property
     def bindings(self):
+        """Return all parameters bound directly in this context or its ancestors"""
         # may not be efficient enough, since it collects all of the
         # bindings every time it's accessed
         if self.parent:
             return {**self.parent.bindings, **self._bindings}
         else:
-            return self._bindings
+            return self._bindings.copy()
+
+    def _all_bindings(self):
+        """
+        Return all bindings accessible from a context - including all bindings from subcontexts
+        """
+        bs = {}
+        for p in self.subcontexts:
+            bs[p] = self.subcontexts[p].keys()
+            for sub in self.subcontexts[p].values():
+                bs.update(**{k: v for k, v in sub.all_bindings.items() if k != p})
+        return bs
+
+    @property
+    def all_bindings(self):
+        return {**{k: [v] for k, v in self.bindings.items()}, **self._all_bindings()}
 
     @property
     def messages(self):
         if self.parent:
             yield from self.parent.messages
         yield from self._messages
+
+    def _all_messages(self):
+        yield from self._messages
+        for p in self.subcontexts:
+            for sub in self.subcontexts[p].values():
+                yield from sub._all_messages()
+
+    @property
+    def all_messages(self):
+        if self.parent:
+            return set(itertools.chain(self.parent.messages, self._all_messages()))
+        else:
+            return set(self._all_messages())
 
     def __repr__(self):
         return f"Context(bindings={self.bindings},messages={[m for m in self.messages]},subcontexts={self.subcontexts})"
@@ -94,6 +123,28 @@ class Context:
         for k in schema.parameters:
             payload[k] = self.bindings[k]
         return Message(schema, payload)
+
+    def __getitem__(self, key):
+        return self.subcontexts[key]
+
+    def __setitem__(self, key, value):
+        self.subcontexts[key] = value
+        return value
+
+    def __contains__(self, key):
+        return key in self.subcontexts
+
+    def keys(self):
+        return self.subcontexts.keys()
+
+    def flatten_subs(self):
+        for p in self.subcontexts:
+            for v in self.subcontexts[p]:
+                yield self.subcontexts[p][v]
+
+    def flatten(self):
+        yield self
+        yield from self.flatten_subs()
 
 
 class History:
