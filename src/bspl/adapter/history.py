@@ -24,8 +24,10 @@ class Message:
         self.dest = dest
         self.adapter = adapter
         self.meta = {}
-        print(f"schema: {self.schema}")
-        self.key = get_key(self.schema, self.payload)
+
+    @property
+    def key(self):
+        return get_key(self.schema, self.payload)
 
     def __repr__(self):
         payload = ",".join("{0}={1!r}".format(k, v) for k, v in self.payload.items())
