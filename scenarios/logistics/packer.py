@@ -8,7 +8,7 @@ from Logistics import Packer, Labeled, Wrapped, Packed
 adapter = Adapter(Packer, logistics, config)
 
 logger = logging.getLogger("bungie")
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 
 async def pack(message):
