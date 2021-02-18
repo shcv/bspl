@@ -119,7 +119,7 @@ class Acknowledge:
                 logging.error(
                     f"Need to configure acknowledgment mapping for message: {message}"
                 )
-            await adapter.process_send(m)
+            await message.adapter.process_send(m)
 
         return {s: ack for s in self.schemas}
 
