@@ -3,6 +3,10 @@ from protocheck import bspl
 logistics = bspl.load_file("logistics.bspl").export("Logistics")
 from Logistics import Merchant, Wrapper, Labeler, Packer
 
+from Logistics import RequestWrapping, RequestWrappingReminder
+
+from Logistics import RequestWrappingAck
+
 with open("/proc/self/cgroup", "r") as cgroups:
 
     in_docker = "docker" in cgroups.read()
@@ -21,3 +25,13 @@ else:
         Labeler: ("0.0.0.0", 8002),
         Packer: ("0.0.0.0", 8003),
     }
+
+Map = {
+    "forwards": {
+        RequestWrapping: (RequestWrappingReminder, "remID"),
+    },
+    "acknowledgments": {
+        RequestWrapping: (RequestWrappingAck, "ackID"),
+        RequestWrappingReminder: (RequestWrappingAck, "ackID"),
+    },
+}

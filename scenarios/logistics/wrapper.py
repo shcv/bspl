@@ -1,6 +1,8 @@
 from bungie import Adapter, Resend
-from configuration import config, logistics
+from configuration import config, logistics, Map
 import logging
+
+# from bungie.policies import Acknowledge
 
 logger = logging.getLogger("wrapper")
 # logging.getLogger('bungie').setLevel(logging.DEBUG)
@@ -9,7 +11,11 @@ adapter = Adapter(logistics.roles["Wrapper"], logistics, config)
 RequestWrapping = logistics.messages["RequestWrapping"]
 Wrapped = logistics.messages["Wrapped"]
 
+# from Logistics import RequestWrappingReminder
+# from Logistics import RequestWrappingAck
 
+
+# @adapter.reaction(RequestWrapping, RequestWrappingReminder)
 @adapter.reaction(RequestWrapping)
 async def request_wrapping(message):
     item = message.payload["item"]
@@ -25,5 +31,11 @@ async def request_wrapping(message):
 
 if __name__ == "__main__":
     logger.info("Starting Wrapper...")
-    # adapter.load_policy_file("policies.yaml")
+
+    # acknowledge Complain
+    # adapter.add_policies(
+    #     Acknowledge(RequestWrapping).Map(Map),
+    #     Acknowledge(RequestWrappingReminder).With(RequestWrappingAck, "ackID"),
+    # )
+
     adapter.start()
