@@ -168,18 +168,23 @@ class Protocol(Base):
     def all_parameters(self):
         return {p for m in self.messages.values() for p in m.parameters}
 
-    @property
-    def keys(self):
-        if not hasattr(self, "_keys"):
-            self._keys = [
-                p.name
-                for p in self.parameters.values()
+    def get_keys(self):
+        return OrderedDict(
+            [
+                (p.name, p)
+                for p in sorted(self.parameters.values())
                 if p.key
                 or self.parent
                 and self.parent.type == "protocol"
                 and p.name in self.parent.parameters
                 and self.parent.parameters[p.name].key
             ]
+        )
+
+    @property
+    def keys(self):
+        if not hasattr(self, "_keys"):
+            self._keys = self.get_keys()
         return self._keys
 
     def _adorned(self, adornment):
