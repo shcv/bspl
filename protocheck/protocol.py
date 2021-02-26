@@ -2,6 +2,7 @@ from .verification.logic import merge
 from collections import OrderedDict
 import inspect
 import sys
+import re
 from types import ModuleType
 
 
@@ -11,6 +12,13 @@ class ProtoMod(ModuleType):
 
     def __getitem__(self, name):
         return self.__getattribute__(name)
+
+
+def camelize(name):
+    if re.match(r"[ -]", name):
+        return "".join(map(lambda s: s.capitalize(), re.split(r"[ -]", name)))
+    else:
+        return name
 
 
 class Specification:
@@ -30,13 +38,14 @@ class Specification:
 
     def export(self, protocol):
         p = self.protocols[protocol]
-        pname = "".join(map(lambda s: s.capitalize(), p.name.split(" ")))
+        pname = camelize(p.name)
+        print(pname)
         frm = inspect.stack()[1]
         module = ProtoMod(pname)
         for name, message in p.messages.items():
-            module[name.capitalize()] = message
+            module[camelize(name)] = message
         for name, role in p.roles.items():
-            module[name.capitalize()] = role
+            module[camelize(name)] = role
         module.protocol = p
         sys.modules[pname] = module
         p.module = module
