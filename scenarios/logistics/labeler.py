@@ -1,4 +1,4 @@
-from bungie import Adapter, Resend
+from bungie import Adapter, Remind
 from configuration import config, logistics
 import uuid
 import logging

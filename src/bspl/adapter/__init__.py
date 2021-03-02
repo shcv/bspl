@@ -1,4 +1,4 @@
 from .scheduler import Scheduler
 from .adapter import Adapter
-from .policies import Resend, Forward, Send
+from .policies import Remind, Forward, Send
 from . import schema

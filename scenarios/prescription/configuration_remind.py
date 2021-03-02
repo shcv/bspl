@@ -1,9 +1,9 @@
 from protocheck import bspl
 
-prescription = bspl.load_file("prescription-resend.bspl").export("PrescriptionResend")
+prescription = bspl.load_file("prescription-remind.bspl").export("PrescriptionRemind")
 
 with open("/proc/self/cgroup", "r") as cgroups:
-    from PrescriptionResend import (
+    from PrescriptionRemind import (
         Patient,
         Doctor,
         Pharmacist,

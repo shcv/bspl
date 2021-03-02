@@ -4,8 +4,8 @@ set -euo pipefail
 python packer.py &
 PACKER=$!
 
-# python wrapper.py &
-# WRAPPER=$!
+python wrapper.py &
+WRAPPER=$!
 
 python labeler.py &
 LABELER=$!
