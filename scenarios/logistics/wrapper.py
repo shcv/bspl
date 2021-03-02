@@ -1,8 +1,8 @@
-from bungie import Adapter, Resend
+from bungie import Adapter
 from configuration import config, logistics, Map
 import logging
 
-# from bungie.policies import Acknowledge
+from bungie.policies import Acknowledge
 
 logger = logging.getLogger("wrapper")
 # logging.getLogger('bungie').setLevel(logging.DEBUG)
@@ -11,12 +11,13 @@ adapter = Adapter(logistics.roles["Wrapper"], logistics, config)
 RequestWrapping = logistics.messages["RequestWrapping"]
 Wrapped = logistics.messages["Wrapped"]
 
-# from Logistics import RequestWrappingReminder
+from Logistics import RequestWrappingReminder
+
 # from Logistics import RequestWrappingAck
 
 
-# @adapter.reaction(RequestWrapping, RequestWrappingReminder)
-@adapter.reaction(RequestWrapping)
+@adapter.reaction(RequestWrapping, RequestWrappingReminder)
+# @adapter.reaction(RequestWrapping)
 async def request_wrapping(message):
     item = message.payload["item"]
 

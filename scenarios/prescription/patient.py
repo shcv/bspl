@@ -4,8 +4,8 @@ import logging
 from bungie import Adapter
 
 # from configuration import config, prescription, Patient, Complain, Filled
-from bungie.policies import Resend
-from configuration_resend import config, prescription, Patient, Complain, Map, Filled
+from bungie.policies import Remind
+from configuration_remind import config, prescription, Patient, Complain, Map, Filled
 
 # from configuration_ack import config, prescription, Patient, Complain, Map, Filled
 
@@ -49,14 +49,14 @@ async def filled(message):
 if __name__ == "__main__":
     print("Starting Patient...")
 
-    # resend policy
+    # remind policy
     adapter.add_policies(
-        Resend(Complain).With(Map).after(1).until.received(Filled), when="every 1s"
+        Remind(Complain).With(Map).after(1).until.received(Filled), when="every 1s"
     )
 
     # acknowledgment policy
     # adapter.add_policies(
-    #     Resend(Complain).With(Map).after(1).until.acknowledged,
+    #     Remind(Complain).With(Map).after(1).until.acknowledged,
     #     when='every 1s')
 
     # start adapter

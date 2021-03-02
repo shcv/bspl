@@ -1,4 +1,4 @@
-from bungie import Adapter, Resend, Scheduler
+from bungie import Adapter, Remind, Scheduler
 from bungie.statistics import stats_logger
 from configuration import config, Map
 import random
@@ -67,15 +67,15 @@ async def status_logger():
 if __name__ == "__main__":
     print("Starting Merchant...")
 
-    # resend policy
+    # remind policy
     # adapter.add_policies(
-    #     Resend(RequestWrapping).With(Map).after(3).until.received(Packed),
+    #     Remind(RequestWrapping).With(Map).after(3).until.received(Packed),
     #     when="every 3s",
     # )
 
     # acknowledgment policy
     # adapter.add_policies(
-    #     Resend(RequestWrapping).With(Map).after(3).until.acknowledged, when="every 3s"
+    #     Remind(RequestWrapping).With(Map).after(3).until.acknowledged, when="every 3s"
     # )
 
     adapter.start(order_generator(), stats_logger(3), status_logger())

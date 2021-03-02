@@ -1,5 +1,5 @@
 import logging
-from bungie import Adapter, Resend
+from bungie import Adapter, Remind
 from configuration import config, logistics
 from bungie.statistics import stats_logger
 

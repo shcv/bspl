@@ -46,8 +46,8 @@ def lookup(protocol, names):
 
 
 def from_ast(protocol, ast):
-    if ast["action"] == "resend":
-        cls = Resend
+    if ast["action"] == "remind":
+        cls = Remind
     elif ast["action"] == "forward":
         cls = Forward
     elif ast["action"] == "send":
@@ -91,7 +91,10 @@ def from_ast(protocol, ast):
 
 
 def parse(protocol, text):
-    return from_ast(protocol, model.parse(text))
+    policies = yaml.full_load(text)
+    for p in policies:
+        p["action"] = from_ast(protocol, model.parse(p["action"]))
+    return policies
 
 
 class Acknowledge:
@@ -124,20 +127,20 @@ class Acknowledge:
         return {s: ack for s in self.schemas}
 
 
-class Resend:
+class Remind:
     """
-    A helper class for defining resend policies.
+    A helper class for defining remind policies.
 
     The following statement returns a function that returns a list of all Accept messages that do not have corresponding Deliver instances in the history.
-      Resend(Accept).until.received(Deliver)
+      Remind(Accept).until.received(Deliver)
 
     Other example policies:
 
-      Resend(Accept).until.acknowledged(Accept)
+      Remind(Accept).until.acknowledged(Accept)
     """
 
     def __init__(self, *schemas):
-        """List of message schemas to try resending"""
+        """List of message schemas to try reminding"""
         self.schemas = schemas
         self.reactors = {}
         self.reactive = False
@@ -165,7 +168,7 @@ class Resend:
         return selected
 
     async def action(self, adapter, schema, context):
-        # resend message
+        # remind message
         pass
 
     def With(self, map):
@@ -185,12 +188,12 @@ class Resend:
         """
         Select messages for which not all of the listed expectations have been received.
         E.g.:
-          Resend(A).until.received(B,C)
-        will resend A until /both/ B and C are received.
+          Remind(A).until.received(B,C)
+        will remind A until /both/ B and C are received.
 
         To handle a disjunction, use separate received() clauses at at least one Or.
         E.g.:
-          Resend(A).until.received(B).Or.received(C)
+          Remind(A).until.received(B).Or.received(C)
         """
 
         if self.reactive:
@@ -199,13 +202,14 @@ class Resend:
                 async def reactor(msg):
                     context = msg.adapter.history.context(msg)
                     for r in self.schemas:
-                        # resend message schema r in the same context as msg
+                        # remind message schema r in the same context as msg
                         await self.action(adapter, r, context)
 
                 self.reactors[s] = reactor
         else:
 
             async def activate(message):
+                print(f"activating {message}")
                 message.meta["sent"] = datetime.datetime.now()
                 self.active.add(message)
 
@@ -226,7 +230,7 @@ class Resend:
                 if not self.delay:
                     messages = []
                     for m in self.active:
-                        messages.append(map_message(self.map, "forward", m))
+                        messages.append(map_message(self.map, "forwards", m))
                         if len(messages) >= 500:
                             break
                     return messages
@@ -242,7 +246,7 @@ class Resend:
                             break
 
                     logger.info(
-                        f"resending: {len(messages)}, delta: {len(self.active) - len(messages)}"
+                        f"reminding: {len(messages)}, delta: {len(self.active) - len(messages)}"
                     )
                     return messages
 
@@ -262,9 +266,9 @@ class Resend:
     @property
     def acknowledged(self):
         """
-        If proactive, add a process to the policy to resend the messages until they are acknowledged.
+        If proactive, add a process to the policy to remind the messages until they are acknowledged.
         Example:
-          Resend(Accept).until.acknowledged
+          Remind(Accept).until.acknowledged
         """
 
         if self.reactive:
@@ -315,7 +319,7 @@ class Resend:
         return self
 
 
-class Forward(Resend):
+class Forward(Remind):
     """
     Forwarding policy; sends a message to a specified recipient.
     E.g.: Forward(Deliver).to(Seller).upon.received(Deliver)
