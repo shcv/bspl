@@ -31,8 +31,3 @@ config = {
 
 logger = logging.getLogger("bungie")
 logger.setLevel(logging.DEBUG)
-
-
-def test_getattr():
-    m = Message(req, {"item": "ball"})
-    assert m.item == "ball"
