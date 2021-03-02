@@ -2,7 +2,7 @@ from bungie.statistics import *
 
 
 def test_net_usage():
-    net = net_usage('')
+    net = net_usage("")
     print(net)
     assert net
 
@@ -17,9 +17,3 @@ def test_mem_usage():
     mem = mem_usage()
     print(mem)
     assert mem
-
-
-def test_stats():
-    s = stats()
-    print(s)
-    assert s
