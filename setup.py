@@ -24,9 +24,7 @@ setup(
         "ijson",
         "aiorun",
         "uvloop",
-        "argparse",
     ],
     packages=find_packages(),
-
-    test_suite='bungie'
+    test_suite="bungie",
 )
