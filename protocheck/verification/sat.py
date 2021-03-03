@@ -266,7 +266,7 @@ def complete(P):
                 *[
                     received(m)
                     for m in p_cover(P, p)
-                    if m.parameters[p].adornment is "out"
+                    if m.parameters[p].adornment == "out"
                 ]
             )
         )

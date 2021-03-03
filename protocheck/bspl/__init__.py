@@ -97,7 +97,7 @@ def ast_protocol(ast, parent):
     for r in ast.get("references", []):
         type = r["type"]
         if type == "message":
-            if r["name"][0] is "@":
+            if r["name"][0] == "@":
                 m = messages[r["name"][1:]]
                 references.append(m.acknowledgment())
                 acks = True
