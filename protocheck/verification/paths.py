@@ -309,8 +309,11 @@ class UoD:
                     "external->{r.name}",
                     External,
                     r,
-                    [Parameter(k, "in", True) for k in keys]
-                    + [Parameter(p, "in") for p in protocol.ins.difference(keys)],
+                    [Parameter(k, "in", True, parent=protocol) for k in keys]
+                    + [
+                        Parameter(p, "in", parent=protocol)
+                        for p in protocol.ins.difference(keys)
+                    ],
                 )
                 dependencies[r.name] = msg
             # hmmm; probably shouldn't modify protocol...

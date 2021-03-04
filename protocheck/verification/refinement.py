@@ -1,10 +1,10 @@
 from ..bspl import load_file
+from . import paths
 from .paths import (
     key_sets,
     UoD,
     all_paths,
     possibilities,
-    any_unreceived,
     sources,
     known,
 )
@@ -64,6 +64,9 @@ def subsumes(U, params, a, b, verbose=False):
 
 def refines(U, params, Q, P, verbose=False):
     """Check that Q refines P"""
+
+    # disable reduction, because canonical orders of P and Q may differ
+    paths.args.no_reduction = True
 
     U_Q = U + UoD.from_protocol(Q)
     U_P = U + UoD.from_protocol(P)

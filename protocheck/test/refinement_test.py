@@ -1,5 +1,7 @@
 import pytest
 from protocheck.verification.refinement import *
+from protocheck.verification.paths import Emission, Reception, empty_path, viable
+from protocheck.verification import paths
 
 
 @pytest.fixture(scope="module")
@@ -52,82 +54,32 @@ def PurchaseComposition():
     return load_file("samples/bspl/refinement/purchase-composition.bspl")
 
 
-def test_known_empty(P):
-    assert known(empty_path(), {}, P.roles["A"]) == set()
-
-
-def test_known_simple(P):
-    print("test keys: ", P.messages["test"].keys)
-    assert known(
-        [Instance(P.messages["test"], 0)], P.messages["test"].keys, P.roles["A"]
-    ) == {"data", "id"}
-
-
-def test_viable(P, Flexible):
-    test = P.messages["test"]
-    assert viable(empty_path(), test)
-    assert not viable([Instance(test, 0)], test)
-
-    rfq = Flexible.messages["rfq"]
-    print("S knows: ", known([Instance(rfq, 0)], rfq.keys, Flexible.roles["S"]))
-    assert rfq.keys == Flexible.messages["pay"].keys
-    assert viable([Instance(rfq, 0)], Flexible.messages["pay"])
-
-
-def test_viable_all_in(AllIn):
-    P = AllIn.protocols["P"]
-    test = P.messages["test"]
-
-    assert not viable(empty_path(), test)
-    assert not viable([Instance(test, 0)], test)
-
-
-def test_branches(P):
-    u = UoD.from_protocol(P)
-    assert branches(u, empty_path()) == {Instance(P.messages["test"], float("inf"))}
-
-
-def test_unreceived(P):
-    path = [Instance(P.messages["test"], float("inf"))]
-    assert len(unreceived(path)) == 1
-
-
-def test_extensions(P):
-    u = UoD.from_protocol(P)
-    p1 = (Instance(P.messages["test"], float("inf")),)
-    assert extensions(u, empty_path()) == {p1}
-    assert extensions(u, p1) == {(Instance(P.messages["test"], 0),)}
-
-
-def test_sources(P):
-    assert sources(empty_path(), P.parameters["id"]) == set()
-    assert sources([Instance(P.messages["test"])], "id") == {"A"}
-
-
 def test_subsumes(P, Q):
     U = UoD.from_protocol(P)
     params = {"id", "data"}
     assert subsumes(UoD(), set(), empty_path(), empty_path())
     assert subsumes(U, params, empty_path(), empty_path())
 
-    assert subsumes(
-        U, params, [Instance(Q.messages["test"], 0)], [Instance(P.messages["test"], 0)]
-    )
+    e = Emission(Q.messages["test"])
+    assert subsumes(U, params, [e, Reception(e)], [e, Reception(e)])
 
-    assert not subsumes(U, params, empty_path(), [Instance(P.messages["test"])])
+    assert not subsumes(U, params, empty_path(), [e])
 
-    assert not subsumes(U, params, [Instance(P.messages["test"])], empty_path())
+    assert not subsumes(U, params, [e], empty_path())
 
 
 def test_subsumes_initiation_reduction():
     spec = load_file("samples/bspl/refinement/initiation-reduction.bspl")
     EitherStarts = spec.protocols["Either-Starts"]
     BuyerStarts = spec.protocols["Buyer-Starts"]
+
+    rfq1 = Emission(BuyerStarts.messages["rfq"])
+    rfq2 = Emission(EitherStarts.messages["rfq"])
     assert subsumes(
         UoD.from_protocol(EitherStarts),
         EitherStarts.public_parameters.keys(),
-        [Instance(BuyerStarts.messages["rfq"], 0)],
-        [Instance(EitherStarts.messages["rfq"], 0)],
+        [rfq1, Reception(rfq1)],
+        [rfq2, Reception(rfq2)],
         verbose=True,
     )
 
@@ -135,8 +87,11 @@ def test_subsumes_initiation_reduction():
 def test_subsumes_key_reduction(KeyReduction):
     KeyP = KeyReduction.protocols["P"]
     KeyQ = KeyReduction.protocols["Q"]
-    path_q = (Instance(KeyQ.messages["test"], 0),)
-    path_p = (Instance(KeyP.messages["test"], 0),)
+
+    test_q = Emission(KeyQ.messages["test"])
+    test_p = Emission(KeyP.messages["test"])
+    path_q = (test_q, Reception(test_q))
+    path_p = (test_p, Reception(test_p))
     print(known(path_q, KeyQ.messages["test"].keys, KeyQ.roles["A"]))
     print(known(path_p, KeyQ.messages["test"].keys, KeyQ.roles["A"]))
     assert subsumes(
@@ -148,21 +103,6 @@ def test_subsumes_key_reduction(KeyReduction):
     )
 
 
-def test_max_paths(P):
-    U = UoD.from_protocol(P)
-
-    assert max_paths(U) == [(Instance(P.messages["test"], 0),)]
-
-
-def test_all_paths(P, Flexible):
-    assert all_paths(UoD.from_protocol(P)) == {
-        empty_path(),
-        (Instance(P.messages["test"], float("inf")),),
-        (Instance(P.messages["test"], 0),),
-    }
-    assert len(all_paths(UoD.from_protocol(Flexible))) > 2
-
-
 def test_refines(Q, P):
     U = UoD()
     params = {"id", "data"}
@@ -171,8 +111,8 @@ def test_refines(Q, P):
 
 
 def test_concurrency_elimination(Flexible, ShipFirst):
-    # print(all_paths(UoD.from_protocol(Flexible)))
-    # print(all_paths(UoD.from_protocol(ShipFirst)))
+    print(all_paths(UoD.from_protocol(Flexible)))
+    print(all_paths(UoD.from_protocol(ShipFirst)))
     assert refines(UoD(), Flexible.public_parameters.keys(), ShipFirst, Flexible) == {
         "ok": True
     }

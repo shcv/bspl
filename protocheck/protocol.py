@@ -446,7 +446,7 @@ class Message(Protocol):
             # Make a new parameter, to preserve message adornments
             parent_parameter = parent.parameters[par.name]
             msg.public_parameters[par.name] = Parameter(
-                parent_parameter.raw_name, par.adornment, par.key, self
+                parent_parameter.raw_name, par.adornment, par.key, parent=self
             )
 
         return msg
@@ -484,8 +484,8 @@ class Message(Protocol):
                 "@" + self.raw_name, self.recipient, self.sender, parent=self.parent
             )
             m.set_parameters(
-                [Parameter(k, "in", key=True) for k in self.keys]
-                + [Parameter("$ack", "out", key=True)]
+                [Parameter(k, "in", key=True, parent=m) for k in self.keys]
+                + [Parameter("$ack", "out", key=True, parent=m)]
             )
             return m
 
