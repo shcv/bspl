@@ -5,6 +5,22 @@ import sys
 import os
 
 debug = True
+model = None
+
+
+def build_parser():
+    global model
+    grammar_path = os.path.join(os.path.dirname(__file__), "bspl.gr")
+    with open(grammar_path, "r", encoding="utf8") as grammar:
+        # warning: dynamically compiled grammar is different from precompiled code
+        model = tatsu.compile(grammar.read())
+    parser_path = os.path.join(os.path.dirname(__file__), "bspl_parser.py")
+    with open(grammar_path, "r", encoding="utf8") as grammar:
+        bspl_parser = tatsu.to_python_sourcecode(
+            grammar.read(), "Bspl", "bspl_parser.py"
+        )
+        with open(parser_path, "w", encoding="utf8") as parser_file:
+            parser_file.write(bspl_parser)
 
 
 try:
@@ -12,18 +28,8 @@ try:
 
     model = BsplParser()
 except:
-    grammar_path = os.path.join(os.path.dirname(__file__), "bspl.gr")
-    with open(grammar_path, "r", encoding="utf8") as grammar:
-        # warning: dynamically compiled grammar is different from precompiled code
-        model = tatsu.compile(grammar.read())
     try:
-        parser_path = os.path.join(os.path.dirname(__file__), "bspl_parser.py")
-        with open(grammar_path, "r", encoding="utf8") as grammar:
-            bspl_parser = tatsu.to_python_sourcecode(
-                grammar.read(), "Bspl", "bspl_parser.py"
-            )
-            with open(parser_path, "w", encoding="utf8") as parser_file:
-                parser_file.write(bspl_parser)
+        build_parser()
     except:
         # Couldn't save the file properly; eat the error and continue with dynamically loaded parser
         pass
@@ -111,7 +117,7 @@ def ast_protocol(ast, parent):
             raise Exception(f"Unknown type: {type}")
 
     if acks:
-        private_parameters.append(Parameter("$ack", "out", key=True))
+        private_parameters.append(Parameter("$ack", "out", key=True, parent=protocol))
 
     protocol.configure(roles, public_parameters, references, private_parameters)
     return protocol
