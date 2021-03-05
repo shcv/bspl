@@ -10,7 +10,7 @@ grammar_path = os.path.join(os.path.dirname(__file__), "bspl.gr")
 def build_parser():
     with open(grammar_path, "r", encoding="utf8") as grammar:
         # warning: dynamically compiled grammar is different from precompiled code
-        model = tatsu.compile(grammar.read())
+        model = tatsu.compile(grammar.read(), name="Bspl")
     return model
 
 
