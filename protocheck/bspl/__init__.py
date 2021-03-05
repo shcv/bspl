@@ -2,34 +2,18 @@ from ..protocol import *
 import re
 import tatsu
 import sys
-import os
+from .build import build_parser, save_parser
 
 debug = True
-model = None
-
-
-def build_parser():
-    global model
-    grammar_path = os.path.join(os.path.dirname(__file__), "bspl.gr")
-    with open(grammar_path, "r", encoding="utf8") as grammar:
-        # warning: dynamically compiled grammar is different from precompiled code
-        model = tatsu.compile(grammar.read())
-    parser_path = os.path.join(os.path.dirname(__file__), "bspl_parser.py")
-    with open(grammar_path, "r", encoding="utf8") as grammar:
-        bspl_parser = tatsu.to_python_sourcecode(
-            grammar.read(), "Bspl", "bspl_parser.py"
-        )
-        with open(parser_path, "w", encoding="utf8") as parser_file:
-            parser_file.write(bspl_parser)
-
 
 try:
     from .bspl_parser import BsplParser
 
     model = BsplParser()
 except:
+    model = build_parser()
     try:
-        build_parser()
+        save_parser(model)
     except:
         # Couldn't save the file properly; eat the error and continue with dynamically loaded parser
         pass
