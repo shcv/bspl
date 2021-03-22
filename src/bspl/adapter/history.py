@@ -54,6 +54,9 @@ class Message:
             if k in other.schema.parameters
         )
 
+    def keys(self):
+        return self.payload.keys()
+
     def project_key(self, schema):
         key = []
         # use ordering from other schema
