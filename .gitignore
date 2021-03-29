@@ -3,6 +3,7 @@ __pycache__/
 *log
 build/
 dist/
+pip-wheel-metadata/
 
 .*env/
 *env/
