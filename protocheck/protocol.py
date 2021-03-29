@@ -1,4 +1,4 @@
-from .verification.logic import merge
+from .utils import merge
 from collections import OrderedDict
 import inspect
 import sys
