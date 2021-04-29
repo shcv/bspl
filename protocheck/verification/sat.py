@@ -1,4 +1,5 @@
 import json
+import pprint as pp
 from .precedence import (
     consistent,
     pairwise,
@@ -347,7 +348,6 @@ def handle_enactability(P, args):
         print_formula(logic.And(correct(P), enactability(P)))
     if e and args.verbose:
         pp.pprint(e)
-
     return e
 
 
