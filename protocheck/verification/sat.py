@@ -1,3 +1,4 @@
+import json
 from .precedence import (
     consistent,
     pairwise,
