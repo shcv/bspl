@@ -159,7 +159,15 @@ class Protocol(Base):
                 (p.name, p) for p in private_parameters
             )
         if references:
-            self.references = {r.name: r for r in references or []}
+            self.references = {}
+            name_counts = {}
+            for r in references:
+                if r.name in name_counts:
+                    name_counts[r.name] += 1
+                    r.idx = name_counts[r.name]
+                else:
+                    name_counts[r.name] = 1
+                self.references[r.name] = r
 
     def set_parameters(self, parameters):
         self.public_parameters = OrderedDict((p.name, p) for p in parameters)
@@ -369,8 +377,10 @@ class Protocol(Base):
 
 
 class Message(Protocol):
-    def __init__(self, name, sender=None, recipient=None, parameters=None, parent=None):
-        self.idx = 1
+    def __init__(
+        self, name, sender=None, recipient=None, parameters=None, parent=None, idx=1
+    ):
+        self.idx = idx
         if sender and recipient:
             super().__init__(
                 name, roles=[sender, recipient], parent=parent, type="message"
@@ -431,15 +441,13 @@ class Message(Protocol):
 
     def instance(self, parent):
         msg = Message(
-            self.raw_name, self.sender, self.recipient, self.parameters.values(), parent
+            self.raw_name,
+            self.sender,
+            self.recipient,
+            self.parameters.values(),
+            idx=self.idx,
+            parent=parent,
         )
-
-        # handle duplicates
-        for m in parent.references.values():
-            if m == self:
-                break
-            if m.name == self.name:
-                msg.idx += 1
 
         # propagate parameters from parent protocol
         for i, par in enumerate(self.public_parameters.values()):
