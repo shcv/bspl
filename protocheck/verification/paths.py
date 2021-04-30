@@ -13,6 +13,11 @@ parser.add(
 parser.add("--debug", action="store_true", help="Debug mode")
 parser.add("--no-safe", action="store_true", help="Disable safe event heuristic")
 parser.add(
+    "--no-external",
+    action="store_true",
+    help="Disable provision of protocol dependencies",
+)
+parser.add(
     "--by-degree", action="store_true", help="Select events by degree, default by name"
 )
 parser.add("--no-reduction", action="store_true", help="Disable all path reductions")
@@ -296,7 +301,7 @@ class UoD:
 
     @staticmethod
     def from_protocol(protocol):
-        if not protocol.ins.union(protocol.nils):
+        if not protocol.ins.union(protocol.nils) or args.no_external:
             return UoD(list(protocol.messages.values()), protocol.roles.values())
         else:
             dependencies = {}
