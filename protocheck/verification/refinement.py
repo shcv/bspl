@@ -9,21 +9,33 @@ from .paths import (
     known,
 )
 import sys
+from ..commands import register_commands
 
 
-def handle_refinement(args):
-    path = args.input[0]
+def handle_refinement(path, Q, P, verbose=False):
+    """
+    Given a specification file and protocol names Q and P, check whether Q refines P
+
+    Args:
+      path: File containing protocols
+      Q: Name of protocol that should refine P
+      P: Name of protocol that should be refined by Q
+      verbose: Print more details
+    """
     spec = load_file(path)
-    Q = spec.protocols[args.input[1]]
-    P = spec.protocols[args.input[2]]
+    Q = spec.protocols[Q]
+    P = spec.protocols[P]
 
-    result = refines(UoD(), P.public_parameters.keys(), Q, P, verbose=args.verbose)
+    result = refines(UoD(), P.public_parameters.keys(), Q, P, verbose=verbose)
     if result["ok"] == True:
         print("  {} Refines {}".format(Q.name, P.name))
         return True
     else:
         print(result)
         return False
+
+
+register_commands({"refinement": handle_refinement})
 
 
 def subsumes(U, params, a, b, verbose=False):
@@ -65,9 +77,6 @@ def subsumes(U, params, a, b, verbose=False):
 def refines(U, params, Q, P, verbose=False):
     """Check that Q refines P"""
 
-    # disable reduction, because canonical orders of P and Q may differ
-    paths.args.no_reduction = True
-
     U_Q = U + UoD.from_protocol(Q)
     U_P = U + UoD.from_protocol(P)
 
@@ -86,8 +95,8 @@ def refines(U, params, Q, P, verbose=False):
             "reason": "{} uses keys that do not appear in {}".format(Q.name, P.name),
         }
 
-    paths_Q = all_paths(U_Q, verbose)
-    paths_P = all_paths(U_P, verbose)
+    paths_Q = all_paths(U_Q, verbose=verbose, reduction=False)
+    paths_P = all_paths(U_P, verbose=verbose, reduction=False)
 
     longest_Q = longest_P = []
     for q in paths_Q:

@@ -1,27 +1,26 @@
-from protocheck.bspl import load_file, model, strip_latex
-from protocheck.verification.sat import (
-    handle_enactability,
-    handle_liveness,
-    handle_safety,
-    handle_atomicity,
-)
-from protocheck.verification.paths import path_liveness, path_safety, all_paths, UoD
-from protocheck.verification.refinement import handle_refinement
-from protocheck.node_red import handle_node_flow
-import configargparse
-import sys
-import re
+from protocheck.bspl import load_file, model, strip_latex, load_protocols
+from protocheck.verification import paths, sat, refinement
+import fire
 import json
+from .commands import Commands, register_commands
+from . import node_red
 
 
-def handle_projection(args):
-    role_name = args.input[0]
-    spec = load_file(args.input[1])
+def handle_projection(role_name, *files, filter=".*", verbose=False):
+    """
+    Project a protocol to the perspective of a single role
 
+    Args:
+      role_name: The name of the role to project the protocols to
+      files: Paths to the specification files, each containing one or more protocols
+      filter: A regular expression to select a subset of protocols from the specification files
+      verbose: Print more detail about steps taken
+      debug: Print debug information
+    """
     projections = []
-    for protocol in spec.protocols.values():
+    for protocol in load_protocols(files, filter=filter):
         schema = protocol.schema
-        if args.verbose:
+        if verbose:
             print(schema)
 
         role = protocol.roles.get(role_name)
@@ -34,20 +33,27 @@ def handle_projection(args):
         print(p.format())
 
 
-def handle_json(protocol, args):
-    print(json.dumps(protocol.to_dict(), indent=args.indent))
+def handle_json(*files, indent=4):
+    """
+    Print a JSON representation of each protocol
+
+    Args:
+      files: Paths to specification files, each containing one or more protocols
+      indent: How many spaces to indent each level of the JSON structure
+    """
+    for protocol in load_protocols(files):
+        print(json.dumps(protocol.to_dict(), indent=indent))
 
 
-def handle_all(protocol, args, **kwargs):
-    enactable = handle_enactability(protocol, args, **kwargs)
-    if enactable:
-        handle_liveness(protocol, args, **kwargs)
-        handle_safety(protocol, args, **kwargs)
-        handle_atomicity(protocol, args, **kwargs)
+def handle_ast(path, indent=2):
+    """
+    Print the parsed AST for the specification in PATH
 
-
-def handle_ast(args):
-    with open(args.input[0]) as file:
+    Args:
+      path: The path for the specification file, containing one or more protocols
+      indent: How many spaces to indent each level of the AST
+    """
+    with open(path) as file:
         raw = file.read()
         raw = strip_latex(raw)
 
@@ -63,100 +69,41 @@ def handle_ast(args):
             }
 
         for p in spec:
-            print(json.dumps(remove_parseinfo(p.asjson()), indent=2))
+            print(json.dumps(remove_parseinfo(p.asjson()), indent=indent))
 
 
-def check_syntax(*args):
-    print("Syntax: correct")
+def check_syntax(*files, quiet=False, debug=False):
+    """
+    Parse each file, printing any syntax errors found
+
+    Args:
+      quiet: Don't output anything for correct files
+      debug: Print stack trace for errors
+    """
+    for f in files:
+        if not quiet:
+            print(f"{f}:")
+        try:
+            load_file(f)
+        except Exception as e:
+            if debug:
+                raise e
+            if quiet:
+                print(f"{f}:")
+            print(f"  {e}")
+        else:
+            if not quiet:
+                print("  Syntax: correct")
 
 
-def handle_all_paths(protocol, args):
-    verbose = args.verbose
-    U = UoD.from_protocol(protocol)
-    all_paths(U, verbose)
-
-
-# Actions that only take one argument, and therefore can be repeated for each input file
-unary_actions = {
-    "enactability": handle_enactability,
-    "liveness": handle_liveness,
-    "safety": handle_safety,
-    "path-safety": path_safety,
-    "path-liveness": path_liveness,
-    "atomicity": handle_atomicity,
-    "syntax": check_syntax,
-    "all": handle_all,
-    "json": handle_json,
-    "all-paths": handle_all_paths,
-}
-
-# Actions with more complex argument schemes
-actions = {
-    "flow": handle_node_flow,
-    "refinement": handle_refinement,
-    "projection": handle_projection,
-    "ast": handle_ast,
-}
-
-
-def main():
-
-    parser = configargparse.get_argument_parser()
-    parser.description = "BSPL Protocol property checker"
-    parser.add("-s", "--stats", action="store_true", help="Print statistics")
-    parser.add(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Print additional details: spec, formulas, stats, etc.",
-    )
-    parser.add(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help="Prevent printing of violation and formula output",
-    )
-    parser.add(
-        "-f", "--filter", default=".*", help="Only process protocols matching regexp"
-    )
-    parser.add("-i", "--indent", type=int, help="Amount to indent json")
-    parser.add("--version", action="store_true", help="Print version number")
-    parser.add("--debug", action="store_true", help="Debug mode")
-    parser.add(
-        "action",
-        help="Primary action to perform",
-        choices=set(actions.keys()).union(unary_actions.keys()),
-    )
-    parser.add(
-        "input", nargs="+", help="additional parameters or protocol description file(s)"
-    )
-
-    if "--version" in sys.argv:
-        print(__version__)
-        sys.exit(0)
-    else:
-        args = parser.parse()
-        global debug
-        debug = args.debug
-
-    if args.action in unary_actions:
-        # unary actions only take one argument, and are therefore repeated for each argument
-        for path in args.input:
-            spec = load_file(path)
-            for protocol in spec.protocols.values():
-                if re.match(args.filter, protocol.name):
-                    if args.action != "json":
-                        print("%s (%s): " % (protocol.name, path))
-                    result = unary_actions[args.action](protocol, args)
-                    if result:
-                        print(result)
-                    print()
-
-            if not spec.protocols:
-                print("No protocols parsed from file: ", args.input)
-    else:
-        actions[args.action](args)
-
+register_commands(
+    {
+        "ast": handle_ast,
+        "json": handle_json,
+        "check-syntax": check_syntax,
+        "load-file": load_file,
+    }
+)
 
 if __name__ == "__main__":
-    main()
+    fire.Fire(Commands, name="bspl")

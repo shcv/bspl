@@ -1,19 +1,9 @@
 from protocheck.bspl import load_file
 import os
-import configargparse
 import simplejson as json
 import random
+from .commands import register_commands
 
-parser = configargparse.get_argument_parser()
-parser.add(
-    "-o",
-    "--output",
-    default="flows.json",
-    help="Path to json file for storing node red flows",
-)
-parser.add(
-    "--append", default=False, help="Append nodes to json file; default is to overwrite"
-)
 
 roles = {}
 base_port = 8000
@@ -223,12 +213,19 @@ def place(tab, nodes):
             del n["offset"]
 
 
-def handle_node_flow(args):
-    spec = load_file(args.input[0])
-    path = args.input[1] if len(args.input) > 1 else args.output
-    if args.append:
+def handle_node_flow(path, output="flow.json", append=False):
+    """
+    Generate a NodeRED flow from a protocol specification
+
+    Args:
+      path: Path to a specification file containing one or more protocols
+      output: Path to the file where the NodeRED flow JSON should be written
+      append: Whether to append the flow to an existing flow as a new tab; otherwise overwrite the file
+    """
+    spec = load_file(path)
+    if append:
         try:
-            with open(path, "r") as file:
+            with open(output, "r") as file:
                 nodes = json.load(file)
         except:
             nodes = []
@@ -267,5 +264,8 @@ def handle_node_flow(args):
         nodes.append(tab)
         nodes.extend(role_nodes)
 
-    with open(path, "w") as file:
+    with open(output, "w") as file:
         json.dump(nodes, file)
+
+
+register_commands({"flow": handle_node_flow})

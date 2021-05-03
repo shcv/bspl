@@ -21,6 +21,8 @@ from . import logic
 from .logic import merge, onehot0
 from functools import lru_cache, partial
 from ..protocol import Message
+from ..commands import register_commands
+from ..bspl import load_protocols
 
 
 @wrap(name)
@@ -104,8 +106,8 @@ def nonsimultaneity(self, protocol):
 
 
 @lru_cache()
-def is_enactable(P):
-    return consistent(logic.And(correct(P), enactability(P)))
+def is_enactable(P, **kwargs):
+    return consistent(logic.And(correct(P), enactability(P)), **kwargs)
 
 
 def is_live(protocol):
@@ -117,12 +119,15 @@ def is_safe(P):
     return not consistent(unsafe(P))
 
 
-def recursive_property(P, prop, filter=None, verbose=None):
+def recursive_property(P, prop, filter=None, **kwargs):
+    default_kwargs = {"verbose": False, "filter": None}
+    kwargs = {**default_kwargs, **kwargs}
+
     for r in P.references.values():
         if filter and not filter(r):
             continue  # skip references that do not pass the filter
         formula = prop(P, r)
-        if verbose:
+        if kwargs["verbose"]:
             print_formula(formula)
         s = consistent(formula)
         if s:
@@ -137,14 +142,14 @@ def recursive_property(P, prop, filter=None, verbose=None):
     return None, None
 
 
-def check_atomicity(P, args=None):
+def check_atomicity(P, **kwargs):
+    default_kwargs = {"verbose": False}
+    kwargs = {**default_kwargs, **kwargs}
+
     def filter(ref):
         return type(ref) is not Message or ref.is_entrypoint
 
-    # if args and args.exhaustive:
-    #     return P.recursive_property(atomic(P))
-    # else:
-    return recursive_property(P, atomic(P), filter, verbose=args and args.verbose)
+    return recursive_property(P, atomic(P), filter=filter, **kwargs)
 
 
 def is_atomic(P):
@@ -321,7 +326,7 @@ def emission(msg):
 
 
 def reception(msg):
-    "Each message reception is accompanied by the observation of its parameters; either they are observed, or the message itmsg is not"
+    "Each message reception is accompanied by the observation of its parameters; either they are observed, or the message is not"
     clauses = [
         impl(
             received(msg),
@@ -338,58 +343,132 @@ def print_formula(*formulas):
     print()
 
 
-def handle_enactability(P, args):
-    reset_stats()
-    e = is_enactable(P)
-    print("  Enactable: ", bool(e))
-    if args.verbose or args.stats:
-        print("    stats: ", stats)
-    if not e and not args.quiet or args.verbose:
-        print_formula(logic.And(correct(P), enactability(P)))
-    if e and args.verbose:
-        pp.pprint(e)
-    return e
+class SATCommands:
+    """Commands that use the SAT-solving method.
+
+    The SAT-solving algorithms are not very efficient, and scale rapidly with
+    the number of terms (messages, parameters, etc.) in the protocol.
+
+    Args:
+      verbose: Enable additional output
+      quiet: Disable detailed output, printing only results
+      stats: Print detailed runtime statistics
+      debug: Enable additional debug output
+      tseytin: Apply the Tseytin transformation to the logic before solving
+      exhaustive: Generate exhaustive logical relationships between terms, instead of iteratively deepening relationships
+      depth: Starting depth for iterative deepening process
+    """
+
+    def __init__(
+        self,
+        verbose=False,
+        debug=False,
+        stats=False,
+        quiet=False,
+        tseytin=False,
+        exhaustive=False,
+        depth=1,
+    ):
+        self._verbose = verbose
+        self._debug = debug
+        self._stats = stats
+        self._quiet = quiet
+        self._tseytin = quiet
+        self._exhaustive = exhaustive
+        self._depth = depth
+
+        self._opts = {
+            "depth": depth,
+            "tseytin": tseytin,
+            "verbose": verbose,
+            "exhaustive": exhaustive,
+        }
+
+    def enactability(self, *files):
+        """
+        Compute whether each protocol is enactable or not
+
+        A protocol is enactable if there are any enactments that bind all of its public parameters, completing the protocol
+
+        Note: Inherits flags from sat; see `bspl sat -h` for details
+        """
+        for P in load_protocols(files):
+            reset_stats()
+            e = is_enactable(P, **self._opts)
+            print("  Enactable: ", bool(e))
+            if self._verbose or self._stats:
+                print("    stats: ", stats)
+            if self._verbose or not e and not self._quiet:
+                print_formula(logic.And(correct(P), enactability(P)))
+            if e and self._verbose:
+                pp.pprint(e)
+
+    def liveness(self, *files):
+        """
+        Compute whether each protocol is live or not
+
+        A protocol is live if every enactment is complete or can be extended to a complete enactment
+
+        Note: Inherits flags from sat; see `bspl sat -h` for details
+        """
+        for protocol in load_protocols(files):
+            reset_stats()
+            e = is_enactable(protocol)
+            violation = consistent(dead_end(protocol), **self._opts)
+            print("  Live: ", e and not violation)
+            if self._verbose or self._stats:
+                print("    stats: ", stats)
+            if violation and not self._quiet or self._verbose:
+                print_formula(dead_end(protocol))
+            if violation and not self._quiet:
+                print("\n    Violation:")
+                pp.pprint(violation)
+                print()
+
+    def safety(self, *files):
+        """
+        Compute whether or not every protocol is safe
+
+        A protocol is safe if there are no enactments in which multiple roles bind the same parameter
+
+        Note: Inherits flags from sat; see `bspl sat -h` for details
+        """
+        for protocol in load_protocols(files):
+            reset_stats()
+            expr = unsafe(protocol)
+            violation = consistent(expr, **self._opts)
+            print("  Safe: ", not violation)
+            if self._verbose or self._stats:
+                print("    stats: ", stats)
+            if violation and not self._quiet or self._verbose:
+                print_formula(expr)
+            if violation and not self._quiet:
+                print("\nViolation:")
+                pp.pprint(violation)
+                print()
+
+    def atomicity(self, *files, indent=2):
+        """
+        Compute wheter or not a protocol is atomic
+
+        A protocol is atomic if, when any of its components is initiated, the protocol itself can be completed
+        This relationship is recursive; for a protocol to be atomic, all of its subprotocols must be atomic
+
+        Note: Inherits flags from sat; see `bspl sat -h` for details
+        """
+        for protocol in load_protocols(files):
+            reset_stats()
+            a, formula = protocol.check_atomicity(self)
+            print("  Atomic: ", not a)
+            if self._verbose or self._stats:
+                print("    stats: ", stats)
+            if a and not self._quiet:
+                print("\nViolation:")
+                pp.pprint(a)
+                formula = json.dumps(
+                    formula, default=str, sort_keys=True, indent=indent
+                )
+                print(f"\nFormula: {formula}\n")
 
 
-def handle_liveness(protocol, args):
-    reset_stats()
-    e = is_enactable(protocol)
-    violation = consistent(dead_end(protocol))
-    print("  Live: ", e and not violation)
-    if args.verbose or args.stats:
-        print("    stats: ", stats)
-    if violation and not args.quiet or args.verbose:
-        print_formula(dead_end(protocol))
-    if violation and not args.quiet:
-        print("\n    Violation:")
-        pp.pprint(violation)
-        print()
-
-
-def handle_safety(protocol, args):
-    reset_stats()
-    expr = unsafe(protocol)
-    violation = consistent(expr)
-    print("  Safe: ", not violation)
-    if args.verbose or args.stats:
-        print("    stats: ", stats)
-    if violation and not args.quiet or args.verbose:
-        print_formula(expr)
-    if violation and not args.quiet:
-        print("\nViolation:")
-        pp.pprint(violation)
-        print()
-
-
-def handle_atomicity(protocol, args):
-    reset_stats()
-    a, formula = protocol.check_atomicity(args)
-    print("  Atomic: ", not a)
-    if args.verbose or args.stats:
-        print("    stats: ", stats)
-    if a and not args.quiet:
-        print("\nViolation:")
-        pp.pprint(a)
-        print("\nFormula:")
-        print(json.dumps(formula, default=str, sort_keys=True, indent=2))
-        print()
+register_commands({"sat": SATCommands})

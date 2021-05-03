@@ -38,11 +38,19 @@ def load(definition, path=None):
 
 
 def load_file(path):
+    """
+    Load a BSPL file, returning a Specification object containing one or more protocols
+
+    From the CLI, this enables further introspection and processing on the protocol objects
+
+    Args:
+      path: The file to load, containing one or more protocols
+    """
     with open(path, "r", encoding="utf8") as file:
         raw = file.read()
         raw = strip_latex(raw)
-
         spec = load(raw, path)
+        spec.path = path
         return spec
 
 

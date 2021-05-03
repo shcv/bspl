@@ -1,27 +1,8 @@
 from ..protocol import Message, Role, Parameter
 from pprint import pformat
-import configargparse
 from ttictoc import Timer
-
-parser = configargparse.get_argument_parser()
-parser.add(
-    "-v",
-    "--verbose",
-    action="store_true",
-    help="Print additional details: spec, formulas, stats, etc.",
-)
-parser.add("--debug", action="store_true", help="Debug mode")
-parser.add("--no-safe", action="store_true", help="Disable safe event heuristic")
-parser.add(
-    "--no-external",
-    action="store_true",
-    help="Disable provision of protocol dependencies",
-)
-parser.add(
-    "--by-degree", action="store_true", help="Select events by degree, default by name"
-)
-parser.add("--no-reduction", action="store_true", help="Disable all path reductions")
-args = parser.parse_known_args()[0]
+from ..commands import register_commands
+from ..bspl import load_protocols
 
 
 def empty_path():
@@ -157,7 +138,9 @@ def enables(a, b):
 class Tangle:
     "Graph representation of entanglements between messages"
 
-    def __init__(self, messages, roles):
+    def __init__(self, messages, roles, **kwargs):
+        default_kwargs = {"debug": False}
+        kwargs = {**default_kwargs, **kwargs}
         self.emissions = {Emission(m) for m in messages}
         self.receptions = {Reception(e) for e in self.emissions}
         self.events = self.emissions.union(self.receptions)
@@ -209,7 +192,7 @@ class Tangle:
         for a in self.endows:
             propagate(a, a)
 
-        if args.debug:
+        if kwargs["debug"]:
             print(f"endows: {pformat(self.endows)}")
 
         # initialize graph with direct enable and disablements, O(m^2)
@@ -225,7 +208,7 @@ class Tangle:
             for a in self.events
         }
 
-        if args.debug:
+        if kwargs["debug"]:
             print(f"disables: {pformat(self.disables)}")
             print(f"enables: {pformat(self.enables)}")
 
@@ -294,15 +277,17 @@ class Tangle:
 
 
 class UoD:
-    def __init__(self, messages=set(), roles={}):
+    def __init__(self, messages=set(), roles={}, **kwargs):
         self.messages = set(messages)
         self.roles = set(roles)
-        self.tangle = Tangle(messages, roles)
+        self.tangle = Tangle(messages, roles, **kwargs)
 
     @staticmethod
-    def from_protocol(protocol):
-        if not protocol.ins.union(protocol.nils) or args.no_external:
-            return UoD(list(protocol.messages.values()), protocol.roles.values())
+    def from_protocol(protocol, **kwargs):
+        if not protocol.ins.union(protocol.nils) or not kwargs.get("external", True):
+            return UoD(
+                list(protocol.messages.values()), protocol.roles.values(), **kwargs
+            )
         else:
             dependencies = {}
             for r in protocol.roles.values():
@@ -326,6 +311,7 @@ class UoD:
             uod = UoD(
                 list(protocol.messages.values()) + list(dependencies.values()),
                 protocol.roles.values(),
+                **kwargs,
             )
             return uod
 
@@ -432,27 +418,34 @@ def partition(graph, ps):
     return parts
 
 
-def extensions(U, path):
+def extensions(U, path, **kwargs):
+    default_kwargs = {
+        "by_degree": False,
+        "reduction": True,
+        "safe": True,
+        "debug": False,
+    }
+    kwargs = {**default_kwargs, **kwargs}
     ps = possibilities(U, path)
-    safe = U.tangle.safe(ps, path)
+    safe_events = U.tangle.safe(ps, path)
     # default to selecting branches by message name
     def sort(p):
         return p.name
 
-    if args.by_degree:
+    if kwargs["by_degree"]:
         # select events by degree instead
         def sort(p):
             return len(U.tangle.incompatible[p])
 
-    if args.no_reduction:
+    if not kwargs["reduction"]:
         # all the possibilities
         xs = {path + (p,) for p in ps}
-    elif not args.no_safe and safe:
+    elif not kwargs["safe"] and safe_events:
         # expand all non-disabling events first
-        xs = {path + (min(safe, key=sort),)}
+        xs = {path + (min(safe_events, key=sort),)}
     else:
         parts = partition(U.tangle.incompatible, ps)
-        if args.debug:
+        if kwargs["debug"]:
             print(f"parts: {parts}")
         branches = {min(p, key=sort) for p in parts}
         xs = {path + (b,) for b in branches}
@@ -472,26 +465,28 @@ def max_paths(U):
     return max_paths
 
 
-def path_liveness(protocol, args=None):
+def liveness(protocol, **kwargs):
+    default_kwargs = {"debug": False, "verbose": False}
+    kwargs = {**default_kwargs, **kwargs}
     t = Timer()
     t.start()
-    U = UoD.from_protocol(protocol)
-    if args.debug:
+    U = UoD.from_protocol(protocol, **kwargs)
+    if kwargs["debug"]:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     new_paths = [empty_path()]
     checked = 0
     max_paths = 0
     while len(new_paths):
         p = new_paths.pop()
-        if args.debug:
+        if kwargs["debug"]:
             print(p)
         checked += 1
-        xs = extensions(U, p)
+        xs = extensions(U, p, **kwargs)
         if xs:
             new_paths.extend(xs)
         else:
             max_paths += 1
-            if args.verbose and not args.debug:
+            if kwargs["verbose"] and not kwargs["debug"]:
                 print(p)
             if total_knowledge(U, p).intersection(protocol.outs) < protocol.outs:
                 return {
@@ -510,11 +505,13 @@ def path_liveness(protocol, args=None):
     }
 
 
-def path_safety(protocol, args=None):
+def safety(protocol, **kwargs):
+    default_kwargs = {"debug": False, "verbose": False}
+    kwargs = {**default_kwargs, **kwargs}
     t = Timer()
     t.start()
     U = UoD.from_protocol(protocol)
-    if args.debug:
+    if kwargs["debug"]:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     parameters = {p for m in protocol.messages.values() for p in m.outs}
     new_paths = [empty_path()]
@@ -522,15 +519,15 @@ def path_safety(protocol, args=None):
     max_paths = 0
     while len(new_paths):
         path = new_paths.pop()
-        if args.debug:
+        if kwargs["debug"]:
             print(path)
         checked += 1
-        xs = extensions(U, path)
+        xs = extensions(U, path, **kwargs)
         if xs:
             new_paths.extend(xs)
         else:
             max_paths += 1
-            if args.verbose and not args.debug:
+            if kwargs["verbose"] and not kwargs["debug"]:
                 print(path)
 
         for p in parameters:
@@ -560,30 +557,32 @@ def total_knowledge(U, path):
     return k
 
 
-def all_paths(U, verbose=False):
+def all_paths(U, **kwargs):
+    default_kwargs = {"debug": False, "verbose": False}
+    kwargs = {**default_kwargs, **kwargs}
     t = Timer()
     t.start()
     paths = set()
     new_paths = [empty_path()]
     longest_path = 0
     max_paths = 0
-    if args.debug:
+    if kwargs["debug"]:
         print(f"incompatible: {pformat(U.tangle.incompatible)}")
     while new_paths:
         p = new_paths.pop()
-        if args.debug:
+        if kwargs["debug"]:
             print(p)
         if len(p) > longest_path:
             longest_path = len(p)
         if len(p) > len(U.messages) * 2:
             print("Path too long: ", p)
             exit(1)
-        xs = extensions(U, p)
+        xs = extensions(U, p, **kwargs)
         if xs:
             new_paths.extend(xs)
         else:
             max_paths += 1
-            if args.verbose and not args.debug:
+            if kwargs["verbose"] and not kwargs["debug"]:
                 print(p)
 
         paths.add(p)  # add path to paths even if it has unreceived messages
@@ -591,3 +590,101 @@ def all_paths(U, verbose=False):
         f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}, elapsed: {t.stop()}"
     )
     return paths
+
+
+def handle_all_paths(
+    *files, debug=False, verbose=False, external=False, safe=True, reduction=False
+):
+    """
+    Compute all paths for each protocol
+
+    By default, this does *not* use partial-order reduction, but it can be enabled via the --reduction flag.
+
+    Args:
+      files: Paths to specification files containing one or more protocols
+      verbose: Enable detailed output
+      debug: Print debugging information
+      external: Enable external source information
+      reduction: Enable reduction
+      safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
+    """
+    for protocol in load_protocols(files):
+        print(f"{protocol.name} ({protocol.path}): ")
+        U = UoD.from_protocol(protocol)
+        all_paths(
+            U,
+            verbose=verbose,
+            debug=debug,
+            external=external,
+            safe=safe,
+            reduction=reduction,
+        )
+
+
+def handle_liveness(
+    *files, verbose=False, debug=False, external=False, safe=True, reduction=True
+):
+    """
+    Compute whether each protocol is live, using path simulation
+
+    By default, this uses tableau-based partial order reduction to minimize the number of paths considered.
+
+    Args:
+      files: Paths to specification files containing one or more protocols
+      verbose: Enable detailed output
+      debug: Print debugging information
+      external: Enable external source information
+      reduction: Enable reduction (default True); use --noreduction to disable
+      safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
+    """
+    for protocol in load_protocols(files):
+        print(f"{protocol.name} ({protocol.path}): ")
+        print(
+            liveness(
+                protocol,
+                verbose=verbose,
+                debug=debug,
+                external=external,
+                safe=safe,
+                reduction=reduction,
+            )
+        )
+
+
+def handle_safety(
+    *files, verbose=False, debug=False, external=True, safe=True, reduction=True
+):
+    """
+    Compute whether each protocol is safe, using path simulation
+
+    By default, this uses tableau-based partial order reduction to minimize the number of paths considered.
+
+    Args:
+      files: Paths to specification files containing one or more protocols
+      verbose: Enable detailed output
+      debug: Print debugging information
+      external: Enable external source information (default True); use --noexternal to disable
+      reduction: Enable reduction (default True); use --noreduction to disable
+      safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
+    """
+    for protocol in load_protocols(files):
+        print(f"{protocol.name} ({protocol.path}): ")
+        print(
+            safety(
+                protocol,
+                verbose=verbose,
+                debug=debug,
+                external=external,
+                safe=safe,
+                reduction=reduction,
+            )
+        )
+
+
+register_commands(
+    {
+        "safety": handle_safety,
+        "liveness": handle_liveness,
+        "all-paths": handle_all_paths,
+    }
+)

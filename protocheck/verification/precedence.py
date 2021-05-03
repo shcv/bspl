@@ -350,17 +350,20 @@ def cycle(enactment):
                 propagate(b, a, precedes, follows)
 
 
-def solve(clauses, options=None, depth=None):
+def solve(clauses, **kwargs):
+    default_kwargs = {"depth": 1, "verbose": False, "tseytin": False}
+    kwargs = {**default_kwargs, **kwargs}
+
     formula = and_s(*clauses)
-    if options and options.tseytin:
+    if kwargs["tseytin"]:
         formula = formula.tseytin(aux)
 
     stats["size"] += formula.size()
     stats["degree"] = max(stats["degree"], formula.degree())
-    if options and options.verbose:
+    if kwargs["verbose"]:
         s = {"size": formula.size(), "degree": formula.degree()}
         if depth:
-            s["depth"] = depth
+            s["depth"] = kwargs["depth"]
         print(s)
 
     result = formula.sat()[1]
@@ -368,8 +371,10 @@ def solve(clauses, options=None, depth=None):
         return [k for k, v in result.items() if v]
 
 
-def consistent(*statements, exhaustive=False):
-    options = arg_parser.parse_known_args()[0]  # apparently returns a tuple
+def consistent(*statements, **kwargs):
+    default_kwargs = {"exhaustive": False, "depth": 1}
+    kwargs = {**default_kwargs, **kwargs}
+
     stats["statements"] += logic.count(statements)
     statements = [logic.compile(s) for s in statements]
 
@@ -377,18 +382,18 @@ def consistent(*statements, exhaustive=False):
     cons = []
     t = Timer()
     t.start()
-    if options.exhaustive or exhaustive:
+    if kwargs["exhaustive"]:
+        kwargs["depth"] = "exhaustive"
         cons += exhaustive_consistency(statements)
-        result = solve(clauses + cons, options, depth="exhaustive")
+        result = solve(clauses + cons, **kwargs)
     else:
-        depth = int(options.depth)
-        for d in range(depth):
+        for d in range(kwargs["depth"]):
             cons = consistency(clauses + cons)
-        result = solve(clauses + cons, options, depth)
+        result = solve(clauses + cons, **kwargs)
         while result and cycle(result):
-            depth += 1
+            kwargs["depth"] += 1
             cons = consistency(clauses + cons)
-            result = solve(clauses + cons, options, depth)
+            result = solve(clauses + cons, **kwargs)
     stats["time"] += t.stop()
 
     return result
