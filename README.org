@@ -123,3 +123,9 @@ T:\> py -mrun bspl.py
     Currently, BSPL's syntax only supports a single recipient role for each message. However, it's a very simple extension semantically to support multiple recipients, and this would greatly simplify certain applications.
     Specifically, generating messages that provide the 'in' parameters of a dependent protocol for checking refinement currently requires generating one message per recipient, each of which can be interleaved anywhere in the enactment. That's a very highly combinatorial expansion of possibilities, when they could be condensed to a single message that produces the same information at all of the endpoints.
     However, each message currently only has one delay parameter. Multiple recipient roles with a single delay would mean that they all observe the information at the same time.
+
+** Change Log
+*** 0.4.0
+- Various bug fixes
+- Change CLI to use Fire for simpler development and better documentation
+- Switch default liveness and safety commands to use the improved path-based algorithm instead of SAT
