@@ -276,7 +276,7 @@ class Protocol(Base):
         if self.roles:
             data["roles"] = [r for r in self.roles.keys()]
         # should we output references, or just flatten to messages?
-        if self.referegnces:
+        if self.references:
             data["messages"] = {r.name: r.to_dict() for r in self.messages.values()}
         return data
 
@@ -319,13 +319,15 @@ class Protocol(Base):
     def resolve_references(self, spec):
         refs = {}
         for r in self.references.values():
-            protocol = spec.protocols.get(r.name)
-            if protocol:
-                # protocol
+            if r.type == "protocol" or r.type == "reference":
+                protocol = spec.protocols.get(r.name)
+                if not protocol:
+                    raise LookupError(f"Undefined protocol {r.name}")
                 refs[r.name] = protocol.instance(spec, self, r)
-            else:
-                # message
+            elif r.type == "message":
                 refs[r.name] = r.instance(self)
+            else:
+                print(f"Unexpected reference type: {r.type}")
         self.references = refs
 
     def instance(self, spec, parent, reference):
@@ -338,11 +340,15 @@ class Protocol(Base):
             parent=parent,
         )
         for i, r in enumerate(self.roles.values()):
+            # print(f"{reference}[{i}]: {r}")
             p.roles[r.name] = parent.roles.get(reference.parameters[i].name)
         for i, par in enumerate(self.public_parameters.values()):
-            p.public_parameters[par.name] = parent.parameters[
-                reference.parameters[i + len(p.roles)].name
-            ]
+            ref_name = reference.parameters[i + len(p.roles)].name
+            if ref_name not in parent.parameters:
+                raise LookupError(
+                    f"Parameter {ref_name} from reference {reference.name} not declared in parent {parent.name}"
+                )
+            p.public_parameters[par.name] = parent.parameters[ref_name]
         p.resolve_references(spec)
         return p
 
@@ -402,7 +408,9 @@ class Message(Protocol):
             )
             for p in parameters or []:
                 if p.name not in parent.parameters:
-                    raise LookupError("Undeclared parameter", p.name)
+                    raise LookupError(
+                        f"Undeclared parameter {p.name} in {self.type} {self.name}"
+                    )
                 elif parent.parameters[p.name].key:
                     p.key = True
         else:
