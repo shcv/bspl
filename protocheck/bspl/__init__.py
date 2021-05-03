@@ -112,3 +112,13 @@ def from_ast(ast):
     protocols = []
     spec.add_protocols([ast_protocol(p.asjson(), spec) for p in ast])
     return spec
+
+
+def load_protocols(paths, filter=".*"):
+    for path in paths:
+        spec = load_file(path)
+        if not spec.protocols:
+            print("No protocols parsed from file: ", path)
+        for protocol in spec.protocols.values():
+            protocol.path = spec.path
+        yield from spec.protocols.values()
