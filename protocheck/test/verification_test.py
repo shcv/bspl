@@ -41,7 +41,8 @@ def test_transmission(Bid, A, B):
 
 
 def test_reception(Bid, B):
-    assert precedence.consistent(reception(Bid))
+    # Unreliable even with exhaustive enabled
+    assert precedence.consistent(reception(Bid), exhaustive=True)
 
 
 def test_role_messages(A):
@@ -50,7 +51,8 @@ def test_role_messages(A):
 
 def test_minimality(A, Auction):
     print(minimality(A, Auction))
-    assert consistent(minimality(A, Auction))
+    # Seems to require exhaustive checking
+    assert consistent(minimality(A, Auction), exhaustive=True)
 
 
 def test_enactable(Auction):
@@ -61,7 +63,8 @@ def test_enactable(Auction):
 def test_correct(Auction):
     c = correct(Auction)
     assert c
-    assert consistent(correct(Auction))
+    # Unreliable without exhaustive
+    assert consistent(correct(Auction), exhaustive=True)
 
 
 def test_maximal(Auction):

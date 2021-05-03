@@ -2,7 +2,7 @@ import pytest
 from ttictoc import Timer
 from statistics import median
 from protocheck.verification.refinement import *
-from protocheck.verification.sat import *
+from protocheck.verification import sat, paths
 
 
 def perf_test(objects, properties):
@@ -124,7 +124,10 @@ def test_sat_composition_performance(PurchaseComposition):
     t = Timer()
     print("SAT (composition): ")
     print("Protocol, Property, Min, Mean, Max, Times")
-    properties = {"Liveness": lambda P: is_live(P), "Safety": lambda P: is_safe(P)}
+    properties = {
+        "Liveness": lambda P: sat.is_live(P),
+        "Safety": lambda P: sat.is_safe(P),
+    }
     perf_test([PurchaseComposition.protocols["Refined-Commerce"]], properties)
 
 
@@ -137,9 +140,9 @@ def test_sat_subprotocol_performance(PurchaseComposition):
         if "Commerce" in P.name:
             continue
         properties = {
-            "Enactability": lambda: is_enactable(P),
-            "Liveness": lambda: is_live(P),
-            "Safety": lambda: is_safe(P),
+            "Enactability": lambda: sat.is_enactable(P),
+            "Liveness": lambda: sat.is_live(P),
+            "Safety": lambda: sat.is_safe(P),
         }
         for name, fn in properties.items():
             times = []
@@ -165,7 +168,10 @@ def test_single_sub_performance(PurchaseComposition):
 
     for s in specs:
         P = load_file("samples/bspl/performance/" + s).protocols["Refined-Commerce"]
-        properties = {"Liveness": lambda: is_live(P), "Safety": lambda: is_safe(P)}
+        properties = {
+            "Liveness": lambda: sat.is_live(P),
+            "Safety": lambda: sat.is_safe(P),
+        }
         for name, fn in properties.items():
             times = []
             for x in range(10 + 1):
@@ -192,7 +198,7 @@ def test_single_sub_path_performance(PurchaseComposition):
 
     for s in specs:
         P = load_file("samples/bspl/performance/" + s).protocols["Refined-Commerce"]
-        properties = {"Liveness": path_liveness, "Safety": path_safety}
+        properties = {"Liveness": paths.liveness, "Safety": paths.safety}
         perf_test([P], properties)
 
 
@@ -205,10 +211,10 @@ def test_netbill_refinement(PurchaseComposition):
     Q = spec.protocols["Original-NetBill"]
     properties = {
         "Refinement": lambda q: refines(UoD(), P.public_parameters, q, P),
-        "Liveness": lambda p: is_live(p),
-        "Safety": lambda p: is_safe(p),
-        "Path-Liveness": path_liveness,
-        "Path-Safety": path_safety,
+        "Liveness": lambda p: sat.is_live(p),
+        "Safety": lambda p: sat.is_safe(p),
+        "Path-Liveness": paths.liveness,
+        "Path-Safety": paths.safety,
     }
     perf_test([Q], properties)
 
@@ -222,10 +228,10 @@ def test_CreateLabOrder_refinement(PurchaseComposition):
     Q = spec.protocols["CreateOrder2"]
     properties = {
         "Refinement": lambda q: refines(UoD(), P.public_parameters, q, P),
-        "Liveness": lambda p: is_live(p),
-        "Safety": lambda p: is_safe(p),
-        "Path-Liveness": path_liveness,
-        "Path-Safety": path_safety,
+        "Liveness": lambda p: sat.is_live(p),
+        "Safety": lambda p: sat.is_safe(p),
+        "Path-Liveness": paths.liveness,
+        "Path-Safety": paths.safety,
     }
     perf_test([Q], properties)
 
