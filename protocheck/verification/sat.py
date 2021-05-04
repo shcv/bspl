@@ -356,7 +356,7 @@ class SATCommands:
       debug: Enable additional debug output
       tseytin: Apply the Tseytin transformation to the logic before solving
       exhaustive: Generate exhaustive logical relationships between terms, instead of iteratively deepening relationships
-      depth: Starting depth for iterative deepening process
+      depth: Longest transitive relationship to generate. Only need log2(max-chain) to prevent cycles.
     """
 
     def __init__(
