@@ -124,13 +124,13 @@ async def test_remind_until_conjunction():
 
 
 def test_parser():
-    p = model.parse("remind RequestLabel, RequestWrapping until received Packed")
+    p = model.parse("remind labeler of RequestLabel until received Packed")
     print(p)
     assert p
 
 
 def test_from_ast():
-    ast = model.parse("remind Buy until received Deliver")
+    ast = model.parse("remind seller of Buy until received Deliver")
     print(ast)
     policy = from_ast(order, ast)
     assert policy
@@ -140,7 +140,7 @@ def test_from_ast():
     print([e for e in ast["events"]])
     assert policy.proactors[0].__name__ == "process"
 
-    ast = model.parse("remind Buy until received Deliver or received Extra")
+    ast = model.parse("remind seller of Buy until received Deliver or received Extra")
     print(ast)
     policy = from_ast(order, ast)
     assert policy
@@ -153,16 +153,18 @@ def test_from_ast():
 
 def test_policy_parser():
     reminder_policy = """
-    - action: remind S of Buy until Deliver
+    - policy: remind S of Buy until Deliver
       when: 0 0 * * *
       max tries: 5
     """
-    assert not parse(order, reminder_policy)
+    assert parse(order, reminder_policy)
 
     ack_policy = """
-    - action: acknowledge Buy
+    - policy: acknowledge Buy
     """
+    assert parse(order, ack_policy)
 
     until_ack_policy = """
-    - action: remind S of Buy until acknowledged
+    - policy: remind S of Buy until acknowledged
     """
+    assert parse(order, until_ack_policy)
