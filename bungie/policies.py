@@ -46,24 +46,26 @@ def lookup(protocol, names):
 
 
 def from_ast(protocol, ast):
-    if ast["action"] == "remind":
-        cls = Remind
-    elif ast["action"] == "forward":
-        cls = Forward
-    elif ast["action"] == "send":
-        cls = Send
+    action = ast.get("action")
+    cls = {
+        "remind": Remind,
+        "forward": Forward,
+        "send": Send,
+        "acknowledge": Acknowledge,
+    }.get(action["verb"])
 
-    policy = cls(*lookup(protocol, ast["messages"]))
+    policy = cls(*lookup(protocol, action["messages"]))
 
-    if ast["delay"]:
+    if ast.get("delay"):
         policy.after(float(ast["delay"]))
 
-    if ast["prep"] == "until":
-        policy.until
-    elif ast["prep"] == "upon":
-        policy.upon
-    else:
-        raise Exception("Unknown preposition: {}".format(ast["prep"]))
+    if ast.get("prep"):
+        if ast["prep"] == "until":
+            policy.until
+        elif ast["prep"] == "upon":
+            policy.upon
+        else:
+            raise Exception("Unknown preposition: {}".format(ast["prep"]))
 
     def add_event(event):
         if type(event) is tuple:
@@ -85,7 +87,8 @@ def from_ast(protocol, ast):
         elif kind == "acknowledged":
             policy.acknowledged
 
-    add_event(ast["events"])
+    if ast.get("events"):
+        add_event(ast["events"])
 
     return policy
 
@@ -93,7 +96,7 @@ def from_ast(protocol, ast):
 def parse(protocol, text):
     policies = yaml.full_load(text)
     for p in policies:
-        p["action"] = from_ast(protocol, model.parse(p["action"]))
+        p["policy"] = from_ast(protocol, model.parse(p["policy"]))
     return policies
 
 

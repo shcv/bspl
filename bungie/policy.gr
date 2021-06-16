@@ -6,13 +6,13 @@
 #  Forward Prescription to Patient
 #  Acknowledge Complaint
 
-action
-    =
+policy = action:action [delay:delay] [prep:prep events:events] ;
+
+action =
     | remind
     | forward
     | acknowledge
     | broadcast
-    [delay:delay] [prep:prep events:events]
     ;
 
 remind = verb:/[Rr]emind/ recipient:word 'of' messages:messages ;
