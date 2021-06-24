@@ -68,10 +68,10 @@ if __name__ == "__main__":
     print("Starting Merchant...")
 
     # remind policy
-    # adapter.add_policies(
-    #     Remind(RequestWrapping).With(Map).after(3).until.received(Packed),
-    #     when="every 3s",
-    # )
+    adapter.add_policies(
+        Remind(RequestWrapping).With(Map).after(3).until.received(Packed),
+        when="every 3s",
+    )
 
     # acknowledgment policy
     # adapter.add_policies(

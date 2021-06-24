@@ -1,5 +1,5 @@
 from bungie import Adapter, Remind
-from configuration import config, logistics
+from configuration import config, logistics, Labeled
 import uuid
 import logging
 
@@ -8,17 +8,13 @@ logger = logging.getLogger("labeler")
 
 adapter = Adapter(logistics.roles["Labeler"], logistics, config)
 RequestLabel = logistics.messages["RequestLabel"]
-Labeled = logistics.messages["Labeled"]
 
 
-@adapter.reaction(RequestLabel)
-async def request_label(message):
-    payload = {
-        "orderID": message.payload["orderID"],
-        "address": message.payload["address"],
-        "label": str(uuid.uuid4()),
-    }
-    adapter.send(payload, Labeled)
+@adapter.enabled(Labeled)
+async def labeled(msg):
+    msg["label"] = str(uuid.uuid4())
+    logger.info(msg)
+    return msg
 
 
 if __name__ == "__main__":

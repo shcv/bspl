@@ -40,7 +40,7 @@ class Adapter:
         self.protocol = protocol
         self.configuration = configuration
         self.reactors = {}  # dict of message -> [handlers]
-        self.signatures = {}
+        self.generators = {}  # dict of (scheema tuples) -> [handlers]
         self.history = History()
         self.emitter = emitter
         self.receiver = receiver or Receiver(self.configuration[self.role])
@@ -84,6 +84,7 @@ class Adapter:
             increment("observations")
             self.history.observe(message)
             await self.react(message)
+            await self.handle_enabled(message)
 
     def send(self, payload, schema=None, name=None, to=None):
         if isinstance(payload, Message):
@@ -154,10 +155,8 @@ class Adapter:
             rs = self.reactors[schema]
             if handler not in rs:
                 rs.insert(index if index is not None else len(rs), handler)
-                self.signatures[schema][handler] = inspect.signature(handler).parameters
         else:
             self.reactors[schema] = [handler]
-            self.signatures[schema] = {handler: inspect.signature(handler).parameters}
 
     def register_reactors(self, handler, schemas=[]):
         for s in schemas:
@@ -169,7 +168,7 @@ class Adapter:
 
         Example:
         @adapter.reaction(MessageSchema)
-        def handle_message(message):
+        async def handle_message(message):
             'do stuff'
         """
         return partial(self.register_reactors, schemas=schemas)
@@ -184,6 +183,48 @@ class Adapter:
                 logger.debug("Invoking reactor: {}".format(r))
                 message.adapter = self
                 await r(message)
+
+    def enabled(self, *schemas, **options):
+        """
+        Decorator for declaring enabled message generators.
+
+        Example:
+        @adapter.enabled(MessageSchema)
+        async def generate_message(msg):
+            msg.bind("param", value)
+            return msg
+        """
+        return partial(self.register_generators, schemas=schemas, options=options)
+
+    def register_generators(self, handler, schemas, options={}):
+        if schemas in self.generators:
+            gs = self.generators[schemas]
+            if handler not in gs:
+                gs.insert(index if index is not None else len(gs), handler)
+        else:
+            self.generators[schemas] = [handler]
+
+    async def handle_enabled(self, message):
+        """
+        Handle newly observed message by checking for newly enabled messages.
+
+        1. Cycle through all registerd schema tuples
+        2. Check if all messages in tuple are enabled
+        3. If so, invoke the handlers in sequence
+        4. Continue until a message is returned
+        5. Break loop after the first handler returns a message, and send it
+
+        Note: sending a message triggers the loop again
+        """
+        for tup in self.generators.keys():
+            for group in zip(*(schema.match(**message.payload) for schema in tup)):
+                for handler in self.generators[tup]:
+                    # assume it returns only one message for now
+                    msg = await handler(*group)
+                    if msg:
+                        self.send(msg)
+                        # short circuit on first message to send
+                        return
 
     async def task(self):
         loop = asyncio.get_running_loop()

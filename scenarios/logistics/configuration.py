@@ -3,7 +3,14 @@ from protocheck import bspl
 logistics = bspl.load_file("logistics.bspl").export("Logistics")
 from Logistics import Merchant, Wrapper, Labeler, Packer
 
-from Logistics import RequestWrapping, RequestWrappingReminder
+from Logistics import (
+    RequestLabel,
+    RequestWrapping,
+    RequestWrappingReminder,
+    Labeled,
+    Wrapped,
+    Packed,
+)
 
 from Logistics import RequestWrappingAck
 

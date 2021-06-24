@@ -1,5 +1,5 @@
 from bungie import Adapter
-from configuration import config, logistics, Map
+from configuration import config, logistics, Map, Wrapped
 import logging
 
 from bungie.policies import Acknowledge
@@ -8,26 +8,13 @@ logger = logging.getLogger("wrapper")
 # logging.getLogger('bungie').setLevel(logging.DEBUG)
 
 adapter = Adapter(logistics.roles["Wrapper"], logistics, config)
-RequestWrapping = logistics.messages["RequestWrapping"]
-Wrapped = logistics.messages["Wrapped"]
-
-from Logistics import RequestWrappingReminder
-
-# from Logistics import RequestWrappingAck
 
 
-@adapter.reaction(RequestWrapping, RequestWrappingReminder)
-# @adapter.reaction(RequestWrapping)
-async def request_wrapping(message):
-    item = message.payload["item"]
-
-    payload = {
-        "orderID": message.payload["orderID"],
-        "itemID": message.payload["itemID"],
-        "item": item,
-        "wrapping": "bubblewrap" if item in ["plate", "glass"] else "paper",
-    }
-    adapter.send(payload, Wrapped)
+@adapter.enabled(Wrapped)
+async def wrap(msg):
+    item = msg.payload["item"]
+    msg.bind(wrapping="bubblewrap" if item in ["plate", "glass"] else "paper")
+    return msg
 
 
 if __name__ == "__main__":
