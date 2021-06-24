@@ -47,6 +47,10 @@ class Message:
         self.payload[name] = value
         return value
 
+    def bind(self, **kwargs):
+        for k, v in kwargs.items():
+            self[k] = v
+
     def keys_match(self, other):
         return all(
             self.payload[k] == other.payload[k]
