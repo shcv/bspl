@@ -283,7 +283,7 @@ class Protocol(Base):
     def projection(protocol, role):
         references = [
             r
-            for r in protocol.references
+            for r in protocol.references.values()
             if role in r.roles.values()
             or r.type == "message"
             and (role == r.sender or role == r.recipient)
@@ -306,13 +306,13 @@ class Protocol(Base):
                 ],
                 roles=[
                     r
-                    for r in protocol.roles
+                    for r in protocol.roles.values()
                     if any(
                         m.sender.name == r.name or m.recipient.name == r.name
                         for m in messages
                     )
                 ],
-                references=[r.schema for r in references],
+                references=[r for r in references],
                 parent=protocol.parent,
             )
 
