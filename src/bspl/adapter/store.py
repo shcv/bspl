@@ -78,12 +78,16 @@ class Context:
     def __init__(self, parent=None):
         self.subcontexts = {}
         self._bindings = {}
-        self._messages = []
+        self._messages = {}
         self.parent = parent
 
     def add(self, message):
         self._bindings.update(message.payload)
-        self._messages.append(message)
+        self._messages[message.schema] = message
+
+    def clear(self):
+        """Remove all content of the context"""
+        self.__init__(self.parent)
 
     @property
     def bindings(self):
@@ -113,11 +117,11 @@ class Context:
     @property
     def messages(self):
         if self.parent:
-            yield from self.parent.messages
-        yield from self._messages
+            yield from self.parent.messages.values()
+        yield from self._messages.values()
 
     def _all_messages(self):
-        yield from self._messages
+        yield from self._messages.values()
         for p in self.subcontexts:
             for sub in self.subcontexts[p].values():
                 yield from sub._all_messages()
@@ -164,7 +168,6 @@ class Context:
 class Store:
     def __init__(self):
         # message indexes
-        self.messages = {}
 
         # recursive (key -> value -> context -> subkey -> value -> subcontext...)
         self.contexts = Context()
@@ -260,12 +263,6 @@ class Store:
         Add a message instance to the store.
         """
 
-        # index messages by key
-        if message.schema in self.messages:
-            self.messages[message.schema][message.key] = message
-        else:
-            self.messages[message.schema] = {message.key: message}
-
         # log under the correct context
         context = self.context(message)
         context.add(message)
@@ -291,9 +288,10 @@ class Store:
 
     def is_duplicate(self, message):
         """
-        Return true if payload has been observed before.
+        Return true if payload has already been stored.
         """
-        match = self.messages.get(message.schema, {}).get(message.key)
+        context = self.context(message)
+        match = context._messages.get(message.schema)
         if match and match == message:
             return True
         elif match:
@@ -304,18 +302,6 @@ class Store:
             )
         else:
             return False
-
-    def acknowledge(self, schema, key):
-        """
-        Mark a matching message as acknowledged
-        Return True if it had already been acknowledged
-        """
-        match = self.messages[schema].get(key)
-        if match:
-            if match.acknowledged:
-                return True
-            else:
-                match.acknowledged = True
 
     def fill(self, message):
         context = self.context(message)
