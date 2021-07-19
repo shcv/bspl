@@ -11,7 +11,7 @@ import inspect
 import yaml
 from types import MethodType
 from asyncio.queues import Queue
-from .history import History, Message
+from .store import Store, Message
 from functools import partial
 from .emitter import Emitter
 from .receiver import Receiver
@@ -41,7 +41,7 @@ class Adapter:
         self.configuration = configuration
         self.reactors = {}  # dict of message -> [handlers]
         self.generators = {}  # dict of (scheema tuples) -> [handlers]
-        self.history = History()
+        self.history = Store()
         self.emitter = emitter
         self.receiver = receiver or Receiver(self.configuration[self.role])
         self.schedulers = []

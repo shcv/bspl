@@ -160,7 +160,7 @@ class Context:
         yield from self.flatten_subs()
 
 
-class History:
+class Store:
     def __init__(self):
         # message indexes
         self.messages = {}
