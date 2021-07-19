@@ -62,6 +62,7 @@ class Message:
         return self.payload.keys()
 
     def project_key(self, schema):
+        """Give the subset of this instance's keys that match the provided schema, in the order of the provided schema"""
         key = []
         # use ordering from other schema
         for k in schema.keys:
