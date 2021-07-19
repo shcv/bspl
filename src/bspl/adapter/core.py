@@ -45,8 +45,11 @@ class Adapter:
         self.emitter = emitter
         self.receiver = receiver or Receiver(self.configuration[self.role])
         self.schedulers = []
+        self.projection = protocol.projection(role)
 
         self.inject(protocol)
+
+        self.enabled_messages = Store()
 
     def inject(self, protocol):
         """Install helper methods into schema objects"""
@@ -271,3 +274,24 @@ class Adapter:
     async def stop(self):
         await self.receiver.stop()
         await self.emitter.stop()
+    def compute_enabled(self, observations):
+        """
+        Compute updates to the enabled set based on a list of an observations
+        """
+
+        # clear out matching keys from enabled set
+        removed = set()
+        for msg in observations:
+            context = self.enabled_messages.context(msg)
+            removed.update(context.messages)
+            context.clear()
+
+        added = set()
+        for o in observations:
+            for schema in self.projection.messages.values():
+                added.update(schema.match(**o.payload))
+        for m in added:
+            self.enabled_messages.add(m)
+        removed.difference_update(added)
+
+        return {"added": added, "removed": removed}
