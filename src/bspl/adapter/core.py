@@ -73,7 +73,7 @@ class Adapter:
         message = Message(schema, payload)
         message.meta["received"] = datetime.datetime.now()
         increment("receptions")
-        if self.history.duplicate(message):
+        if self.history.is_duplicate(message):
             logger.debug("Duplicate message: {}".format(message))
             increment("dups")
             # Don't react to duplicate messages
@@ -122,7 +122,7 @@ class Adapter:
         #     logger.warn(f'Invalid payload: {message.payload}')
         if not message.dest:
             message.dest = self.configuration[message.schema.recipient]
-        if self.history.duplicate(message):
+        if self.history.is_duplicate(message):
             logger.debug(f"Skipping duplicate message: {message}")
             return False
         elif self.history.check_emission(message):
@@ -202,7 +202,7 @@ class Adapter:
         """
         Handle newly observed message by checking for newly enabled messages.
 
-        1. Cycle through all registerd schema tuples
+        1. Cycle through all registered schema tuples
         2. Check if all messages in tuple are enabled
         3. If so, invoke the handlers in sequence
         4. Continue until a message is returned

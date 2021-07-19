@@ -289,7 +289,7 @@ class Store:
 
         return context
 
-    def duplicate(self, message):
+    def is_duplicate(self, message):
         """
         Return true if payload has been observed before.
         """
