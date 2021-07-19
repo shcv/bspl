@@ -236,7 +236,7 @@ class Store:
             for p in message.schema.ins
         )
 
-    def validate_send(self, message, context=None):
+    def check_emission(self, message, context=None):
         # message assumed not to be duplicate; otherwise recheck unnecessary
         context = context or self.find_context(**message.payload)
 
@@ -254,9 +254,10 @@ class Store:
 
         return True
 
-    def observe(self, message):
-        """Observe an instance of a given message specification.
-        Check integrity, and add the message to the history."""
+    def add(self, message):
+        """
+        Add a message instance to the store.
+        """
 
         # index messages by key
         if message.schema in self.messages:

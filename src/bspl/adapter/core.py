@@ -82,7 +82,7 @@ class Adapter:
         elif self.history.check_integrity(message):
             logger.debug("Observing message: {}".format(message))
             increment("observations")
-            self.history.observe(message)
+            self.history.add(message)
             await self.react(message)
             await self.handle_enabled(message)
 
@@ -124,15 +124,9 @@ class Adapter:
             message.dest = self.configuration[message.schema.recipient]
         if self.history.duplicate(message):
             logger.debug(f"Skipping duplicate message: {message}")
-            # stats['retries'] = stats.get('retries', 0)+1
-            # message.meta['retries'] = message.meta.get('retries', 0) + 1
-            # stats['max retries'] = max(
-            #    stats.get('max retries', 0), message.meta['retries'])
-            # message.meta['last-retry'] = datetime.datetime.now()
-            # return message
             return False
-        elif self.history.validate_send(message):
-            self.history.observe(message)
+        elif self.history.check_emission(message):
+            self.history.add(message)
             await self.react(message)
             return message
         else:
