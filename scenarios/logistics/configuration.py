@@ -6,13 +6,10 @@ from Logistics import Merchant, Wrapper, Labeler, Packer
 from Logistics import (
     RequestLabel,
     RequestWrapping,
-    RequestWrappingReminder,
     Labeled,
     Wrapped,
     Packed,
 )
-
-from Logistics import RequestWrappingAck
 
 with open("/proc/self/cgroup", "r") as cgroups:
 
@@ -32,13 +29,3 @@ else:
         Labeler: ("0.0.0.0", 8002),
         Packer: ("0.0.0.0", 8003),
     }
-
-Map = {
-    "forwards": {
-        RequestWrapping: (RequestWrappingReminder, "remID"),
-    },
-    "acknowledgments": {
-        RequestWrapping: (RequestWrappingAck, "ackID"),
-        RequestWrappingReminder: (RequestWrappingAck, "ackID"),
-    },
-}

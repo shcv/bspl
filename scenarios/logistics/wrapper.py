@@ -1,8 +1,6 @@
 from bungie import Adapter
-from configuration import config, logistics, Map, Wrapped
+from configuration import config, logistics, Wrapped, RequestWrapping
 import logging
-
-from bungie.policies import Acknowledge
 
 logger = logging.getLogger("wrapper")
 # logging.getLogger('bungie').setLevel(logging.DEBUG)

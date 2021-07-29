@@ -1,6 +1,6 @@
 from bungie import Adapter, Remind, Scheduler
 from bungie.statistics import stats_logger
-from configuration import config, Map
+from configuration import config
 import random
 import time
 import datetime
