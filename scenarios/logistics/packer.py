@@ -14,11 +14,9 @@ logger = logging.getLogger("bungie")
 @adapter.enabled(Packed)
 async def pack(msg):
     msg["status"] = "packed"
-    print(msg)
     return msg
 
 
 if __name__ == "__main__":
     logger.info("Starting Packer...")
-    # adapter.load_policy_file("policies.yaml")
-    adapter.start(stats_logger(3))
+    adapter.start()
