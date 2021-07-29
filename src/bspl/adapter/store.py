@@ -44,12 +44,25 @@ class Message:
         return self.payload[name]
 
     def __setitem__(self, name, value):
-        self.payload[name] = value
-        return value
+        if name not in self.schema.parameters:
+            raise Exception(f"Parameter {name} is not in schema {self.schema}")
+        adornment = self.schema.parameters[name].adornment
+        if adornment == "out":
+            self.payload[name] = value
+            return value
+        else:
+            raise Exception(f"Parameter {name} is {adornment}, not out")
 
     def bind(self, **kwargs):
         for k, v in kwargs.items():
             self[k] = v
+        return self
+
+    def instance(self, **kwargs):
+        """
+        Return new instance of message, binding new parameters from kwargs
+        """
+        return self.schema(**self.payload).bind(**kwargs)
 
     def keys_match(self, other):
         return all(
@@ -117,7 +130,7 @@ class Context:
     @property
     def messages(self):
         if self.parent:
-            yield from self.parent.messages.values()
+            yield from self.parent.messages
         yield from self._messages.values()
 
     def _all_messages(self):
@@ -171,6 +184,10 @@ class Store:
 
         # recursive (key -> value -> context -> subkey -> value -> subcontext...)
         self.contexts = Context()
+
+    @property
+    def messages(self):
+        return self.contexts.all_messages
 
     def find_context(self, **params):
         """Find context whose keys match params (ignoring extra parameters)"""
@@ -240,21 +257,38 @@ class Store:
             for p in message.schema.ins
         )
 
-    def check_emission(self, message, context=None):
+    def check_emissions(self, messages, use_context=None):
         # message assumed not to be duplicate; otherwise recheck unnecessary
-        context = context or self.find_context(**message.payload)
 
-        if not self.check_outs(message.schema, context):
-            logger.info("Failed out check: {}".format(message.payload))
-            return False
+        parameters = {}
+        for message in messages:
+            context = use_context or self.find_context(**message.payload)
+            if not self.check_outs(message.schema, context):
+                logger.info(f"Failed out check: {message.payload}")
+                return False
 
-        if not self.check_integrity(message, context):
-            logger.info("Failed integrity check: {}".format(message.payload))
-            return False
+            if not self.check_integrity(message, context):
+                logger.info(
+                    f"({message.schema.sender.name}) Integrity violation: {message} not consistent with context {context}"
+                )
+                logger.info(self.contexts)
+                return False
 
-        if not self.check_dependencies(message, context):
-            logger.info("Failed dependency check: {}".format(message.payload))
-            return False
+            if not self.check_dependencies(message, context):
+                logger.info(f"Failed dependency check: {message.payload}")
+                return False
+
+            if message.schema.disabled_by(parameters.get(message.key, set())):
+                logger.info(
+                    f"Message {message} disabled by other emissions: {messages}"
+                )
+                return False
+            if parameters.get(message.key):
+                parameters[message.key].update(
+                    message.schema.ins.union(message.schema.outs)
+                )
+            else:
+                parameters[message.key] = message.schema.ins.union(message.schema.outs)
 
         return True
 

@@ -24,6 +24,25 @@ FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logger = logging.getLogger("bungie")
 
+logging.getLogger("aiorun").setLevel(logging.CRITICAL)
+
+
+class ObservationEvent:
+    type = None
+    pass
+
+
+class ReceptionEvent(ObservationEvent):
+    def __init__(self, message):
+        self.type = "reception"
+        self.messages = [message]
+
+
+class EmissionEvent(ObservationEvent):
+    def __init__(self, messages):
+        self.type = "emission"
+        self.messages = messages
+
 
 class Adapter:
     def __init__(self, role, protocol, configuration, emitter=Emitter(), receiver=None):
@@ -50,6 +69,7 @@ class Adapter:
         self.inject(protocol)
 
         self.enabled_messages = Store()
+        self.decision_handler = None
 
     def inject(self, protocol):
         """Install helper methods into schema objects"""
@@ -86,66 +106,43 @@ class Adapter:
             logger.debug("Observing message: {}".format(message))
             increment("observations")
             self.history.add(message)
-            await self.react(message)
-            await self.handle_enabled(message)
+            await self.signal(ReceptionEvent(message))
 
-    def send(self, payload, schema=None, name=None, to=None):
-        if isinstance(payload, Message):
-            m = payload
-        else:
-            schema = schema or self.protocol.find_schema(payload, name=name, to=to)
-            m = Message(schema, payload)
-
-        loop = asyncio.get_running_loop()
-        loop.create_task(self.process_send(m))
-
-    def fill(self, schema, context):
-        bindings = context.bindings
-        payload = {}
-        for p in scehma.parameters:
-            if p in self.generators:
-                payload[p] = self.generators[p](context)
-            elif p in bindings:
-                payload[p] = bindings[p]
+    def send(self, *payloads, schema=None, name=None, to=None):
+        messages = []
+        for payload in payloads:
+            if isinstance(payload, Message):
+                m = payload
             else:
-                logging.debug(f"Missing parameter for {schema.name}: {e}")
-                return
-        return Message(schema, payload)
+                schema = schema or self.protocol.find_schema(payload, name=name, to=to)
+                m = Message(schema, payload)
 
-    async def process_send(self, message):
-        if await self.prepare_send(message):
-            await self.emitter.send(message)
+            messages.append(m)
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.process_send(*messages))
 
-    async def prepare_send(self, message):
-        """
-        Checking a message for correctness, and possibly store it.
-        """
-
-        # if not message.schema.validate(message.payload):
-        #     logger.warn(f'Invalid payload: {message.payload}')
-        if not message.dest:
-            message.dest = self.configuration[message.schema.recipient]
-        if self.history.is_duplicate(message):
-            logger.debug(f"Skipping duplicate message: {message}")
-            return False
-        elif self.history.check_emission(message):
-            self.history.add(message)
-            await self.react(message)
+    async def process_send(self, *messages):
+        def prep(message):
+            if not message.dest:
+                message.dest = self.configuration[message.schema.recipient]
             return message
-        else:
-            return False
 
-    async def bulk_send(self, messages):
-        if hasattr(self.emitter, "bulk_send"):
-            ms = await asyncio.gather(*[self.prepare_send(m) for m in messages])
-            to_send = [m for m in ms if m]
-            logger.debug(f"bulk sending {len(to_send)} messages")
-            await self.emitter.bulk_send(to_send)
-        else:
-            for m in messages:
-                if self.prepare_send(message):
-                    await self.react(message)
+        emissions = set(prep(m) for m in messages if not self.history.is_duplicate(m))
+        if len(emissions) < len(messages):
+            logger.info(
+                f"({self.role.name}) Skipped duplicate messages: {set(messages).difference(emissions)}"
+            )
+
+        if self.history.check_emissions(emissions):
+            for m in emissions:
+                self.history.add(m)
+            if hasattr(self.emitter, "bulk_send"):
+                logger.debug(f"bulk sending {len(emissions)} messages")
+                await self.emitter.bulk_send(emissions)
+            else:
+                for m in emissions:
                     await self.emitter.send(message)
+            await self.signal(EmissionEvent(emissions))
 
     def register_reactor(self, schema, handler, index=None):
         if schema in self.reactors:
@@ -226,6 +223,8 @@ class Adapter:
     async def task(self):
         loop = asyncio.get_running_loop()
 
+        loop.create_task(self.update_loop())
+
         await self.receiver.task(self)
 
         if hasattr(self.emitter, "task"):
@@ -269,11 +268,57 @@ class Adapter:
             for t in tasks:
                 loop.create_task(t)
 
+        self.running = True
         aiorun.run(main(), stop_on_unhandled_errors=True, use_uvloop=True)
 
     async def stop(self):
         await self.receiver.stop()
         await self.emitter.stop()
+        self.running = False
+
+    async def signal(self, event):
+        """
+        Publish an event for triggering the update loop
+        """
+        await self.events.put(event)
+
+    async def update_loop(self):
+        self.events = Queue()
+
+        while self.running:
+            event = await self.events.get()
+            logger.debug(f"event: {event}")
+            emissions = await self.process(event)
+            if emissions:
+                if self.history.check_emissions(emissions):
+                    await self.process_send(*emissions)
+
+    async def process(self, event):
+        """
+        Process a single functional step in a decision loop
+
+        (state, observations) -> (state, enabled, event) -> (state, emissions) -> state
+        - state :: the local state, history of observed messages + other local information
+        - event :: an object representing the new information that triggered the processing loop; could be an observed message or a signal from the agent internals or environment
+        - enabled :: a set of all currently enabled messages, indexed by their keys; the enabled set is incrementally constructed and stored in the state
+        - emissions :: a list of message instance for sending
+
+        State can be threaded through the entire loop to make it more purely functional, or left implicit (e.g. a property of the adapter) for simplicity
+        Events need a specific structure;
+        """
+
+        if isinstance(event, ObservationEvent):
+            # Update the enabled messages if there was an emission or reception
+            observations = event.messages
+            event = self.compute_enabled(observations)
+            for m in observations:
+                logger.debug(m)
+                await self.react(m)
+                await self.handle_enabled(m)
+
+        if self.decision_handler:
+            return await self.decision_handler(self.enabled_messages, event)
+
     def compute_enabled(self, observations):
         """
         Compute updates to the enabled set based on a list of an observations
@@ -294,4 +339,4 @@ class Adapter:
             self.enabled_messages.add(m)
         removed.difference_update(added)
 
-        return {"added": added, "removed": removed}
+        return {"added": added, "removed": removed, "observations": observations}

@@ -13,6 +13,10 @@ def instantiate(adapter):
             if i < len(args):
                 payload[p] = args[i]
 
+        # Ensure keys are declared
+        for k in schema.keys:
+            payload[k] = None
+
         for k in kwargs:
             if k in schema.parameters:
                 payload[k] = kwargs[k]
