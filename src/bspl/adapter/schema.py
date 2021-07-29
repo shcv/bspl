@@ -35,6 +35,10 @@ def match(schema, **params):
     contexts = h.matching_contexts(**params)
     candidates = set()
     for c in contexts:
-        if h.check_outs(schema, c) and all(p in c.bindings for p in schema.ins):
+        if (
+            h.check_outs(schema, c)
+            and all(p in c.bindings for p in schema.ins)
+            and not any(p in c.bindings for p in schema.nils)
+        ):
             candidates.add(schema(**c.bindings))
     return candidates
