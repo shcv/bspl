@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python packer.py &
+python traditional-packer.py &
 PACKER=$!
 
 python wrapper.py &
@@ -10,7 +10,7 @@ WRAPPER=$!
 python labeler.py &
 LABELER=$!
 
-sleep 1
+sleep 2
 python merchant.py &
 MERCHANT=$!
 
