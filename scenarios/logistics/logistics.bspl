@@ -14,5 +14,5 @@ Logistics {
   Wrapper -> Packer: Wrapped[in orderID key, in itemID key, in item, out wrapping]
   Labeler -> Packer: Labeled[in orderID key, in address, out label]
 
-  Packer -> Merchant: Packed[in orderID key, in itemID key, in wrapping, in label, out status]
+  Packer -> Merchant: Packed[in orderID key, in itemID key, in item, in wrapping, in label, out status]
 }
