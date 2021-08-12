@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python traditional-packer.py &
+# python traditional-packer.py &
+python packer.py &
 PACKER=$!
 
 python wrapper.py &
