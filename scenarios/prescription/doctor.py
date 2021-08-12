@@ -17,7 +17,7 @@ from bungie.policies import Acknowledge
 adapter = Adapter(Doctor, prescription, config)
 
 treatment = {
-    "Stomache ache": "Calcium carbonate",
+    "Stomach ache": "Calcium carbonate",
     "Sneezing": "Diphenhydramine",
     "Cough": "Dextromethorphan",
     "Nausea": "Bismuth sub-salicylate",
