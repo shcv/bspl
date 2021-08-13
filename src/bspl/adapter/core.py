@@ -9,6 +9,7 @@ import math
 import socket
 import inspect
 import yaml
+import agentspeak
 from types import MethodType
 from asyncio.queues import Queue
 from .store import Store, Message
@@ -17,8 +18,10 @@ from .emitter import Emitter
 from .receiver import Receiver
 from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
+from .jason import Environment, Agent, Actions, actions
 from . import policies
 import bungie
+import bungie.jason
 
 FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
@@ -340,3 +343,13 @@ class Adapter:
         removed.difference_update(added)
 
         return {"added": added, "removed": removed, "observations": observations}
+
+    def load_asl(self, path, rootdir=None):
+        env = Environment()
+        actions = Actions(bungie.jason.actions)
+        with open(path) as source:
+            agent = env.build_agent(source, actions, agent_cls=bungie.jason.Agent)
+            agent.bind(self)
+
+        # enably asynchronous processing of environment
+        self.schedulers.append(env)
