@@ -14,7 +14,15 @@ class Environment(agentspeak.runtime.Environment):
     async def task(self, adapter):
         """Async alternative to Environment.run() so BDI processing can run alongside protocol adapter"""
         self.adapter = adapter
+        self.wake_signal = asyncio.Event()
 
+        # add an outer loop to wake up environment for an external event
+        while self.adapter.running:
+            await self.loop()
+            await self.wake_signal.wait()
+
+    async def loop(self):
+        self.wake_signal.clear()
         maybe_more_work = True
         while maybe_more_work:
             maybe_more_work = False

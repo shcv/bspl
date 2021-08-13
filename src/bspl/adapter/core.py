@@ -140,12 +140,12 @@ class Adapter:
         if self.history.check_emissions(emissions):
             for m in emissions:
                 self.history.add(m)
-            if hasattr(self.emitter, "bulk_send"):
+            if len(emissions) > 1 and hasattr(self.emitter, "bulk_send"):
                 logger.debug(f"bulk sending {len(emissions)} messages")
                 await self.emitter.bulk_send(emissions)
             else:
                 for m in emissions:
-                    await self.emitter.send(message)
+                    await self.emitter.send(m)
             await self.signal(EmissionEvent(emissions))
 
     def register_reactor(self, schema, handler, index=None):
@@ -316,7 +316,16 @@ class Adapter:
             observations = event.messages
             event = self.compute_enabled(observations)
             for m in observations:
-                logger.debug(m)
+                logger.debug(f"observing: {m}")
+                if hasattr(self, "bdi"):
+                    self.bdi.call(
+                        agentspeak.Trigger.addition,
+                        agentspeak.GoalType.belief,
+                        m.to_literal(),
+                        agentspeak.runtime.Intention(),
+                    )
+                # wake up bdi logic
+                self.environment.wake_signal.set()
                 await self.react(m)
                 await self.handle_enabled(m)
 
@@ -345,12 +354,18 @@ class Adapter:
 
         return {"added": added, "removed": removed, "observations": observations}
 
+    @property
+    def environment(self):
+        if not hasattr(self, "_env"):
+            self._env = Environment()
+            # enable asynchronous processing of environment
+            self.schedulers.append(self._env)
+        return self._env
+
     def load_asl(self, path, rootdir=None):
-        env = Environment()
         actions = Actions(bungie.jason.actions)
         with open(path) as source:
-            agent = env.build_agent(source, actions, agent_cls=bungie.jason.Agent)
-            agent.bind(self)
-
-        # enably asynchronous processing of environment
-        self.schedulers.append(env)
+            self.bdi = self.environment.build_agent(
+                source, actions, agent_cls=bungie.jason.Agent
+            )
+            self.bdi.bind(self)
