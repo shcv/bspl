@@ -12,7 +12,8 @@ import yaml
 import agentspeak
 from types import MethodType
 from asyncio.queues import Queue
-from .store import Store, Message
+from .store import Store
+from .message import Message
 from functools import partial
 from .emitter import Emitter
 from .receiver import Receiver

@@ -1,4 +1,4 @@
-from .store import Message
+from .message import Message
 from protocheck import protocol
 from protocheck.bspl import load_file
 import logging
