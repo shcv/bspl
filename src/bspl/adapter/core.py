@@ -10,6 +10,8 @@ import socket
 import inspect
 import yaml
 import agentspeak
+import agentspeak.stdlib
+import random
 from types import MethodType
 from asyncio.queues import Queue
 from .store import Store
@@ -273,6 +275,7 @@ class Adapter:
                 loop.create_task(t)
 
         self.running = True
+        random.shuffle(agentspeak.stdlib.COLORS)  # randomize agent color choice
         aiorun.run(main(), stop_on_unhandled_errors=True, use_uvloop=True)
 
     async def stop(self):
@@ -350,6 +353,7 @@ class Adapter:
             for schema in self.projection.messages.values():
                 added.update(schema.match(**o.payload))
         for m in added:
+            logger.debug(f"new enabled message: {m}")
             self.enabled_messages.add(m)
         removed.difference_update(added)
 
