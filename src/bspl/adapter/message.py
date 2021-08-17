@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from agentspeak import Literal
+import agentspeak
+from agentspeak import Literal, Var
 import re
 
 
@@ -93,7 +94,17 @@ class Message:
     def send(self):
         self.adapter.send(self)
 
-    def to_literal(self):
+    def term(self):
         functor = to_snake(self.schema.name)
-        parameters = self.schema.order_params(self.payload)
+        parameters = self.schema.order_params(self.payload, default=agentspeak.Var)
         return Literal(functor, parameters)
+
+    def resolve(self, term, scope, memo={}):
+        payload = self.schema.zip_params(*term.args)
+        for p, v in payload.items():
+            if isinstance(v, agentspeak.Var):
+                val = agentspeak.deref(memo.get(v, v), scope)
+                if not val:
+                    return False
+                payload[p] = val
+        return Message(self.schema, payload)

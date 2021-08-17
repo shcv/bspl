@@ -318,19 +318,20 @@ class Adapter:
             for m in observations:
                 logger.debug(f"observing: {m}")
                 if hasattr(self, "bdi"):
-                    self.bdi.call(
-                        agentspeak.Trigger.addition,
-                        agentspeak.GoalType.belief,
-                        m.to_literal(),
-                        agentspeak.runtime.Intention(),
-                    )
+                    term = m.term()
+                    bungie.jason.add_belief(self.bdi, m.term())
                 # wake up bdi logic
                 self.environment.wake_signal.set()
                 await self.react(m)
                 await self.handle_enabled(m)
 
         if self.decision_handler:
-            return await self.decision_handler(self.enabled_messages, event)
+            return list(await self.decision_handler(self.enabled_messages, event))
+        elif self.bdi:
+            return list(
+                bungie.jason.bdi_handler(self.bdi, self.enabled_messages, event)
+            )
+            self.environment.wake_signal.set()
 
     def compute_enabled(self, observations):
         """

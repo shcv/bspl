@@ -5,9 +5,13 @@ import agentspeak.runtime
 import agentspeak.stdlib
 import asyncio
 import uuid
+import collections
+import logging
 
 from agentspeak import Actions
 from agentspeak.runtime import Agent
+
+logger = logging.getLogger("bungie")
 
 
 class Environment(agentspeak.runtime.Environment):
@@ -63,3 +67,56 @@ def emit(agent, name, parameters):
     payload = schema.zip_params(*params)
     # Attempt emission
     agent.adapter.send(payload, schema=schema)
+
+
+def find_plan(agent, term, memo):
+    logger.debug(f"Finding plan for {term}")
+    frozen = agentspeak.freeze(term, {}, memo)
+    intention = agentspeak.runtime.Intention()
+
+    for plan in agent.plans[
+        (
+            agentspeak.Trigger.addition,
+            agentspeak.GoalType.achievement,
+            frozen.functor,
+            len(frozen.args),
+        )
+    ]:
+        for _ in agentspeak.unify_annotated(
+            plan.head, frozen, intention.scope, intention.stack
+        ):
+            for _ in plan.context.execute(agent, intention):
+                intention.head_term = frozen
+                intention.instr = plan.body
+                intention.calling_term = term
+
+                # We're only generating one intention, using the first result
+                return intention
+
+
+def add_belief(agent, term):
+    agent.call(
+        agentspeak.Trigger.addition,
+        agentspeak.GoalType.belief,
+        term,
+        agentspeak.runtime.Intention(),
+    )
+
+
+def add_intention(agent, intention):
+    stack = collections.deque()
+    stack.append(intention)
+    agent.intentions.append(stack)
+
+
+def bdi_handler(agent, enabled, event):
+    memo = {}
+    for m in enabled.messages:
+        term = m.term()
+        intention = find_plan(agent, term, memo)
+        if intention:
+            add_intention(agent, intention)
+            agent.run()
+            emission = m.resolve(term, intention.scope, memo)
+            if emission:
+                yield emission
