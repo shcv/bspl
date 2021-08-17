@@ -1,0 +1,10 @@
+Treatment {
+  roles Patient, Doctor, Pharmacist
+  parameters out ID key, out symptom, out done
+  private comment, Rx
+
+  Patient -> Doctor: Complaint[out ID key, out symptom]
+  Doctor -> Patient: Reassurance[in ID key, in symptom, nil Rx, out comment, out done]
+  Doctor -> Pharmacist: Prescription[in ID key, in symptom, out Rx, nil done]
+  Pharmacist -> Patient: FilledRx[in ID key, in Rx, out done]
+}
