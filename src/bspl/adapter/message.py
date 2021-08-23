@@ -104,7 +104,7 @@ class Message:
         for p, v in payload.items():
             if isinstance(v, agentspeak.Var):
                 val = agentspeak.deref(memo.get(v, v), scope)
-                if not val:
+                if isinstance(val, agentspeak.Var):
                     return False
                 payload[p] = val
         return Message(self.schema, payload)
