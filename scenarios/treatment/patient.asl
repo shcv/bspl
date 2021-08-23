@@ -10,10 +10,10 @@
 
 +!get_treatment(Id, Symptom) <-
      .print("Complaining about",Symptom);
-     .emit("Complaint", [Id, Symptom]). // sends to doctor, declares +complaint(Id,Symptom)
+     .emit("Complaint", Id, Symptom). // sends to doctor, declares +complaint(Id,Symptom)
 
 +filled_rx(Id,Symptom,Medicine)
-   <- .print("Received filled prescription (",Medicine,") for",Symptom).
+   <- .print("Received filled prescription (",Medicine,") for",Id,Symptom).
 
 +reassurance(Id,Symptom)
    <- .print("Received reassurance for",Symptom).

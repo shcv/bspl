@@ -55,18 +55,21 @@ actions = Actions(agentspeak.stdlib.actions)
 actions.add_function(".uuid", (), lambda: str(uuid.uuid4()))
 
 
-@actions.add_procedure(".emit", (agentspeak.runtime.Agent, str, tuple))
-def emit(agent, name, parameters):
+@actions.add(".emit")
+def emit(agent, term, intention):
     # resolve literals to be serializeable
+    memo = {}
+    args = [agentspeak.freeze(arg, intention.scope, memo) for arg in term.args]
     params = [
-        p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in parameters
+        p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in args[1:]
     ]
     # Find schema using name
-    schema = agent.adapter.protocol.find_schema(name=name)
+    schema = agent.adapter.protocol.find_schema(name=term.args[0])
     # Construct payload using parameter list
     payload = schema.zip_params(*params)
     # Attempt emission
     agent.adapter.send(payload, schema=schema)
+    yield
 
 
 def find_plan(agent, term, memo):
