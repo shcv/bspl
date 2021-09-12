@@ -2,18 +2,12 @@
 
 from agentspeak import Literal
 import re
+from fastcore.foundation import camel2snake
 
 
 def get_key(schema, payload):
     # schema.keys should be ordered, or sorted for consistency
     return ",".join(k + ":" + str(payload[k]) for k in schema.keys)
-
-
-def to_snake(name):
-    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    name = re.sub("__([A-Z])", r"_\1", name)
-    name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
-    return name.lower()
 
 
 class Message:
@@ -92,8 +86,3 @@ class Message:
 
     def send(self):
         self.adapter.send(self)
-
-    def to_literal(self):
-        functor = to_snake(self.schema.name)
-        parameters = self.schema.order_params(self.payload)
-        return Literal(functor, parameters)

@@ -9,6 +9,8 @@ import math
 import socket
 import inspect
 import yaml
+import random
+import colorama
 from types import MethodType
 from asyncio.queues import Queue
 from .store import Store
@@ -26,6 +28,15 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 logger = logging.getLogger("bungie")
 
 logging.getLogger("aiorun").setLevel(logging.CRITICAL)
+
+COLORS = [
+    (colorama.Back.GREEN, colorama.Fore.WHITE),
+    (colorama.Back.MAGENTA, colorama.Fore.WHITE),
+    (colorama.Back.YELLOW, colorama.Fore.BLACK),
+    (colorama.Back.BLUE, colorama.Fore.WHITE),
+    (colorama.Back.CYAN, colorama.Fore.BLACK),
+    (colorama.Back.RED, colorama.Fore.WHITE),
+]
 
 
 class ObservationEvent:
@@ -46,7 +57,15 @@ class EmissionEvent(ObservationEvent):
 
 
 class Adapter:
-    def __init__(self, role, protocol, configuration, emitter=Emitter(), receiver=None):
+    def __init__(
+        self,
+        role,
+        protocol,
+        configuration,
+        emitter=Emitter(),
+        receiver=None,
+        color=None,
+    ):
         """
         Initialize the agent adapter.
 
@@ -56,6 +75,18 @@ class Adapter:
         configuration: a dictionary of roles to endpoint URLs
           {role: url}
         """
+        self.logger = logging.getLogger("bungie.adapter")
+        self.logger.propagate = False
+        color = color or COLORS[int(role.name, 36) % len(COLORS)]
+        self.color = color
+        reset = colorama.Fore.RESET + colorama.Back.RESET
+        formatter = logging.Formatter(
+            f"%(asctime)-15s ({''.join(self.color)}%(role)s{reset}) %(module)s: %(message)s"
+        )
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+
         self.role = role
         self.protocol = protocol
         self.configuration = configuration
@@ -63,7 +94,7 @@ class Adapter:
         self.generators = {}  # dict of (scheema tuples) -> [handlers]
         self.history = Store()
         self.emitter = emitter
-        self.receiver = receiver or Receiver(self.configuration[self.role])
+        self.receiver = receiver or Receiver(configuration[role])
         self.schedulers = []
         self.projection = protocol.projection(role)
 
@@ -71,6 +102,15 @@ class Adapter:
 
         self.enabled_messages = Store()
         self.decision_handler = None
+
+    def debug(self, msg):
+        self.logger.debug(msg, extra={"role": self.role.name})
+
+    def info(self, msg):
+        self.logger.info(msg, extra={"role": self.role.name})
+
+    def warn(self, msg):
+        self.logger.warn(msg, extra={"role": self.role.name})
 
     def inject(self, protocol):
         """Install helper methods into schema objects"""
@@ -84,27 +124,27 @@ class Adapter:
             m.adapter = self
 
     async def receive(self, payload):
-        logger.debug(f"Received payload: {payload}")
+        self.debug(f"Received payload: {payload}")
         if not isinstance(payload, dict):
-            logger.warn("Payload does not parse to a dictionary: {}".format(payload))
+            self.warn("Payload does not parse to a dictionary: {}".format(payload))
             return
 
         schema = self.protocol.find_schema(payload, to=self.role)
-        logger.debug(f"Found schema: {schema}")
+        self.debug(f"Found schema: {schema}")
         if not schema:
-            logger.warn("No schema matching payload: {}".format(payload))
+            self.warn("No schema matching payload: {}".format(payload))
             return
         message = Message(schema, payload)
         message.meta["received"] = datetime.datetime.now()
         increment("receptions")
         if self.history.is_duplicate(message):
-            logger.debug("Duplicate message: {}".format(message))
+            self.debug("Duplicate message: {}".format(message))
             increment("dups")
             # Don't react to duplicate messages
             # message.duplicate = True
             # await self.react(message)
         elif self.history.check_integrity(message):
-            logger.debug("Observing message: {}".format(message))
+            self.debug("Observing message: {}".format(message))
             increment("observations")
             self.history.add(message)
             await self.signal(ReceptionEvent(message))
@@ -117,7 +157,7 @@ class Adapter:
 
         emissions = set(prep(m) for m in messages if not self.history.is_duplicate(m))
         if len(emissions) < len(messages):
-            logger.info(
+            self.info(
                 f"({self.role.name}) Skipped duplicate messages: {set(messages).difference(emissions)}"
             )
 
@@ -125,7 +165,7 @@ class Adapter:
             for m in emissions:
                 self.history.add(m)
             if hasattr(self.emitter, "bulk_send"):
-                logger.debug(f"bulk sending {len(emissions)} messages")
+                self.debug(f"bulk sending {len(emissions)} messages")
                 await self.emitter.bulk_send(emissions)
             else:
                 for m in emissions:
@@ -162,7 +202,7 @@ class Adapter:
         reactors = self.reactors.get(message.schema)
         if reactors:
             for r in reactors:
-                logger.debug("Invoking reactor: {}".format(r))
+                self.debug("Invoking reactor: {}".format(r))
                 message.adapter = self
                 await r(message)
 
@@ -275,7 +315,7 @@ class Adapter:
 
         while self.running:
             event = await self.events.get()
-            logger.debug(f"event: {event}")
+            self.debug(f"event: {event}")
             emissions = await self.process(event)
             if emissions:
                 if self.history.check_emissions(emissions):
@@ -300,7 +340,7 @@ class Adapter:
             observations = event.messages
             event = self.compute_enabled(observations)
             for m in observations:
-                logger.debug(m)
+                self.debug(f"observing: {m}")
                 await self.react(m)
                 await self.handle_enabled(m)
 
@@ -324,6 +364,7 @@ class Adapter:
             for schema in self.projection.messages.values():
                 added.update(schema.match(**o.payload))
         for m in added:
+            self.debug(f"new enabled message: {m}")
             self.enabled_messages.add(m)
         removed.difference_update(added)
 

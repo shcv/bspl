@@ -1,12 +1,9 @@
 import asyncio
-import logging
 import socket
 import json
 import ijson
 import datetime
 from asyncio.queues import Queue
-
-logger = logging.getLogger("bungie")
 
 
 def unbundle(bundle):
@@ -18,8 +15,9 @@ def decode(msg):
 
 
 class UDPReceiverProtocol:
-    def __init__(self, queue):
+    def __init__(self, queue, adapter):
         self.queue = queue
+        self.adapter = adapter
 
     def datagram_received(self, data, addr):
         self.queue.put_nowait(data)
@@ -28,7 +26,7 @@ class UDPReceiverProtocol:
         self.transport = transport
 
     def connection_lost(self, exc):
-        logger.debug(f"Connection lost: {exc}")
+        adapter.debug(f"Connection lost: {exc}")
 
 
 class Receiver:
@@ -45,14 +43,14 @@ class Receiver:
         self.adapter = adapter
         self.queue = Queue()
         loop = asyncio.get_running_loop()
-        logger.debug(f"Attempting to bind: {self.address}")
+        adapter.debug(f"Attempting to bind: {self.address}")
         transport, protocol = await loop.create_datagram_endpoint(
-            lambda: UDPReceiverProtocol(self.queue),
+            lambda: UDPReceiverProtocol(self.queue, adapter),
             local_addr=("0.0.0.0", self.address[1]),
         )
         self.listening = True
         self.transport = transport
-        logger.info(f"Listening on {self.address}")
+        adapter.info(f"Listening on {self.address}")
         loop.create_task(self.process())
 
     async def process(self):
@@ -62,7 +60,7 @@ class Receiver:
             messages = self.unbundle(bundle)
             for m in messages:
                 await self.adapter.receive(m)
-        logger.info("Stopped listening")
+        self.adapter.info("Stopped listening")
 
     async def stop(self):
         self.listening = False
@@ -83,7 +81,7 @@ class TCPReceiver:
         self.server = server
 
         addr = server.sockets[0].getsockname()
-        logger.info(f"Listening on {addr}")
+        adapter.info(f"Listening on {addr}")
 
         loop = asyncio.get_running_loop()
 
