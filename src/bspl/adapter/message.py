@@ -3,18 +3,12 @@
 import agentspeak
 from agentspeak import Literal, Var
 import re
+from fastcore.foundation import camel2snake
 
 
 def get_key(schema, payload):
     # schema.keys should be ordered, or sorted for consistency
     return ",".join(k + ":" + str(payload[k]) for k in schema.keys)
-
-
-def to_snake(name):
-    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    name = re.sub("__([A-Z])", r"_\1", name)
-    name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
-    return name.lower()
 
 
 class Message:
@@ -95,16 +89,31 @@ class Message:
         self.adapter.send(self)
 
     def term(self):
-        functor = to_snake(self.schema.name)
+        functor = self.schema.name
         parameters = self.schema.order_params(self.payload, default=agentspeak.Var)
-        return Literal(functor, parameters)
+        return Literal(
+            functor, (self.schema.sender.name, self.schema.recipient.name, *parameters)
+        )
+
+    def enabled_term(self):
+        parameters = self.schema.order_params(self.payload, default=None)
+        msg = Literal(
+            self.schema.name,
+            (self.schema.sender.name, self.schema.recipient.name, *parameters),
+        )
+        return Literal("enabled", (msg,))
 
     def resolve(self, term, scope, memo={}):
-        payload = self.schema.zip_params(*term.args)
+        sender = term.args[0]
+        recipient = term.args[1]
+        payload = self.schema.zip_params(*term.args[2:])
         for p, v in payload.items():
             if isinstance(v, agentspeak.Var):
                 val = agentspeak.deref(memo.get(v, v), scope)
-                if isinstance(val, agentspeak.Var):
+                if (
+                    isinstance(val, agentspeak.Var)
+                    and self.schema.parameters[p].adornment == "out"
+                ):
                     return False
                 payload[p] = val
         return Message(self.schema, payload)

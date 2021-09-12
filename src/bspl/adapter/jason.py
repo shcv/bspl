@@ -11,6 +11,8 @@ import logging
 from agentspeak import Actions
 from agentspeak.runtime import Agent
 
+from .message import Message
+
 logger = logging.getLogger("bungie")
 
 
@@ -49,27 +51,61 @@ class Agent(agentspeak.runtime.Agent):
         """For late binding"""
         self.adapter = adapter
 
+    def believe(self, term):
+        self.call(
+            agentspeak.Trigger.addition,
+            agentspeak.GoalType.belief,
+            term,
+            agentspeak.runtime.Intention(),
+        )
+
+    def observe(self, message):
+        term = message.term()
+        logger.debug(f"({self.name}) observing: {term}")
+        self.believe(term)
+
 
 actions = Actions(agentspeak.stdlib.actions)
 
 actions.add_function(".uuid", (), lambda: str(uuid.uuid4()))
 
 
-@actions.add(".emit")
-def emit(agent, term, intention):
+@actions.add_procedure(".emit", (agentspeak.runtime.Agent, str, str, tuple))
+def emit(agent, name, recipient, parameters):
+    """
+    emit/3 sends to an explicitly specified address
+    """
     # resolve literals to be serializeable
-    memo = {}
-    args = [agentspeak.freeze(arg, intention.scope, memo) for arg in term.args]
     params = [
-        p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in args[1:]
+        p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in parameters
     ]
     # Find schema using name
-    schema = agent.adapter.protocol.find_schema(name=term.args[0])
+    schema = agent.adapter.protocol.find_schema(name=name)
     # Construct payload using parameter list
     payload = schema.zip_params(*params)
-    # Attempt emission
+
+    m = Message(schema, payload)
+    addr, port = recipient.split(":")
+    m.dest = (addr, int(port))
+
+    agent.adapter.send(m)
+
+
+@actions.add_procedure(".emit", (agentspeak.runtime.Agent, str, tuple))
+def emit(agent, name, parameters):
+    """
+    emit/2 depends on the protocol and configuration for the recipient address
+    """
+    # resolve literals to be serializeable
+    params = [
+        p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in parameters
+    ]
+    # Find schema using name
+    schema = agent.adapter.protocol.find_schema(name=name)
+    # Construct payload using parameter list
+    payload = schema.zip_params(*params)
+
     agent.adapter.send(payload, schema=schema)
-    yield
 
 
 def find_plan(agent, term, memo):
@@ -97,15 +133,6 @@ def find_plan(agent, term, memo):
                 return intention
 
 
-def add_belief(agent, term):
-    agent.call(
-        agentspeak.Trigger.addition,
-        agentspeak.GoalType.belief,
-        term,
-        agentspeak.runtime.Intention(),
-    )
-
-
 def add_intention(agent, intention):
     stack = collections.deque()
     stack.append(intention)
@@ -114,8 +141,9 @@ def add_intention(agent, intention):
 
 def bdi_handler(agent, enabled, event):
     memo = {}
-    for m in enabled.messages:
+    for m in event.get("added", []):
         term = m.term()
+        agent.believe(m.enabled_term())
         intention = find_plan(agent, term, memo)
         if intention:
             add_intention(agent, intention)
@@ -123,3 +151,5 @@ def bdi_handler(agent, enabled, event):
             emission = m.resolve(term, intention.scope, memo)
             if emission:
                 yield emission
+    for m in event.get("removed", []):
+        agent.remove_belief(m.enabled_term(), agentspeak.runtime.Intention())
