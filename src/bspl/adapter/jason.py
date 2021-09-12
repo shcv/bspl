@@ -70,11 +70,18 @@ actions = Actions(agentspeak.stdlib.actions)
 actions.add_function(".uuid", (), lambda: str(uuid.uuid4()))
 
 
-@actions.add_procedure(".emit", (agentspeak.runtime.Agent, str, str, tuple))
-def emit(agent, name, recipient, parameters):
+@actions.add(".emit", 1)
+def emit(agent, term, intention):
     """
-    emit/3 sends to an explicitly specified address
+    emit/1 sends a message represented by a single term
     """
+    message = agentspeak.evaluate(term.args[0], intention.scope)
+    args = [agentspeak.evaluate(p, intention.scope) for p in message.args]
+    name = message.functor
+    sender = args[0]
+    recipient = args[1]
+    parameters = args[2:]
+
     # resolve literals to be serializeable
     params = [
         p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in parameters
@@ -85,27 +92,13 @@ def emit(agent, name, recipient, parameters):
     payload = schema.zip_params(*params)
 
     m = Message(schema, payload)
-    addr, port = recipient.split(":")
-    m.dest = (addr, int(port))
+
+    if isinstance(recipient, str):
+        addr, port = recipient.split(":")
+        m.dest = (addr, int(port))
 
     agent.adapter.send(m)
-
-
-@actions.add_procedure(".emit", (agentspeak.runtime.Agent, str, tuple))
-def emit(agent, name, parameters):
-    """
-    emit/2 depends on the protocol and configuration for the recipient address
-    """
-    # resolve literals to be serializeable
-    params = [
-        p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in parameters
-    ]
-    # Find schema using name
-    schema = agent.adapter.protocol.find_schema(name=name)
-    # Construct payload using parameter list
-    payload = schema.zip_params(*params)
-
-    agent.adapter.send(payload, schema=schema)
+    yield
 
 
 def find_plan(agent, term, memo):
