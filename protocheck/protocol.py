@@ -1,5 +1,4 @@
 from .utils import merge
-from collections import OrderedDict
 import inspect
 import sys
 import re
@@ -154,9 +153,7 @@ class Protocol(Base):
         if public_parameters:
             self.set_parameters(public_parameters)
         if private_parameters:
-            self.private_parameters = OrderedDict(
-                (p.name, p) for p in private_parameters
-            )
+            self.private_parameters = {p.name: p for p in private_parameters}
         if references:
             self.references = {}
             name_counts = {}
@@ -169,7 +166,7 @@ class Protocol(Base):
                 self.references[r.name] = r
 
     def set_parameters(self, parameters):
-        self.public_parameters = OrderedDict((p.name, p) for p in parameters)
+        self.public_parameters = {p.name: p for p in parameters}
 
     @property
     def parameters(self):
@@ -185,17 +182,15 @@ class Protocol(Base):
         return {p for m in self.messages.values() for p in m.parameters}
 
     def get_keys(self):
-        return OrderedDict(
-            [
-                (p.name, p)
-                for p in sorted(self.parameters.values())
-                if p.key
-                or self.parent
-                and self.parent.type == "protocol"
-                and p.name in self.parent.parameters
-                and self.parent.parameters[p.name].key
-            ]
-        )
+        return {
+            p.name: p
+            for p in sorted(self.parameters.values())
+            if p.key
+            or self.parent
+            and self.parent.type == "protocol"
+            and p.name in self.parent.parameters
+            and self.parent.parameters[p.name].key
+        }
 
     @property
     def keys(self):
