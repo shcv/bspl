@@ -502,6 +502,13 @@ class Message(Protocol):
     def validate(self, payload):
         return set(payload) == set(self.parameters.keys())
 
+    def disabled_by(self, parameters):
+        """
+        Return true if parameters do not interfere with outs or nils
+
+        parameters: set of parameter names
+        """
+        return self.outs.union(self.nils).intersection(parameters)
 
 class Parameter(Base):
     def __init__(self, name, adornment, key=False, parent=None):
