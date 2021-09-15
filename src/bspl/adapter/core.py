@@ -360,14 +360,14 @@ class Adapter:
                 self.debug(f"observing: {m}")
                 if hasattr(self, "bdi"):
                     self.bdi.observe(m)
-                # wake up bdi logic
-                self.environment.wake_signal.set()
+                    # wake up bdi logic
+                    self.environment.wake_signal.set()
                 await self.react(m)
                 await self.handle_enabled(m)
 
         if self.decision_handler:
             return list(await self.decision_handler(self.enabled_messages, event))
-        elif self.bdi:
+        elif hasattr(self, "bdi"):
             return list(
                 bungie.jason.bdi_handler(self.bdi, self.enabled_messages, event)
             )
