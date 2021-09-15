@@ -522,6 +522,23 @@ class Message(Protocol):
                 params,
             )
         )
+
+    def order_params(self, payload, default=None):
+        """Yield each parameter from payload in the order the parameters appear
+        in the message schema
+        """
+        for p in self.public_parameters.keys():
+            if p in payload:
+                yield payload[p]
+            elif self.public_parameters[p].adornment != "nil":
+                if not default:
+                    yield None
+                elif callable(default):
+                    yield default()
+                else:
+                    yield default
+
+
 class Parameter(Base):
     def __init__(self, name, adornment, key=False, parent=None):
         self.adornment = adornment
