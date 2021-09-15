@@ -510,6 +510,18 @@ class Message(Protocol):
         """
         return self.outs.union(self.nils).intersection(parameters)
 
+    def zip_params(self, *params):
+        """Construct a payload from a list of parameter values"""
+        return dict(
+            zip(
+                [
+                    p
+                    for p in self.public_parameters.keys()
+                    if self.public_parameters[p].adornment in ("in", "out")
+                ],
+                params,
+            )
+        )
 class Parameter(Base):
     def __init__(self, name, adornment, key=False, parent=None):
         self.adornment = adornment
