@@ -39,7 +39,6 @@ class Specification:
     def export(self, protocol):
         p = self.protocols[protocol]
         pname = camelize(p.name)
-        print(pname)
         frm = inspect.stack()[1]
         module = ProtoMod(pname)
         for name, message in p.messages.items():
