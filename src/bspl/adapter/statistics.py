@@ -47,7 +47,9 @@ def mem_usage():
 
 
 def update(dev="eth0"):
-    stats.update({"cpu": cpu_usage(), "mem": mem_usage(), **net_usage(dev)})
+    stats.update({"cpu": cpu_usage(), "mem": mem_usage()})
+    if dev:
+        stats.update(net_usage(dev))
 
 
 async def stats_logger(interval=1, hide=[], only=None, dev=None):
