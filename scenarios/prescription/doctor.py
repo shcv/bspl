@@ -1,7 +1,7 @@
 from bungie import Adapter, schema
 
 # from configuration import config, prescription, Doctor, Complain, Prescribe
-from configuration_resend import (
+from configuration_remind import (
     config,
     prescription,
     Doctor,
