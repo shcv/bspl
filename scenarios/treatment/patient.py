@@ -1,31 +1,46 @@
+import random
 import asyncio
-import logging
+import cProfile
 from bungie import Adapter
 
-# from configuration import config, prescription, Patient, Complain, Filled
-from bungie.policies import Remind
-from configuration import config, treatment, Patient, Complaint, FilledRx
+from configuration import (
+    config,
+    treatment,
+    Patient,
+    Doctor,
+    Pharmacist,
+    Complaint,
+    Map,
+    FilledRx,
+    RetryFilledRx,
+    Copy,
+)
 
-# from configuration_ack import config, prescription, Patient, Complain, Map, Filled
-
-# logging.getLogger("bungie").setLevel(logging.DEBUG)
-
-# adapter
 adapter = Adapter(Patient, treatment, config)
-adapter.load_asl("patient.asl")
+
+
+async def complaint_generator(complaints=1):
+    sID = 0
+    symptom = [
+        "Sneezing",
+        "Cough",
+        "Stomach ache",
+        "Nausea",
+        "Hemorrhage",
+        "Death",
+    ]
+    while sID < complaints:
+        # construct mesage
+        msg = Complaint(sID=sID, symptom=random.sample(symptom, 1)[0])
+
+        # send message
+        adapter.send(msg)
+
+        sID += 1
+        await asyncio.sleep(0)
+
 
 if __name__ == "__main__":
     print("Starting Patient...")
-
-    # remind policy
-    # adapter.add_policies(
-    #     Remind(Complain).With(Map).after(1).until.received(Filled), when="every 1s"
-    # )
-
-    # acknowledgment policy
-    # adapter.add_policies(
-    #     Remind(Complain).With(Map).after(1).until.acknowledged,
-    #     when='every 1s')
-
-    # start adapter
-    adapter.start()
+    # cProfile.run("adapter.start(complaint_generator(1000))")
+    adapter.start(complaint_generator())
