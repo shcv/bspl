@@ -203,6 +203,10 @@ class Adapter:
         for s in schemas:
             self.register_reactor(s, handler)
 
+    def clear_reactors(self, *schemas):
+        for s in schemas:
+            self.reactors[s] = []
+
     def reaction(self, *schemas):
         """
         Decorator for declaring reactor handler.
