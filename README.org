@@ -1,3 +1,43 @@
-* Bungie
+* Mandrake
 
-  A simple python-based framework for implementing agents as microservices, with additional support for fault-tolerance policies.
+  A simple python-based framework for implementing agents, with support for fault-tolerance policies.
+
+** Installation
+A venv is recommended for separating installed dependencies from your other python installations.
+#+begin_src shell
+$ python -m venv ve#nv
+$ . venv/bin/activate
+#+end_src
+
+Most of the installation should work automatically with the provided setup.py.
+#+begin_src shell
+python setup.py install
+#+end_src
+
+Please create an issue for any broken dependencies.
+
+** Use
+See the `scenarios` directory for examples of how to use Mandrake.
+
+In particular, the treatment scenario was used for our experiments.
+
+** Running the experiment
+To reproduce the experimental results, run:
+
+#+begin_src shell
+python treatment_experiment - run - to_string
+#+end_src
+
+The experiment uses Fire for its CLI. See:
+
+- Print options for running an experiment / loading from logs
+
+  #+begin_src shell
+  python treatment_experiment
+  #+end_src
+
+- Interact with the results as a pandas DataFrame, after running the experiment:
+
+  #+begin_src shell
+  python treatment_experiment - run - -- -i
+  #+end_src
