@@ -67,10 +67,13 @@ class Scheduler:
             await self.run()
 
     async def run(self):
+        logger.debug(f"running policies: {self.policies}")
         for p in self.policies:
             # give policy access to full history for conditional evaluation
             messages = p.run(self.adapter.history)
             if self._backoff:
-                await self.adapter.bulk_send([m for m in messages if self.backoff(m)])
+                await self.adapter.process_send(
+                    *[m for m in messages if self.backoff(m)]
+                )
             else:
-                await self.adapter.bulk_send(messages)
+                await self.adapter.process_send(*messages)
