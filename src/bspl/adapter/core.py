@@ -141,7 +141,6 @@ class Adapter:
             return
         message = Message(schema, payload)
         message.meta["received"] = datetime.datetime.now()
-        increment("receptions")
         if self.history.is_duplicate(message):
             self.debug("Duplicate message: {}".format(message))
             increment("dups")
@@ -150,6 +149,7 @@ class Adapter:
             # await self.react(message)
         elif self.history.check_integrity(message):
             self.debug("Observing message: {}".format(message))
+            increment("receptions")
             increment("observations")
             self.history.add(message)
             await self.signal(ReceptionEvent(message))
