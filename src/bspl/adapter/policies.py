@@ -153,6 +153,7 @@ class Remind:
         self.delay = None
         self.generators = {}
         self.map = {}
+        self.key = "reminders"
 
         # the set of active messages, for proactive policies
         self.active = set()
@@ -172,7 +173,13 @@ class Remind:
 
     async def action(self, adapter, schema, context):
         # remind message
-        pass
+        for m in context.messages:
+            logger.debug(f"considering {m}")
+            if m.schema == schema:
+                logger.debug(f"found {m} matching {schema}")
+                reminder = map_message(self.map, self.key, m)
+                logger.debug(f"reminder: {reminder}")
+                adapter.send(reminder)
 
     def With(self, map):
         self.map = map
@@ -194,7 +201,7 @@ class Remind:
           Remind(A).until.received(B,C)
         will remind A until /both/ B and C are received.
 
-        To handle a disjunction, use separate received() clauses at at least one Or.
+        To handle a disjunction, use separate received() clauses and at least one Or.
         E.g.:
           Remind(A).until.received(B).Or.received(C)
         """
@@ -203,17 +210,18 @@ class Remind:
             for s in expectations:
 
                 async def reactor(msg):
+                    logging.debug(f"reacting to {msg}")
                     context = msg.adapter.history.context(msg)
                     for r in self.schemas:
                         # remind message schema r in the same context as msg
-                        await self.action(adapter, r, context)
+                        await self.action(msg.adapter, r, context)
 
                 self.reactors[s] = reactor
         else:
 
             async def activate(message):
-                print(f"activating {message}")
                 message.meta["sent"] = datetime.datetime.now()
+                logger.debug(f"activating {message}")
                 self.active.add(message)
 
             for s in self.schemas:
@@ -237,7 +245,9 @@ class Remind:
                 if not self.delay:
                     messages = []
                     for m in self.active:
-                        messages.append(map_message(self.map, "forwards", m))
+                        reminder = map_message(self.map, self.key, m)
+                        logger.debug(f"sending {reminder} in response to {m}")
+                        messages.append(reminder)
                         if len(messages) >= 500:
                             break
                     return messages
@@ -248,11 +258,11 @@ class Remind:
                     for m in self.active:
                         if (now - m.meta["sent"]).total_seconds() >= self.delay:
                             i += 1
-                            messages.append(map_message(self.map, "forwards", m))
+                            messages.append(map_message(self.map, self.key, m))
                         if i >= 500:
                             break
 
-                    logger.info(
+                    logger.debug(
                         f"reminding: {len(messages)}, delta: {len(self.active) - len(messages)}"
                     )
                     return messages
@@ -332,15 +342,18 @@ class Forward(Remind):
     """
 
     def __init__(self, *schemas):
-        self.to = None
         super().__init__(*schemas)
+        logger.debug(f"Forwarding {schemas}")
+        self.recipient = None
+        self.key = "forwards"
+        self.reactive = True
 
     def to(self, recipient):
-        self.to = recipient
+        self.recipient = recipient
         return self
 
-    def action(self, adapter, schema, context):
-        pass
+    def observed(self, *schemas):
+        return self.received(*schemas)
 
 
 Send = Forward  # alias
