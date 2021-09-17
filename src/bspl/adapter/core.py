@@ -178,7 +178,10 @@ class Adapter:
             )
 
         if self.history.check_emissions(emissions):
+            self.debug(f"Sending {emissions}")
             for m in emissions:
+                increment("emissions")
+                increment("observations")
                 self.history.add(m)
             if len(emissions) > 1 and hasattr(self.emitter, "bulk_send"):
                 self.debug(f"bulk sending {len(emissions)} messages")
