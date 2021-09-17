@@ -80,7 +80,7 @@ class Adapter:
         configuration: a dictionary of roles to endpoint URLs
           {role: url}
         """
-        self.logger = logging.getLogger("bungie.adapter")
+        self.logger = logging.getLogger(f"bungie.adapter.{role.name}")
         self.logger.propagate = False
         color = color or COLORS[int(role.name, 36) % len(COLORS)]
         self.color = agentspeak.stdlib.COLORS[0] = color
