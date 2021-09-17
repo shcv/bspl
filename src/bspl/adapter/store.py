@@ -179,12 +179,20 @@ class Store:
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
         """
-        return not any(
-            # aggregate across subcontexts
-            # permits 'lifting' parameters into a parent context
-            message.payload[p] not in context.all_bindings.get(p, [])
-            for p in message.schema.ins
-        )
+        for p in message.schema.ins:
+            # bindings that only match on a subset of keys are ok
+            # bindings with any contradictory keys are not; should be handled by integrity though
+            # this logic is not quite correct, and is inefficient - TODO
+            c = context
+            while c:
+                if message.payload[p] in c.all_bindings.get(p, []):
+                    return True
+                else:
+                    c = c.parent
+            logger.info(f"{p} is not found in {context.all_bindings}")
+            logger.info(f"{context.parent.all_bindings}")
+            return False
+        return True
 
     def check_emissions(self, messages, use_context=None):
         # message assumed not to be duplicate; otherwise recheck unnecessary
