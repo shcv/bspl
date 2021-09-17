@@ -31,7 +31,8 @@ FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logger = logging.getLogger("bungie")
 
-logging.getLogger("aiorun").setLevel(logging.CRITICAL)
+SUPERCRITICAL = logging.CRITICAL + 10  # don't want any logs
+logging.getLogger("aiorun").setLevel(SUPERCRITICAL)
 
 COLORS = [
     (colorama.Back.GREEN, colorama.Fore.WHITE),
