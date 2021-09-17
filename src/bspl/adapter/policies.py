@@ -221,9 +221,13 @@ class Remind:
 
             async def deactivate(message):
                 for s in self.schemas:
-                    key = message.project_key(s)
-                    m = message.adapter.history.messages.get(s, {}).get(key)
+                    logger.debug(f"want to deactivate {s} because of {message}")
+                    m = message.adapter.history.find_context(
+                        **message.project_key(s)
+                    ).find(s)
+                    logger.debug(f"found {m}")
                     if m and m in self.active:
+                        logger.debug(f"deactivating {m} in response to {message}")
                         self.active.remove(m)
 
             for e in expectations:
@@ -287,10 +291,9 @@ class Remind:
 
             def gen_deactivate(schema):
                 async def deactivate(message):
-                    key = message.project_key(schema)
-                    logger.debug(f"received ack; key: {key}")
-                    m = message.adapter.history.messages.get(schema, {}).get(key)
-                    logger.debug(f"matching message: {m}")
+                    m = message.adapter.history.find_context(
+                        **message.project_key(schema)
+                    ).find(schema)
                     if m and m in self.active:
                         logger.debug(f"deactivating: {m}")
                         self.active.remove(m)

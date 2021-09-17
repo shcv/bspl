@@ -78,12 +78,12 @@ class Message:
 
     def project_key(self, schema):
         """Give the subset of this instance's keys that match the provided schema, in the order of the provided schema"""
-        key = []
+        key = {}
         # use ordering from other schema
         for k in schema.keys:
             if k in self.schema.keys:
-                key.append(k)
-        return ",".join(k + ":" + str(self.payload[k]) for k in key)
+                key[k] = self[k]
+        return key
 
     def send(self):
         self.adapter.send(self)

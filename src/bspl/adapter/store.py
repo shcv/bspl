@@ -64,6 +64,17 @@ class Context:
         else:
             return set(self._all_messages())
 
+    def find(self, schema):
+        m = self._messages.get(schema)
+        if m:
+            return m
+        else:
+            for p in self.subcontexts:
+                for sub in self.subcontexts[p].values():
+                    m = sub.find(schema)
+                    if m:
+                        return m
+
     def __repr__(self):
         return f"Context(bindings={self.bindings},messages={[m for m in self.messages]},subcontexts={self.subcontexts})"
 
