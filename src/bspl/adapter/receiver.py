@@ -50,7 +50,7 @@ class Receiver:
         )
         self.listening = True
         self.transport = transport
-        adapter.info(f"Listening on {self.address}")
+        adapter.debug(f"Listening on {self.address}")
         loop.create_task(self.process())
 
     async def process(self):

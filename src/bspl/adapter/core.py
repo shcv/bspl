@@ -129,13 +129,11 @@ class Adapter:
             m.adapter = self
 
     async def receive(self, payload):
-        self.debug(f"Received payload: {payload}")
         if not isinstance(payload, dict):
             self.warn("Payload does not parse to a dictionary: {}".format(payload))
             return
 
         schema = self.protocol.find_schema(payload, to=self.role)
-        self.debug(f"Found schema: {schema}")
         if not schema:
             self.warn("No schema matching payload: {}".format(payload))
             return
@@ -148,7 +146,7 @@ class Adapter:
             # message.duplicate = True
             # await self.react(message)
         elif self.history.check_integrity(message):
-            self.debug("Observing message: {}".format(message))
+            self.debug("Received message: {}".format(message))
             increment("receptions")
             increment("observations")
             self.history.add(message)
@@ -175,8 +173,8 @@ class Adapter:
 
         emissions = set(prep(m) for m in messages if not self.history.is_duplicate(m))
         if len(emissions) < len(messages):
-            self.info(
-                f"({self.role.name}) Skipped duplicate messages: {set(messages).difference(emissions)}"
+            self.debug(
+                f"Skipped duplicate messages: {set(messages).difference(emissions)}"
             )
 
         if self.history.check_emissions(emissions):
@@ -220,7 +218,6 @@ class Adapter:
         reactors = self.reactors.get(message.schema)
         if reactors:
             for r in reactors:
-                self.debug("Invoking reactor: {}".format(r))
                 message.adapter = self
                 await r(message)
 
@@ -333,7 +330,6 @@ class Adapter:
 
         while self.running:
             event = await self.events.get()
-            self.debug(f"event: {event}")
             emissions = await self.process(event)
             if emissions:
                 if self.history.check_emissions(emissions):
@@ -391,7 +387,6 @@ class Adapter:
             for schema in self.projection.messages.values():
                 added.update(schema.match(**o.payload))
         for m in added:
-            self.debug(f"new enabled message: {m}")
             self.enabled_messages.add(m)
         removed.difference_update(added)
 
