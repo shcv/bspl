@@ -2,6 +2,7 @@ import random
 import asyncio
 import cProfile
 from bungie import Adapter
+from bungie.policies import Remind, Forward
 
 from configuration import (
     config,
@@ -40,7 +41,37 @@ async def complaint_generator(complaints=1):
         await asyncio.sleep(0)
 
 
+completed = set()
+
+
 if __name__ == "__main__":
     print("Starting Patient...")
-    # cProfile.run("adapter.start(complaint_generator(1000))")
-    adapter.start(complaint_generator())
+    complaints = 10000
+
+    @adapter.reaction(FilledRx, RetryFilledRx)
+    async def filled(message):
+        key = message["sID"]
+        if key not in completed:
+            print(f"completed: {len(completed)}")
+            completed.add(key)
+            if len(completed) == complaints:
+                asyncio.get_running_loop().stop()  # record final results before stopping
+
+    adapter.add_policies(
+        Remind(Complaint)
+        .With(Map)
+        .after(1)
+        .until.received(Copy)
+        .Or.received(FilledRx)
+        .received(RetryFilledRx),
+        Forward(Copy)
+        .to(Pharmacist)
+        .after(1)
+        .With(Map)
+        .until.received(FilledRx)
+        .Or.received(RetryFilledRx),
+        when="every 0.1s",
+    )
+    adapter.start(
+        complaint_generator(complaints),
+    )

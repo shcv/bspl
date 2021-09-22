@@ -1,9 +1,11 @@
 from bungie import Adapter
+from bungie.policies import Forward, Remind
 
 from configuration import (
     config,
     treatment,
     Doctor,
+    Patient,
     Complaint,
     Prescription,
     Map,
@@ -35,4 +37,14 @@ async def request(message):
 
 if __name__ == "__main__":
     print("Starting Doctor...")
+    adapter.emitter.loss = 0.5
+    print(f"Doctor's loss rate set to: {adapter.emitter.loss}")
+    p1 = (
+        Forward(Prescription)
+        .to(Patient)
+        .With(Map)
+        .upon.observed(Prescription, RetryComplaint)
+    )
+    p2 = Remind(Prescription).With(Map).upon.received(RetryComplaint)
+    adapter.add_policies(p1, p2)
     adapter.start()

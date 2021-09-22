@@ -1,6 +1,8 @@
 from bungie import Adapter
+from bungie.policies import Remind
 from configuration import (
     config,
+    Map,
     treatment,
     Pharmacist,
     Prescription,
@@ -20,4 +22,8 @@ async def handle_prescription(message):
 
 if __name__ == "__main__":
     print("Starting Pharmacist agent...")
+    policy = (
+        Remind(FilledRx).With(Map).upon.received(RetryPrescription, ForwardPrescription)
+    )
+    adapter.add_policies(policy)
     adapter.start()
