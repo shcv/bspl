@@ -5,7 +5,8 @@ import logging
 import datetime
 import uuid
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bungie.policies")
+logger.setLevel(logging.DEBUG)
 
 
 def autoincrement(parameter):
@@ -33,8 +34,6 @@ def map_messages(map, kind, messages):
     for m in messages:
         yield map_message(map, kind, m)
 
-
-logger = logging.getLogger("bungie")
 
 grammar_path = os.path.join(os.path.dirname(__file__), "policy.gr")
 with open(grammar_path, "r", encoding="utf8") as grammar:
@@ -174,11 +173,8 @@ class Remind:
     async def action(self, adapter, schema, context):
         # remind message
         for m in context.messages:
-            logger.debug(f"considering {m}")
             if m.schema == schema:
-                logger.debug(f"found {m} matching {schema}")
                 reminder = map_message(self.map, self.key, m)
-                logger.debug(f"reminder: {reminder}")
                 adapter.send(reminder)
 
     def With(self, map):
@@ -210,7 +206,6 @@ class Remind:
             for s in expectations:
 
                 async def reactor(msg):
-                    logging.debug(f"reacting to {msg}")
                     context = msg.adapter.history.context(msg)
                     for r in self.schemas:
                         # remind message schema r in the same context as msg
@@ -221,7 +216,6 @@ class Remind:
 
             async def activate(message):
                 message.meta["sent"] = datetime.datetime.now()
-                logger.debug(f"activating {message}")
                 self.active.add(message)
 
             for s in self.schemas:
@@ -229,31 +223,25 @@ class Remind:
 
             async def deactivate(message):
                 for s in self.schemas:
-                    logger.debug(f"want to deactivate {s} because of {message}")
                     m = message.adapter.history.find_context(
                         **message.project_key(s)
                     ).find(s)
-                    logger.debug(f"found {m}")
                     if m and m in self.active:
-                        logger.debug(f"deactivating {m} in response to {message}")
                         self.active.remove(m)
 
             for e in expectations:
                 self.reactors[e] = deactivate
 
             def process(history):
+                messages = []
                 if not self.delay:
-                    messages = []
                     for m in self.active:
                         reminder = map_message(self.map, self.key, m)
-                        logger.debug(f"sending {reminder} in response to {m}")
                         messages.append(reminder)
                         if len(messages) >= 500:
                             break
-                    return messages
                 else:
                     now = datetime.datetime.now()
-                    messages = []
                     i = 0
                     for m in self.active:
                         if (now - m.meta["sent"]).total_seconds() >= self.delay:
@@ -261,11 +249,8 @@ class Remind:
                             messages.append(map_message(self.map, self.key, m))
                         if i >= 500:
                             break
-
-                    logger.debug(
-                        f"reminding: {len(messages)}, delta: {len(self.active) - len(messages)}"
-                    )
-                    return messages
+                logger.debug(f"Sending {len(messages)} reminders")
+                return messages
 
             self.proactors.append(process)
         return self
@@ -305,7 +290,6 @@ class Remind:
                         **message.project_key(schema)
                     ).find(schema)
                     if m and m in self.active:
-                        logger.debug(f"deactivating: {m}")
                         self.active.remove(m)
 
                 return deactivate
@@ -343,7 +327,6 @@ class Forward(Remind):
 
     def __init__(self, *schemas):
         super().__init__(*schemas)
-        logger.debug(f"Forwarding {schemas}")
         self.recipient = None
         self.key = "forwards"
         self.reactive = True
