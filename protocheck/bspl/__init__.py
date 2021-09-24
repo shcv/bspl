@@ -85,33 +85,24 @@ def ast_message(ast, parent):
 def ast_protocol(ast, parent):
     protocol = Protocol(ast["name"], parent=parent)
     roles = [Role(r["name"], protocol) for r in ast.get("roles", [])]
-    protocol.configure(roles=roles)
     public_parameters = [ast_parameter(p, protocol) for p in ast["parameters"]]
     private_parameters = [ast_parameter(p, protocol) for p in ast.get("private") or []]
+    protocol.configure(roles, public_parameters, private_parameters)
 
     references = []
     messages = {}
-    acks = False
     for r in ast.get("references", []):
         type = r["type"]
         if type == "message":
-            if r["name"][0] == "@":
-                m = messages[r["name"][1:]]
-                references.append(m.acknowledgment())
-                acks = True
-            else:
-                m = ast_message(r, protocol)
-                messages[m.raw_name] = m
-                references.append(m)
+            m = ast_message(r, protocol)
+            messages[m.raw_name] = m
+            references.append(m)
         elif type == "protocol":
             references.append(ast_reference(r, protocol))
         else:
             raise Exception(f"Unknown type: {type}")
 
-    if acks:
-        private_parameters.append(Parameter("$ack", "out", key=True, parent=protocol))
-
-    protocol.configure(roles, public_parameters, references, private_parameters)
+    protocol.configure(references=references)
     return protocol
 
 

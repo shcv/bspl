@@ -130,15 +130,15 @@ class Protocol(Base):
         self.roles = {}
         self.references = {}
         Protocol.configure(
-            self, roles, public_parameters, references, private_parameters
+            self, roles, public_parameters, private_parameters, references
         )
 
     def configure(
         self,
         roles=None,
         public_parameters=None,
-        references=None,
         private_parameters=None,
+        references=None,
         parent=None,
     ):
         parent = self.parent = getattr(self, "parent", parent)
@@ -154,6 +154,7 @@ class Protocol(Base):
             self.set_parameters(public_parameters)
         if private_parameters:
             self.private_parameters = {p.name: p for p in private_parameters}
+            self.update()
         if references:
             self.references = {}
             name_counts = {}
@@ -167,15 +168,19 @@ class Protocol(Base):
 
     def set_parameters(self, parameters):
         self.public_parameters = {p.name: p for p in parameters}
+        self.update()
 
-    @property
-    def parameters(self):
+    def update(self):
+        "Recompute some basic parameter information"
         if hasattr(self, "private_parameters"):
-            params = self.public_parameters.copy()
-            params.update(self.private_parameters)
-            return params
+            self.parameters = self.public_parameters.copy()
+            self.parameters.update(self.private_parameters)
         else:
-            return self.public_parameters
+            self.parameters = self.public_parameters.copy()
+        self.ins = self.adorned("in")
+        self.outs = self.adorned("out")
+        self.nils = self.adorned("nil")
+        self.keys = self.get_keys()
 
     @property
     def all_parameters(self):
@@ -184,7 +189,7 @@ class Protocol(Base):
     def get_keys(self):
         return {
             p.name: p
-            for p in sorted(self.parameters.values())
+            for p in self.parameters.values()
             if p.key
             or self.parent
             and self.parent.type == "protocol"
@@ -192,29 +197,11 @@ class Protocol(Base):
             and self.parent.parameters[p.name].key
         }
 
-    @property
-    def keys(self):
-        if not hasattr(self, "_keys"):
-            self._keys = self.get_keys()
-        return self._keys
-
-    def _adorned(self, adornment):
+    def adorned(self, adornment):
         "helper method for selecting parameters with a particular adornment"
         return {
             p.name for p in self.public_parameters.values() if p.adornment == adornment
         }
-
-    @property
-    def ins(self):
-        return self._adorned("in")
-
-    @property
-    def outs(self):
-        return self._adorned("out")
-
-    @property
-    def nils(self):
-        return self._adorned("nil")
 
     @property
     def messages(self):
