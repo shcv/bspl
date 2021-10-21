@@ -1,5 +1,5 @@
 from protocheck.bspl import load_file, model, strip_latex, load_protocols
-from protocheck.verification import paths, sat, refinement
+from protocheck.verification import paths, refinement
 import fire
 import json
 from .commands import Commands, register_commands
