@@ -13,17 +13,22 @@ Protocheck is an application designed to verify various correctness properties o
        #+begin_example
        $ git clone https://gitlab.com/masr/protocheck.git
        #+end_example
-    2. Optionally create virtualenv for protocheck
+    2. Optionally create virtual environment for protocheck
        #+begin_example
-       $ mkvirtualenv protocheck
+       $ python -m venv venv
        #+end_example
-    3. Activate virtualenv (do this whenever you start a new shell session)
-       #+begin_example
-       $ workon protocheck
-       #+end_example
+    3. Activate virtual environment (do this whenever you start a new shell session)
+       - Linux:
+         #+begin_example
+         $ . venv/bin/activate
+         #+end_example
+       - Windows:
+         #+begin_example
+         $ venv\Scripts\activate.bat
+         #+end_example
     3. Install package in development mode
        #+begin_example
-       $ pip install -e ./protocheck
+       $ python setup.py develop
        #+end_example
 
 
