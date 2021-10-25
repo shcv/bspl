@@ -10,18 +10,12 @@ adapter = Adapter(logistics.roles["Labeler"], logistics, config)
 RequestLabel = logistics.messages["RequestLabel"]
 
 
-async def decision_handler(enabled, event):
-    emissions = set()
-    for m in enabled.messages:
-        if m.schema == Labeled:
-            m.bind(label=str(uuid.uuid4()))
-            emissions.add(m)
-    return emissions
-
-
-adapter.decision_handler = decision_handler
+@adapter.reaction(RequestLabel)
+async def labeled(msg):
+    adapter.send(Labeled(label=str(uuid.uuid4()), **msg.payload))
 
 
 if __name__ == "__main__":
     logger.info("Starting Labeler...")
+    # adapter.load_policy_file("policies.yaml")
     adapter.start()

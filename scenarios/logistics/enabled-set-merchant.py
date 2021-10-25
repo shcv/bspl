@@ -12,29 +12,50 @@ from Logistics import Merchant, RequestLabel, RequestWrapping, Packed
 
 adapter = Adapter(Merchant, Logistics.protocol, config)
 logger = logging.getLogger("merchant")
-# logging.getLogger('bungie').setLevel(logging.DEBUG)
+# logging.getLogger("bungie").setLevel(logging.DEBUG)
 
 stats = {"init_keys": set(), "finished_keys": set(), "information": [0], "done": False}
 
 
 async def order_generator():
     for orderID in range(10):
-        adapter.send(
-            RequestLabel(
-                orderID=orderID,
-                address=random.sample(["Lancaster University", "NCSU"], 1)[0],
-            )
+        await adapter.signal(
+            {
+                "orderID": orderID,
+                "address": random.sample(["Lancaster University", "NCSU"], 1)[0],
+                "items": [
+                    {
+                        "itemID": i,
+                        "item": random.sample(["ball", "bat", "plate", "glass"], 1)[0],
+                    }
+                    for i in range(2)
+                ],
+            }
         )
-        for i in range(2):
-            adapter.send(
-                RequestWrapping(
-                    orderID=orderID,
-                    itemID=i,
-                    item=random.sample(["ball", "bat", "plate", "glass"], 1)[0],
-                )
-            )
         await asyncio.sleep(0)
     stats["done"] = True
+
+
+orders = {}
+
+
+async def decision_handler(enabled, event):
+    if "items" in event:
+        # A new order event
+        orders[event["orderID"]] = event["items"]
+        # send initial RequestLabel message
+        return [RequestLabel(**event)]
+    elif "added" in event:
+        # assume RequestWrapping becomes enabled after items
+        emissions = []
+        for m in event["added"]:
+            if m.schema == RequestWrapping:
+                for item in orders[m["orderID"]]:
+                    emissions.append(m.instance(**item))
+        return emissions
+
+
+adapter.decision_handler = decision_handler
 
 
 @adapter.reaction(RequestWrapping)
@@ -65,5 +86,4 @@ async def status_logger():
 
 if __name__ == "__main__":
     print("Starting Merchant...")
-
     adapter.start(order_generator(), stats_logger(3), status_logger())
