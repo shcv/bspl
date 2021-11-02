@@ -247,6 +247,14 @@ class Store:
         # context may be parent, if there are no matches; possibly even the root
         return not any(p in context.bindings for p in schema.outs)
 
+    def check_nils(self, schema, context):
+        """
+        Make sure none of the nils are bound.
+        Only use this check if the message is being sent.
+        """
+        # context may be parent, if there are no matches; possibly even the root
+        return not any(p in context.bindings for p in schema.nils)
+
     def check_dependencies(self, message, context):
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
@@ -265,7 +273,15 @@ class Store:
         for message in messages:
             context = use_context or self.find_context(**message.payload)
             if not self.check_outs(message.schema, context):
-                logger.info(f"Failed out check: {message.payload}")
+                logger.info(
+                    f"Failed {message.schema.name} out check: {message.payload}"
+                )
+                return False
+
+            if not self.check_nils(message.schema, context):
+                logger.info(
+                    f"Failed {message.schema.name} nil check: {message.payload}"
+                )
                 return False
 
             if not self.check_integrity(message, context):
