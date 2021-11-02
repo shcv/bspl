@@ -216,7 +216,8 @@ class Store:
                 c
                 for c in context.flatten()
                 if all(
-                    c.bindings[p] == params[p] or p not in c.bindings for p in params
+                    c.bindings.get(p) == params[p] or p not in c.bindings
+                    for p in params
                 )
             ]
         else:
