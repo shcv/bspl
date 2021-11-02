@@ -261,7 +261,7 @@ class Adapter:
             spec = yaml.full_load(file)
             self.load_policies(spec)
 
-    def start(self, *tasks):
+    def start(self, *tasks, use_uvloop=True):
         async def main():
             await self.task()
             loop = asyncio.get_running_loop()
@@ -269,7 +269,7 @@ class Adapter:
                 loop.create_task(t)
 
         self.running = True
-        aiorun.run(main(), stop_on_unhandled_errors=True, use_uvloop=True)
+        aiorun.run(main(), stop_on_unhandled_errors=True, use_uvloop=use_uvloop)
 
     async def stop(self):
         await self.receiver.stop()
