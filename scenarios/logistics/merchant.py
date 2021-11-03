@@ -1,4 +1,4 @@
-from bungie import Adapter, Remind, Scheduler
+from bungie import Adapter, Remind
 from bungie.statistics import stats_logger
 from configuration import config
 import random
