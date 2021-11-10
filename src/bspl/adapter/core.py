@@ -108,20 +108,7 @@ class Adapter:
             self.history.add(message)
             await self.signal(ReceptionEvent(message))
 
-    def send(self, *payloads, schema=None, name=None, to=None):
-        messages = []
-        for payload in payloads:
-            if isinstance(payload, Message):
-                m = payload
-            else:
-                schema = schema or self.protocol.find_schema(payload, name=name, to=to)
-                m = Message(schema, payload)
-
-            messages.append(m)
-        loop = asyncio.get_running_loop()
-        loop.create_task(self.process_send(*messages))
-
-    async def process_send(self, *messages):
+    async def send(self, *messages):
         def prep(message):
             if not message.dest:
                 message.dest = self.configuration[message.schema.recipient]
@@ -216,7 +203,7 @@ class Adapter:
                     # assume it returns only one message for now
                     msg = await handler(*group)
                     if msg:
-                        self.send(msg)
+                        await self.send(msg)
                         # short circuit on first message to send
                         return
 
