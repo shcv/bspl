@@ -280,7 +280,7 @@ class Store:
 
             if not self.check_nils(message.schema, context):
                 logger.info(
-                    f"Failed {message.schema.name} nil check: {message.payload}"
+                    f"Failed {message.schema.name} nil check: {message.payload}; context: {context}"
                 )
                 return False
 
@@ -288,11 +288,10 @@ class Store:
                 logger.info(
                     f"({message.schema.sender.name}) Integrity violation: {message} not consistent with context {context}"
                 )
-                logger.info(self.contexts)
                 return False
 
             if not self.check_dependencies(message, context):
-                logger.info(f"Failed dependency check: {message.payload}")
+                logger.info(f"Failed dependency check for {message}")
                 return False
 
             if message.schema.disabled_by(parameters.get(message.key, set())):
