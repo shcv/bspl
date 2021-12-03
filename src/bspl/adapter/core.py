@@ -283,17 +283,13 @@ class Adapter:
             # todo: add stop event support
             loop.create_task(s.task(self))
 
-    def add_policies(self, *ps, when="reactive"):
+    def add_policies(self, *ps, when=None):
+        s = None
+        if when:
+            s = Scheduler(when)
+            self.schedulers.append(s)
         for policy in ps:
-            # action = policy.get('action')
-            # if type(action) is str:
-            #     action = policies.parse(self.protocol, action)
-            for schema, reactor in policy.reactors.items():
-                self.register_reactor(schema, reactor, policy.priority)
-            if when != "reactive":
-                s = Scheduler(when)
-                self.schedulers.append(s)
-                s.add(policy)
+            policy.install(self, s)
 
     def load_policies(self, spec):
         if type(spec) is str:

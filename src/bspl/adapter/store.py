@@ -2,7 +2,8 @@ import logging
 import itertools
 from .message import Message
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bungie.store")
+logger.setLevel(logging.DEBUG)
 
 
 class Context:
@@ -189,8 +190,12 @@ class Store:
                     return True
                 else:
                     c = c.parent
+            print(
+                f"message: {message}, parameters: {message.schema.parameters}, ins: {message.schema.ins}"
+            )
             logger.info(f"{p} is not found in {context.all_bindings}")
             logger.info(f"{context.parent.all_bindings}")
+            exit(1)
             return False
         return True
 

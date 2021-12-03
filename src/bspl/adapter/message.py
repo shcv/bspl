@@ -88,6 +88,12 @@ class Message:
     def send(self):
         self.adapter.send(self)
 
+    def context(self, schema=None):
+        if schema:
+            return self.adapter.history.find_context(**self.project_key(schema))
+        else:
+            return self.adapter.history.context(self)
+
     def term(self):
         functor = self.schema.name
         parameters = self.schema.order_params(self.payload, default=agentspeak.Var)
