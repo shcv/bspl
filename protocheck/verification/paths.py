@@ -2,7 +2,7 @@ from ..protocol import Message, Role, Parameter
 from pprint import pformat
 from ttictoc import Timer
 from ..commands import register_commands
-from ..bspl import load_protocols
+from ..parser import load_protocols
 
 
 def empty_path():

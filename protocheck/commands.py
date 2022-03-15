@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from protocheck import __version__
-from protocheck.bspl import load_file
+from protocheck.parser import load_file
 
 # Actions that only take one argument, and therefore can be repeated for each input file
 class Commands:

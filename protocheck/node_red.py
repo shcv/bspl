@@ -1,4 +1,4 @@
-from protocheck.bspl import load_file
+from protocheck.parser import load_file
 import os
 import simplejson as json
 import random

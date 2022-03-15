@@ -22,7 +22,7 @@ from .logic import merge, onehot0
 from functools import lru_cache, partial
 from ..protocol import Message
 from ..commands import register_commands
-from ..bspl import load_protocols
+from ..parser import load_protocols
 
 
 @wrap(name)

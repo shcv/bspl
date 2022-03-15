@@ -1,11 +1,11 @@
 import pytest
-from protocheck.bspl import load_file
+from protocheck.parser import load_file
 from protocheck.protocol import *
 
 
 @pytest.fixture(scope="module")
 def Auction():
-    return load_file("samples/bspl/auction").protocols["Auction"]
+    return load_file("samples/auction").protocols["Auction"]
 
 
 @pytest.fixture(scope="module")

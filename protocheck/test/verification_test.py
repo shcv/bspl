@@ -1,13 +1,13 @@
 import pytest
 from boolexpr import not_
-from protocheck.bspl import *
+from protocheck.parser import *
 from protocheck.verification import precedence, logic
 from protocheck.verification.sat import *
 
 
 @pytest.fixture(scope="module")
 def Auction():
-    return load_file("samples/bspl/auction").protocols["Auction"]
+    return load_file("samples/tests/auction").protocols["Auction"]
 
 
 @pytest.fixture(scope="module")
@@ -27,7 +27,7 @@ def Bid(Auction):
 
 @pytest.fixture(scope="module")
 def WithReject():
-    return load_file("samples/bspl/composition").protocols["With-Reject"]
+    return load_file("samples/tests/composition").protocols["With-Reject"]
 
 
 def test_observes(Bid, A):

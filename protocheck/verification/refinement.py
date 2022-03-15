@@ -1,4 +1,4 @@
-from ..bspl import load_file
+from ..parser import load_file
 from . import paths
 from .paths import (
     key_sets,

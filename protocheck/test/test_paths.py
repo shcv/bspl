@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import pytest
-from protocheck.bspl import load_file
+from protocheck.parser import load_file
 from protocheck.verification.paths import *
 
 
 @pytest.fixture(scope="module")
 def BasicRefinement():
-    return load_file("samples/bspl/refinement/basic.bspl")
+    return load_file("samples/refinement/basic.bspl")
 
 
 @pytest.fixture(scope="module")
@@ -17,7 +17,7 @@ def P(BasicRefinement):
 
 @pytest.fixture(scope="module")
 def ConcurrencyElimination():
-    return load_file("samples/bspl/refinement/concurrency-elimination.bspl")
+    return load_file("samples/refinement/concurrency-elimination.bspl")
 
 
 @pytest.fixture(scope="module")
@@ -27,7 +27,7 @@ def Flexible(ConcurrencyElimination):
 
 @pytest.fixture(scope="module")
 def AllIn():
-    return load_file("samples/bspl/refinement/all-in.bspl")
+    return load_file("samples/refinement/all-in.bspl")
 
 
 def test_known_empty(P):

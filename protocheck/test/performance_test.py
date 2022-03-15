@@ -24,22 +24,22 @@ def perf_test(objects, properties):
 
 @pytest.fixture(scope="module")
 def Concurrent():
-    return load_file("samples/bspl/performance/concurrent.bspl")
+    return load_file("samples/performance/concurrent.bspl")
 
 
 @pytest.fixture(scope="module")
 def Linear():
-    return load_file("samples/bspl/performance/linear.bspl")
+    return load_file("samples/performance/linear.bspl")
 
 
 @pytest.fixture(scope="module")
 def OneIndependent():
-    return load_file("samples/bspl/performance/one-independent.bspl")
+    return load_file("samples/performance/one-independent.bspl")
 
 
 @pytest.fixture(scope="module")
 def PurchaseComposition():
-    return load_file("samples/bspl/refinement/purchase-composition.bspl")
+    return load_file("samples/refinement/purchase-composition.bspl")
 
 
 # def test_linear(Linear):
@@ -167,7 +167,7 @@ def test_single_sub_performance(PurchaseComposition):
     specs = ["sub-buyer-starts.bspl", "sub-pay-first.bspl", "sub-single-lookup.bspl"]
 
     for s in specs:
-        P = load_file("samples/bspl/performance/" + s).protocols["Refined-Commerce"]
+        P = load_file("samples/performance/" + s).protocols["Refined-Commerce"]
         properties = {
             "Liveness": lambda: sat.is_live(P),
             "Safety": lambda: sat.is_safe(P),
@@ -197,7 +197,7 @@ def test_single_sub_path_performance(PurchaseComposition):
     ]
 
     for s in specs:
-        P = load_file("samples/bspl/performance/" + s).protocols["Refined-Commerce"]
+        P = load_file("samples/performance/" + s).protocols["Refined-Commerce"]
         properties = {"Liveness": paths.liveness, "Safety": paths.safety}
         perf_test([P], properties)
 
@@ -206,7 +206,7 @@ def test_netbill_refinement(PurchaseComposition):
     print("NetBill refinement: ")
     print("Protocol, Property, Min, Mean, Max, Times")
 
-    spec = load_file("samples/bspl/refinement/netbill.bspl")
+    spec = load_file("samples/refinement/netbill.bspl")
     P = spec.protocols["NetBill-Bliss"]
     Q = spec.protocols["Original-NetBill"]
     properties = {
@@ -223,7 +223,7 @@ def test_CreateLabOrder_refinement(PurchaseComposition):
     print("CreateLabOrder refinement: ")
     print("Protocol, Property, Min, Mean, Max, Times")
 
-    spec = load_file("samples/bspl/refinement/lab-order-refinement.bspl")
+    spec = load_file("samples/refinement/lab-order-refinement.bspl")
     P = spec.protocols["CreateOrder"]
     Q = spec.protocols["CreateOrder2"]
     properties = {
@@ -237,6 +237,6 @@ def test_CreateLabOrder_refinement(PurchaseComposition):
 
 
 def run_all():
-    test_linear(load_file("samples/bspl/performance/linear.bspl"))
-    test_concurrent(load_file("samples/bspl/performance/concurrent.bspl"))
-    test_one_independent(load_file("samples/bspl/performance/one-independent.bspl"))
+    test_linear(load_file("samples/performance/linear.bspl"))
+    test_concurrent(load_file("samples/performance/concurrent.bspl"))
+    test_one_independent(load_file("samples/performance/one-independent.bspl"))

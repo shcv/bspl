@@ -6,7 +6,7 @@ from protocheck.verification import paths
 
 @pytest.fixture(scope="module")
 def BasicRefinement():
-    return load_file("samples/bspl/refinement/basic.bspl")
+    return load_file("samples/refinement/basic.bspl")
 
 
 @pytest.fixture(scope="module")
@@ -21,7 +21,7 @@ def Q(BasicRefinement):
 
 @pytest.fixture(scope="module")
 def ConcurrencyElimination():
-    return load_file("samples/bspl/refinement/concurrency-elimination.bspl")
+    return load_file("samples/refinement/concurrency-elimination.bspl")
 
 
 @pytest.fixture(scope="module")
@@ -36,22 +36,22 @@ def ShipFirst(ConcurrencyElimination):
 
 @pytest.fixture(scope="module")
 def KeyReduction():
-    return load_file("samples/bspl/refinement/key-reduction.bspl")
+    return load_file("samples/refinement/key-reduction.bspl")
 
 
 @pytest.fixture(scope="module")
 def AddIntermediary():
-    return load_file("samples/bspl/refinement/add-intermediary.bspl")
+    return load_file("samples/refinement/add-intermediary.bspl")
 
 
 @pytest.fixture(scope="module")
 def AllIn():
-    return load_file("samples/bspl/refinement/all-in.bspl")
+    return load_file("samples/refinement/all-in.bspl")
 
 
 @pytest.fixture(scope="module")
 def PurchaseComposition():
-    return load_file("samples/bspl/refinement/purchase-composition.bspl")
+    return load_file("samples/refinement/purchase-composition.bspl")
 
 
 def test_subsumes(P, Q):
@@ -69,7 +69,7 @@ def test_subsumes(P, Q):
 
 
 def test_subsumes_initiation_reduction():
-    spec = load_file("samples/bspl/refinement/initiation-reduction.bspl")
+    spec = load_file("samples/refinement/initiation-reduction.bspl")
     EitherStarts = spec.protocols["Either-Starts"]
     BuyerStarts = spec.protocols["Buyer-Starts"]
 
@@ -123,7 +123,7 @@ def test_concurrency_elimination(Flexible, ShipFirst):
 
 
 def test_initiation_reduction():
-    spec = load_file("samples/bspl/refinement/initiation-reduction.bspl")
+    spec = load_file("samples/refinement/initiation-reduction.bspl")
     EitherStarts = spec.protocols["Either-Starts"]
     BuyerStarts = spec.protocols["Buyer-Starts"]
 
@@ -147,7 +147,7 @@ def test_initiation_reduction():
 
 
 def test_message_split():
-    spec = load_file("samples/bspl/refinement/message-split.bspl")
+    spec = load_file("samples/refinement/message-split.bspl")
     RFQ = spec.protocols["RFQ"]
     RefinedRFQ = spec.protocols["Refined-RFQ"]
     assert not refines(UoD(), RFQ.public_parameters.keys(), RefinedRFQ, RFQ)["ok"]
@@ -162,7 +162,7 @@ def test_message_split():
 
 
 def test_dependent():
-    spec = load_file("samples/bspl/refinement/basic-dependent.bspl")
+    spec = load_file("samples/refinement/basic-dependent.bspl")
     P = spec.protocols["P"]
     Q = spec.protocols["Q"]
     assert refines(UoD(), P.public_parameters.keys(), Q, P) == {"ok": True}
@@ -171,7 +171,7 @@ def test_dependent():
 
 
 def test_polymorphism_reduction():
-    spec = load_file("samples/bspl/refinement/polymorphism.bspl")
+    spec = load_file("samples/refinement/polymorphism.bspl")
     P = spec.protocols["Polymorphic-RFQ"]
     Q = spec.protocols["RFQ"]
     assert refines(UoD(), P.public_parameters.keys(), Q, P) == {"ok": True}
@@ -180,7 +180,7 @@ def test_polymorphism_reduction():
 
 
 def test_key_reduction():
-    spec = load_file("samples/bspl/refinement/key-reduction.bspl")
+    spec = load_file("samples/refinement/key-reduction.bspl")
     P = spec.protocols["P"]
     p_test = P.messages["test"]
     Q = spec.protocols["Q"]
@@ -194,7 +194,7 @@ def test_key_reduction():
 
 
 def test_all_in():
-    spec = load_file("samples/bspl/refinement/all-in.bspl")
+    spec = load_file("samples/refinement/all-in.bspl")
     P = spec.protocols["P"]
     p_test = P.messages["test"]
     Q = spec.protocols["Q"]
