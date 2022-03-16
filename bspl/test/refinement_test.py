@@ -1,7 +1,7 @@
 import pytest
-from protocheck.verification.refinement import *
-from protocheck.verification.paths import Emission, Reception, empty_path, viable
-from protocheck.verification import paths
+from ..verification.refinement import *
+from ..verification.paths import Emission, Reception, empty_path, viable
+from ..verification import paths
 
 
 @pytest.fixture(scope="module")

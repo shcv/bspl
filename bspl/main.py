@@ -1,5 +1,5 @@
-from protocheck.parser import load_file, model, strip_latex, load_protocols
-from protocheck.verification import paths, refinement
+from .parser import load_file, model, strip_latex, load_protocols
+from .verification import paths, refinement
 import fire
 import json
 from .commands import Commands, register_commands

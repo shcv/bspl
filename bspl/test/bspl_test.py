@@ -1,12 +1,12 @@
 import pytest
 from boolexpr import not_
-from protocheck.parser import *
-from protocheck.verification import logic, precedence
+from ..parser import *
+from ..verification import logic, precedence
 
 
 @pytest.fixture(scope="module")
 def Auction():
-    return load_file("samples/auction").protocols["Auction"]
+    return load_file("samples/tests/auction").protocols["Auction"]
 
 
 @pytest.fixture(scope="module")

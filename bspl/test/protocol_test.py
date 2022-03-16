@@ -1,11 +1,11 @@
 import pytest
-from protocheck.parser import load_file
-from protocheck.protocol import *
+from ..parser import load_file
+from ..protocol import *
 
 
 @pytest.fixture(scope="module")
 def Auction():
-    return load_file("samples/auction").protocols["Auction"]
+    return load_file("samples/tests/auction").protocols["Auction"]
 
 
 @pytest.fixture(scope="module")

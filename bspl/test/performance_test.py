@@ -1,8 +1,8 @@
 import pytest
 from ttictoc import Timer
 from statistics import median
-from protocheck.verification.refinement import *
-from protocheck.verification import sat, paths
+from ..verification import sat, paths
+from ..verification.refinement import *
 
 
 def perf_test(objects, properties):

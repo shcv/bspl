@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-from protocheck import __version__
-from protocheck.parser import load_file
+from . import __version__
+from .parser import load_file
 
 # Actions that only take one argument, and therefore can be repeated for each input file
 class Commands:
     def version(self):
-        """Print the currently running version of protocheck"""
+        """Print the currently running version of bspl"""
         print(__version__)
 
 

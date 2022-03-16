@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import pytest
-from protocheck.parser import load_file
-from protocheck.verification.paths import *
+from ..parser import load_file
+from ..verification.paths import *
 
 
 @pytest.fixture(scope="module")

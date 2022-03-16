@@ -1,6 +1,6 @@
 import pytest
 from boolexpr import and_, not_, impl
-from protocheck.verification.precedence import (
+from ..verification.precedence import (
     transitivity,
     relationships,
     var,

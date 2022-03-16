@@ -1,8 +1,8 @@
 import pytest
 from boolexpr import not_
-from protocheck.parser import *
-from protocheck.verification import precedence, logic
-from protocheck.verification.sat import *
+from ..parser import *
+from ..verification import precedence, logic
+from ..verification.sat import *
 
 
 @pytest.fixture(scope="module")

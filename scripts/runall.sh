@@ -4,5 +4,5 @@ dir=samples
 for file in ${dir}/*
 do
     echo $file >&2
-    python -m protocheck.bspl $action -qs $file
+    python -m bspl $action $file
 done
