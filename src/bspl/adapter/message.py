@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from agentspeak import Literal
+import agentspeak
+from agentspeak import Literal, Var
 import re
 from fastcore.foundation import camel2snake
 
@@ -77,12 +78,48 @@ class Message:
 
     def project_key(self, schema):
         """Give the subset of this instance's keys that match the provided schema, in the order of the provided schema"""
-        key = []
+        key = {}
         # use ordering from other schema
         for k in schema.keys:
             if k in self.schema.keys:
-                key.append(k)
-        return ",".join(k + ":" + str(self.payload[k]) for k in key)
+                key[k] = self[k]
+        return key
 
     def send(self):
         self.adapter.send(self)
+
+    def context(self, schema=None):
+        if schema:
+            return self.adapter.history.find_context(**self.project_key(schema))
+        else:
+            return self.adapter.history.context(self)
+
+    def term(self):
+        functor = self.schema.name
+        parameters = self.schema.order_params(self.payload, default=agentspeak.Var)
+        return Literal(
+            functor, (self.schema.sender.name, self.schema.recipient.name, *parameters)
+        )
+
+    def enabled_term(self):
+        parameters = self.schema.order_params(self.payload, default=None)
+        msg = Literal(
+            self.schema.name,
+            (self.schema.sender.name, self.schema.recipient.name, *parameters),
+        )
+        return Literal("enabled", (msg,))
+
+    def resolve(self, term, scope, memo={}):
+        sender = term.args[0]
+        recipient = term.args[1]
+        payload = self.schema.zip_params(*term.args[2:])
+        for p, v in payload.items():
+            if isinstance(v, agentspeak.Var):
+                val = agentspeak.deref(memo.get(v, v), scope)
+                if (
+                    isinstance(val, agentspeak.Var)
+                    and self.schema.parameters[p].adornment == "out"
+                ):
+                    return False
+                payload[p] = val
+        return Message(self.schema, payload)

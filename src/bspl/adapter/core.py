@@ -9,6 +9,8 @@ import math
 import socket
 import inspect
 import yaml
+import agentspeak
+import agentspeak.stdlib
 import random
 import colorama
 from types import MethodType
@@ -20,14 +22,26 @@ from .emitter import Emitter
 from .receiver import Receiver
 from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
+from .jason import Environment, Agent, Actions, actions
 from . import policies
 import bungie
+import bungie.jason
 
 FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logger = logging.getLogger("bungie")
 
-logging.getLogger("aiorun").setLevel(logging.CRITICAL)
+SUPERCRITICAL = logging.CRITICAL + 10  # don't want any logs
+logging.getLogger("aiorun").setLevel(SUPERCRITICAL)
+
+COLORS = [
+    (colorama.Back.GREEN, colorama.Fore.WHITE),
+    (colorama.Back.MAGENTA, colorama.Fore.WHITE),
+    (colorama.Back.YELLOW, colorama.Fore.BLACK),
+    (colorama.Back.BLUE, colorama.Fore.WHITE),
+    (colorama.Back.CYAN, colorama.Fore.BLACK),
+    (colorama.Back.RED, colorama.Fore.WHITE),
+]
 
 COLORS = [
     (colorama.Back.GREEN, colorama.Fore.WHITE),
@@ -75,10 +89,10 @@ class Adapter:
         configuration: a dictionary of roles to endpoint URLs
           {role: url}
         """
-        self.logger = logging.getLogger("bungie.adapter")
+        self.logger = logging.getLogger(f"bungie.adapter.{role.name}")
         self.logger.propagate = False
         color = color or COLORS[int(role.name, 36) % len(COLORS)]
-        self.color = color
+        self.color = agentspeak.stdlib.COLORS[0] = color
         reset = colorama.Fore.RESET + colorama.Back.RESET
         formatter = logging.Formatter(
             f"%(asctime)-15s ({''.join(self.color)}%(role)s{reset}) %(module)s: %(message)s"
@@ -124,19 +138,16 @@ class Adapter:
             m.adapter = self
 
     async def receive(self, payload):
-        self.debug(f"Received payload: {payload}")
         if not isinstance(payload, dict):
             self.warn("Payload does not parse to a dictionary: {}".format(payload))
             return
 
         schema = self.protocol.find_schema(payload, to=self.role)
-        self.debug(f"Found schema: {schema}")
         if not schema:
             self.warn("No schema matching payload: {}".format(payload))
             return
         message = Message(schema, payload)
         message.meta["received"] = datetime.datetime.now()
-        increment("receptions")
         if self.history.is_duplicate(message):
             self.debug("Duplicate message: {}".format(message))
             increment("dups")
@@ -144,8 +155,8 @@ class Adapter:
             # message.duplicate = True
             # await self.react(message)
         elif self.history.check_integrity(message):
-            self.debug("Observing message: {}".format(message))
-            increment("observations")
+            self.debug("Received message: {}".format(message))
+            increment("receptions")
             self.history.add(message)
             await self.signal(ReceptionEvent(message))
 
@@ -162,14 +173,17 @@ class Adapter:
             )
 
         if self.history.check_emissions(emissions):
+            self.debug(f"Sending {emissions}")
             for m in emissions:
+                increment("emissions")
+                increment("observations")
                 self.history.add(m)
-            if hasattr(self.emitter, "bulk_send"):
+            if len(emissions) > 1 and hasattr(self.emitter, "bulk_send"):
                 self.debug(f"bulk sending {len(emissions)} messages")
                 await self.emitter.bulk_send(emissions)
             else:
                 for m in emissions:
-                    await self.emitter.send(message)
+                    await self.emitter.send(m)
             await self.signal(EmissionEvent(emissions))
 
     def register_reactor(self, schema, handler, index=None):
@@ -183,6 +197,10 @@ class Adapter:
     def register_reactors(self, handler, schemas=[]):
         for s in schemas:
             self.register_reactor(s, handler)
+
+    def clear_reactors(self, *schemas):
+        for s in schemas:
+            self.reactors[s] = []
 
     def reaction(self, *schemas):
         """
@@ -202,7 +220,6 @@ class Adapter:
         reactors = self.reactors.get(message.schema)
         if reactors:
             for r in reactors:
-                self.debug("Invoking reactor: {}".format(r))
                 message.adapter = self
                 await r(message)
 
@@ -261,17 +278,13 @@ class Adapter:
             # todo: add stop event support
             loop.create_task(s.task(self))
 
-    def add_policies(self, *ps, when="reactive"):
+    def add_policies(self, *ps, when=None):
+        s = None
+        if when:
+            s = Scheduler(when)
+            self.schedulers.append(s)
         for policy in ps:
-            # action = policy.get('action')
-            # if type(action) is str:
-            #     action = policies.parse(self.protocol, action)
-            for schema, reactor in policy.reactors.items():
-                self.register_reactor(schema, reactor, policy.priority)
-            if when != "reactive":
-                s = Scheduler(when)
-                self.schedulers.append(s)
-                s.add(policy)
+            policy.install(self, s)
 
     def load_policies(self, spec):
         if type(spec) is str:
@@ -315,7 +328,6 @@ class Adapter:
 
         while self.running:
             event = await self.events.get()
-            self.debug(f"event: {event}")
             emissions = await self.process(event)
             if emissions:
                 if self.history.check_emissions(emissions):
@@ -341,11 +353,20 @@ class Adapter:
             event = self.compute_enabled(observations)
             for m in observations:
                 self.debug(f"observing: {m}")
+                if hasattr(self, "bdi"):
+                    self.bdi.observe(m)
+                    # wake up bdi logic
+                    self.environment.wake_signal.set()
                 await self.react(m)
                 await self.handle_enabled(m)
 
         if self.decision_handler:
-            return await self.decision_handler(self.enabled_messages, event)
+            return list(await self.decision_handler(self.enabled_messages, event))
+        elif hasattr(self, "bdi"):
+            return list(
+                bungie.jason.bdi_handler(self.bdi, self.enabled_messages, event)
+            )
+            self.environment.wake_signal.set()
 
     def compute_enabled(self, observations):
         """
@@ -369,3 +390,19 @@ class Adapter:
         removed.difference_update(added)
 
         return {"added": added, "removed": removed, "observations": observations}
+
+    @property
+    def environment(self):
+        if not hasattr(self, "_env"):
+            self._env = Environment()
+            # enable asynchronous processing of environment
+            self.schedulers.append(self._env)
+        return self._env
+
+    def load_asl(self, path, rootdir=None):
+        actions = Actions(bungie.jason.actions)
+        with open(path) as source:
+            self.bdi = self.environment.build_agent(
+                source, actions, agent_cls=bungie.jason.Agent
+            )
+            self.bdi.bind(self)

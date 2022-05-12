@@ -5,7 +5,8 @@ import logging
 import datetime
 import uuid
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bungie.policies")
+logger.setLevel(logging.DEBUG)
 
 
 def autoincrement(parameter):
@@ -33,8 +34,6 @@ def map_messages(map, kind, messages):
     for m in messages:
         yield map_message(map, kind, m)
 
-
-logger = logging.getLogger("bungie")
 
 grammar_path = os.path.join(os.path.dirname(__file__), "policy.gr")
 with open(grammar_path, "r", encoding="utf8") as grammar:
@@ -84,8 +83,6 @@ def from_ast(protocol, ast):
         messages = lookup(protocol, event["messages"])
         if kind == "received":
             policy.received(*messages)
-        elif kind == "acknowledged":
-            policy.acknowledged
 
     if ast.get("events"):
         add_event(ast["events"])
@@ -100,46 +97,12 @@ def parse(protocol, text):
     return policies
 
 
-class Acknowledge:
-    def __init__(self, *schemas):
-        self.schemas = schemas
-        self.reactive = True
-        self.priority = 0
-
-    def With(self, schema, key):
-        self.ack = (schema, key)
-        return self
-
-    def Map(self, map):
-        self.map = map
-        return self
-
-    @property
-    def reactors(self):
-        async def ack(message):
-            if hasattr(self, "map"):
-                m = map_message(self.map, "acknowledgments", message)
-            elif hasattr(self, "ack"):
-                m = self.ack[0](**message.payload, **{self.ack[1]: guid()})
-            else:
-                logging.error(
-                    f"Need to configure acknowledgment mapping for message: {message}"
-                )
-            await message.adapter.process_send(m)
-
-        return {s: ack for s in self.schemas}
-
-
 class Remind:
     """
     A helper class for defining remind policies.
 
     The following statement returns a function that returns a list of all Accept messages that do not have corresponding Deliver instances in the history.
       Remind(Accept).until.received(Deliver)
-
-    Other example policies:
-
-      Remind(Accept).until.acknowledged(Accept)
     """
 
     def __init__(self, *schemas):
@@ -148,31 +111,27 @@ class Remind:
         self.reactors = {}
         self.reactive = False
         self.disjunctive = True
-        self.proactors = []
         self.priority = None
         self.delay = None
         self.generators = {}
         self.map = {}
+        self.key = "reminders"
 
         # the set of active messages, for proactive policies
         self.active = set()
 
+        # expectations in disjunctive normal form [[a & b] | [c & d]]
+        self.expectations = []
+
     def run(self, history):
-        selected = set()
-        first = True
-        for p in self.proactors:
-            if first:
-                selected = p(history)
-                continue
-            if self.disjunctive:
-                selected.update(p(history))
-            else:
-                selected.intersection_update(p(history))
-        return selected
+        return self.process(history)
 
     async def action(self, adapter, schema, context):
         # remind message
-        pass
+        for m in context.messages:
+            if m.schema == schema:
+                reminder = map_message(self.map, self.key, m)
+                adapter.send(reminder)
 
     def With(self, map):
         self.map = map
@@ -189,30 +148,52 @@ class Remind:
 
     def received(self, *expectations):
         """
-        Select messages for which not all of the listed expectations have been received.
+        Reactively, remind whenever any of the expected messages are received.
+        E.g.:
+          Remind(A).upon.received(B)
+
+        Proactively, select messages for which not all of the listed expectations have been received.
         E.g.:
           Remind(A).until.received(B,C)
         will remind A until /both/ B and C are received.
 
-        To handle a disjunction, use separate received() clauses at at least one Or.
+        To handle a disjunction, use separate received() clauses.
         E.g.:
           Remind(A).until.received(B).Or.received(C)
         """
 
+        self.expectations.append(expectations)
+        return self
+
+    @property
+    def Or(self):
+        """Separator between received() clauses"""
+        return self
+
+    @property
+    def upon(self):
+        self.reactive = True
+        return self
+
+    def build(self):
         if self.reactive:
-            for s in expectations:
+            for group in self.expectations:
+                for s in group:
 
-                async def reactor(msg):
-                    context = msg.adapter.history.context(msg)
-                    for r in self.schemas:
-                        # remind message schema r in the same context as msg
-                        await self.action(adapter, r, context)
+                    async def reactor(msg):
+                        context = msg.adapter.history.context(msg)
+                        for r in self.schemas:
+                            # remind message schema r in the same context as msg
+                            await self.action(msg.adapter, r, context)
 
-                self.reactors[s] = reactor
+                    self.reactors[s] = reactor
         else:
 
             async def activate(message):
-                print(f"activating {message}")
+                for group in self.expectations:
+                    if all(message.context(e).find(e) for e in group):
+                        # Don't activate if any conditions are already met
+                        return
                 message.meta["sent"] = datetime.datetime.now()
                 self.active.add(message)
 
@@ -221,105 +202,46 @@ class Remind:
 
             async def deactivate(message):
                 for s in self.schemas:
-                    key = message.project_key(s)
-                    m = message.adapter.history.messages.get(s, {}).get(key)
+                    m = message.context(s).find(s)
                     if m and m in self.active:
-                        self.active.remove(m)
+                        for group in self.expectations:
+                            # deactivate if all of any group of expectations are met
+                            if all(message.context(e).find(e) for e in group):
+                                self.active.remove(m)
+                                break
 
-            for e in expectations:
-                self.reactors[e] = deactivate
+            for g in self.expectations:
+                for e in g:
+                    self.reactors[e] = deactivate
 
-            def process(history):
-                if not self.delay:
-                    messages = []
-                    for m in self.active:
-                        messages.append(map_message(self.map, "forwards", m))
-                        if len(messages) >= 500:
-                            break
-                    return messages
-                else:
-                    now = datetime.datetime.now()
-                    messages = []
-                    i = 0
-                    for m in self.active:
-                        if (now - m.meta["sent"]).total_seconds() >= self.delay:
-                            i += 1
-                            messages.append(map_message(self.map, "forwards", m))
-                        if i >= 500:
-                            break
-
-                    logger.info(
-                        f"reminding: {len(messages)}, delta: {len(self.active) - len(messages)}"
-                    )
-                    return messages
-
-            self.proactors.append(process)
-        return self
-
-    @property
-    def Or(self):
-        self.disjunctive = True
-        return self
-
-    @property
-    def And(self):
-        self.disjunctive = False
-        return self
-
-    @property
-    def acknowledged(self):
-        """
-        If proactive, add a process to the policy to remind the messages until they are acknowledged.
-        Example:
-          Remind(Accept).until.acknowledged
-        """
-
-        if self.reactive:
-            pass
+    def process(self, history):
+        messages = []
+        if not self.delay:
+            for m in self.active:
+                reminder = map_message(self.map, self.key, m)
+                messages.append(reminder)
+                if len(messages) >= 500:
+                    break
         else:
+            now = datetime.datetime.now()
+            for m in self.active:
+                if (now - m.meta["sent"]).total_seconds() >= self.delay:
+                    r = map_message(self.map, self.key, m)
+                    messages.append(r)
+                    # logger.debug(f"Sending {r} as {self.key} for {m}")
+                if len(messages) >= 500:
+                    break
+        logger.debug(f"Sending {len(messages)} reminders for {self.schemas}")
+        return messages
 
-            async def activate(message):
-                message.meta["sent"] = datetime.datetime.now()
-                self.active.add(message)
+    def install(self, adapter, scheduler=None):
+        if not self.reactors:
+            self.build()
+        for schema, reactor in self.reactors.items():
+            adapter.register_reactor(schema, reactor, self.priority)
 
-            for m in self.schemas:
-                self.reactors[m] = activate
-
-            def gen_deactivate(schema):
-                async def deactivate(message):
-                    key = message.project_key(schema)
-                    logger.debug(f"received ack; key: {key}")
-                    m = message.adapter.history.messages.get(schema, {}).get(key)
-                    logger.debug(f"matching message: {m}")
-                    if m and m in self.active:
-                        logger.debug(f"deactivating: {m}")
-                        self.active.remove(m)
-
-                return deactivate
-
-            for s in self.schemas:
-                self.reactors[self.map["acknowledgments"][s][0]] = gen_deactivate(s)
-
-            def process_acknowledged(history):
-                if not self.delay:
-                    messages = self.active
-                    return map_messages(self.map, "forwards", messages)
-                else:
-                    now = datetime.datetime.now()
-                    messages = []
-                    i = 0
-                    for m in self.active:
-                        if (now - m.meta["sent"]).total_seconds() >= self.delay:
-                            messages.append(m)
-                    return map_messages(self.map, "forwards", messages)
-
-            self.proactors.append(process_acknowledged)
-        return self
-
-    @property
-    def upon(self):
-        self.reactive = True
-        return self
+        if scheduler:
+            scheduler.add(self)
 
 
 class Forward(Remind):
@@ -329,15 +251,17 @@ class Forward(Remind):
     """
 
     def __init__(self, *schemas):
-        self.to = None
         super().__init__(*schemas)
+        self.recipient = None
+        self.key = "forwards"
+        self.reactive = True
 
     def to(self, recipient):
-        self.to = recipient
+        self.recipient = recipient
         return self
 
-    def action(self, adapter, schema, context):
-        pass
+    def observed(self, *schemas):
+        return self.received(*schemas)
 
 
 Send = Forward  # alias

@@ -2,7 +2,8 @@ import logging
 import itertools
 from .message import Message
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bungie.store")
+logger.setLevel(logging.DEBUG)
 
 
 class Context:
@@ -63,6 +64,17 @@ class Context:
             return set(itertools.chain(self.parent.messages, self._all_messages()))
         else:
             return set(self._all_messages())
+
+    def find(self, schema):
+        m = self._messages.get(schema)
+        if m:
+            return m
+        else:
+            for p in self.subcontexts:
+                for sub in self.subcontexts[p].values():
+                    m = sub.find(schema)
+                    if m:
+                        return m
 
     def __repr__(self):
         return f"Context(bindings={self.bindings},messages={[m for m in self.messages]},subcontexts={self.subcontexts})"
@@ -177,12 +189,24 @@ class Store:
         """
         Make sure that all 'in' parameters are bound and matched by some message in the history
         """
-        return not any(
-            # aggregate across subcontexts
-            # permits 'lifting' parameters into a parent context
-            message.payload[p] not in context.all_bindings.get(p, [])
-            for p in message.schema.ins
-        )
+        for p in message.schema.ins:
+            # bindings that only match on a subset of keys are ok
+            # bindings with any contradictory keys are not; should be handled by integrity though
+            # this logic is not quite correct, and is inefficient - TODO
+            c = context
+            while c:
+                if message.payload[p] in c.all_bindings.get(p, []):
+                    return True
+                else:
+                    c = c.parent
+            print(
+                f"message: {message}, parameters: {message.schema.parameters}, ins: {message.schema.ins}"
+            )
+            logger.info(f"{p} is not found in {context.all_bindings}")
+            logger.info(f"{context.parent.all_bindings}")
+            exit(1)
+            return False
+        return True
 
     def check_emissions(self, messages, use_context=None):
         # message assumed not to be duplicate; otherwise recheck unnecessary
