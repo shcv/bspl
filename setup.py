@@ -7,7 +7,7 @@ import sys
 class Build(build_py):
     def run(self):
         sys.path.append("./")
-        from protocheck.bspl.build import build_parser, save_parser
+        from bspl.parser.build import build_parser, save_parser
 
         model = build_parser()
         save_parser(model)

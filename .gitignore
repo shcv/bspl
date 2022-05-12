@@ -2,12 +2,9 @@
 *.pyo
 *.DS_Store
 *.log
+*log
 #*#
 Thumbs.db
-/*.egg-info/
-/build/
-/dist/
-/.idea/
 .cache
 .eggs
 .tox/
@@ -15,6 +12,10 @@ bspl_parser.py
 spl_parser.py
 flows.json
 .flows.json.backup
-
-/.*env/
-/*env/
+__pycache__/
+*.egg-info/
+build/
+dist/
+pip-wheel-metadata/
+.*env/
+*env/
