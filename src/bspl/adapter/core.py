@@ -25,7 +25,8 @@ from .statistics import stats, increment
 from .jason import Environment, Agent, Actions, actions
 from . import policies
 import bspl
-import bspl.jason
+import bspl.adapter.jason
+import bspl.adapter.schema
 
 FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
@@ -131,10 +132,10 @@ class Adapter:
 
         from protocheck.protocol import Message
 
-        Message.__call__ = bspl.schema.instantiate(self)
+        Message.__call__ = bspl.adapter.schema.instantiate(self)
 
         for m in protocol.messages.values():
-            m.match = MethodType(bspl.schema.match, m)
+            m.match = MethodType(bspl.adapter.schema.match, m)
             m.adapter = self
 
     async def receive(self, payload):
@@ -363,7 +364,9 @@ class Adapter:
         if self.decision_handler:
             return list(await self.decision_handler(self.enabled_messages, event))
         elif hasattr(self, "bdi"):
-            return list(bspl.jason.bdi_handler(self.bdi, self.enabled_messages, event))
+            return list(
+                bspl.adapter.jason.bdi_handler(self.bdi, self.enabled_messages, event)
+            )
             self.environment.wake_signal.set()
 
     def compute_enabled(self, observations):
@@ -398,9 +401,9 @@ class Adapter:
         return self._env
 
     def load_asl(self, path, rootdir=None):
-        actions = Actions(bspl.jason.actions)
+        actions = Actions(bspl.adapter.jason.actions)
         with open(path) as source:
             self.bdi = self.environment.build_agent(
-                source, actions, agent_cls=bspl.jason.Agent
+                source, actions, agent_cls=bspl.adapter.jason.Agent
             )
             self.bdi.bind(self)
