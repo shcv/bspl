@@ -90,7 +90,6 @@ class TCPReceiver:
                 await server.serve_forever()
 
         loop.create_task(serve())
-        self.stop(adapter.stop_event)
 
     async def process(self, reader, writer):
         async for obj in ijson.items(reader, "item"):
