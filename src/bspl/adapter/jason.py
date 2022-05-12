@@ -97,7 +97,7 @@ def emit(agent, term, intention):
         addr, port = recipient.split(":")
         m.dest = (addr, int(port))
 
-    agent.adapter.send(m)
+    asyncio.create_task(agent.adapter.send(m))
     yield
 
 
