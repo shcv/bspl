@@ -2,7 +2,7 @@ import logging
 import itertools
 from .message import Message
 
-logger = logging.getLogger("bungie.store")
+logger = logging.getLogger("bspl.store")
 logger.setLevel(logging.DEBUG)
 
 

@@ -1,5 +1,5 @@
-from bungie import Adapter
-from bungie.policies import Forward, Remind
+from bspl import Adapter
+from bspl.policies import Forward, Remind
 
 from configuration import (
     config,

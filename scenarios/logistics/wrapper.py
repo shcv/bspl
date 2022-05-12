@@ -1,9 +1,9 @@
-from bungie import Adapter
+from bspl import Adapter
 from configuration import config, logistics, Wrapped, RequestWrapping
 import logging
 
 logger = logging.getLogger("wrapper")
-# logging.getLogger("bungie").setLevel(logging.DEBUG)
+# logging.getLogger("bspl").setLevel(logging.DEBUG)
 
 adapter = Adapter(logistics.roles["Wrapper"], logistics, config)
 

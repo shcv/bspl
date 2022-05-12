@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from bungie import Adapter, Remind, Scheduler
-from bungie.statistics import stats_logger
+from bspl import Adapter, Remind, Scheduler
+from bspl.statistics import stats_logger
 from configuration import config
 import random
 import time

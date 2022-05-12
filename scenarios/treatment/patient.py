@@ -1,8 +1,8 @@
 import random
 import asyncio
 import cProfile
-from bungie import Adapter
-from bungie.policies import Remind, Forward
+from bspl import Adapter
+from bspl.policies import Remind, Forward
 
 from configuration import (
     config,

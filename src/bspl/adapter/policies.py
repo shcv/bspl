@@ -5,8 +5,7 @@ import logging
 import datetime
 import uuid
 
-logger = logging.getLogger("bungie.policies")
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger("bspl")
 
 
 def autoincrement(parameter):

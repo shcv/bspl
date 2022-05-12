@@ -1,15 +1,15 @@
 import random
 import asyncio
 import logging
-from bungie import Adapter
+from bspl import Adapter
 
 # from configuration import config, prescription, Patient, Complain, Filled
-from bungie.policies import Remind
+from bspl.policies import Remind
 from configuration_remind import config, prescription, Patient, Complain, Map, Filled
 
 # from configuration_ack import config, prescription, Patient, Complain, Map, Filled
 
-logging.getLogger("bungie").setLevel(logging.DEBUG)
+logging.getLogger("bspl").setLevel(logging.DEBUG)
 
 # adapter
 adapter = Adapter(Patient, prescription, config)

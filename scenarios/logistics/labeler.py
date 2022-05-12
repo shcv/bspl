@@ -1,10 +1,10 @@
-from bungie import Adapter, Remind
+from bspl import Adapter, Remind
 from configuration import config, logistics, Labeled
 import uuid
 import logging
 
 logger = logging.getLogger("labeler")
-# logging.getLogger('bungie').setLevel(logging.DEBUG)
+# logging.getLogger('bspl').setLevel(logging.DEBUG)
 
 adapter = Adapter(logistics.roles["Labeler"], logistics, config)
 RequestLabel = logistics.messages["RequestLabel"]

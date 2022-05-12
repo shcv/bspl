@@ -24,12 +24,12 @@ from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
 from .jason import Environment, Agent, Actions, actions
 from . import policies
-import bungie
-import bungie.jason
+import bspl
+import bspl.jason
 
 FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 
 SUPERCRITICAL = logging.CRITICAL + 10  # don't want any logs
 logging.getLogger("aiorun").setLevel(SUPERCRITICAL)
@@ -89,7 +89,7 @@ class Adapter:
         configuration: a dictionary of roles to endpoint URLs
           {role: url}
         """
-        self.logger = logging.getLogger(f"bungie.adapter.{role.name}")
+        self.logger = logging.getLogger(f"bspl.adapter.{role.name}")
         self.logger.propagate = False
         color = color or COLORS[int(role.name, 36) % len(COLORS)]
         self.color = agentspeak.stdlib.COLORS[0] = color
@@ -131,10 +131,10 @@ class Adapter:
 
         from protocheck.protocol import Message
 
-        Message.__call__ = bungie.schema.instantiate(self)
+        Message.__call__ = bspl.schema.instantiate(self)
 
         for m in protocol.messages.values():
-            m.match = MethodType(bungie.schema.match, m)
+            m.match = MethodType(bspl.schema.match, m)
             m.adapter = self
 
     async def receive(self, payload):
@@ -363,9 +363,7 @@ class Adapter:
         if self.decision_handler:
             return list(await self.decision_handler(self.enabled_messages, event))
         elif hasattr(self, "bdi"):
-            return list(
-                bungie.jason.bdi_handler(self.bdi, self.enabled_messages, event)
-            )
+            return list(bspl.jason.bdi_handler(self.bdi, self.enabled_messages, event))
             self.environment.wake_signal.set()
 
     def compute_enabled(self, observations):
@@ -400,9 +398,9 @@ class Adapter:
         return self._env
 
     def load_asl(self, path, rootdir=None):
-        actions = Actions(bungie.jason.actions)
+        actions = Actions(bspl.jason.actions)
         with open(path) as source:
             self.bdi = self.environment.build_agent(
-                source, actions, agent_cls=bungie.jason.Agent
+                source, actions, agent_cls=bspl.jason.Agent
             )
             self.bdi.bind(self)

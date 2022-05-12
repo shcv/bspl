@@ -4,7 +4,7 @@ import asyncio
 import logging
 import pytest
 from protocheck import bspl
-from bungie.history import Message
+from bspl.history import Message
 
 specification = bspl.parse(
     """
@@ -29,5 +29,5 @@ config = {
     S: ("localhost", 8002),
 }
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)

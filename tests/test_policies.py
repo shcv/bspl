@@ -3,9 +3,9 @@ import yaml
 import asyncio
 import logging
 from protocheck import bspl
-from bungie.policies import *
-from bungie.adapter import Message, Adapter
-from bungie.history import History
+from bspl.policies import *
+from bspl.adapter import Message, Adapter
+from bspl.history import History
 
 specification = bspl.parse(
     """
@@ -42,7 +42,7 @@ Map = {
     "acknowledgments": {Buy: (BuyAck, "ackID")},
 }
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
 
 

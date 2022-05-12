@@ -1,4 +1,4 @@
-from bungie.statistics import *
+from bspl.statistics import *
 
 
 def test_net_usage():

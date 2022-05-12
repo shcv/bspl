@@ -1,5 +1,5 @@
 import uuid
-from bungie import Adapter
+from bspl import Adapter
 from configuration import config, prescription, Pharmacist, Prescribe, Filled
 
 adapter = Adapter(Pharmacist, prescription, config)

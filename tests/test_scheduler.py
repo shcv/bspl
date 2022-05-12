@@ -1,5 +1,5 @@
-from bungie.adapter import Message
-from bungie.scheduler import *
+from bspl.adapter import Message
+from bspl.scheduler import *
 
 
 def test_exponential_backoff():
@@ -10,17 +10,17 @@ def test_exponential_backoff():
     assert backoff(m) == 0
 
     for i in range(5):
-        m.meta['retries'] = i
+        m.meta["retries"] = i
         assert backoff(m) <= 2 ** i - 1
 
 
 def test_schedule_format():
-    Scheduler('* * * * *')
+    Scheduler("* * * * *")
 
-    Scheduler('every second')
+    Scheduler("every second")
 
-    Scheduler('every 1s')
+    Scheduler("every 1s")
 
-    Scheduler('every 3.5s')
+    Scheduler("every 3.5s")
 
-    Scheduler('every 4 seconds')
+    Scheduler("every 4 seconds")

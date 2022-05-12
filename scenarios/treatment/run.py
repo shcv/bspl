@@ -6,7 +6,7 @@ from doctor import adapter as doctor
 from pharmacist import adapter as pharmacist
 from configuration import *
 
-from bungie.policies import Remind, Forward
+from bspl.policies import Remind, Forward
 
 
 def doctor_proc():

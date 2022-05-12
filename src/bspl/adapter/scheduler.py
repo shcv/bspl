@@ -8,7 +8,7 @@ import re
 import logging
 from . import policies
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 
 
 def exponential(interval=1):

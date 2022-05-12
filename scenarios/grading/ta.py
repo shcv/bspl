@@ -1,9 +1,9 @@
 import asyncio
 import logging
-from bungie import Adapter
+from bspl import Adapter
 from configuration import config, grading, TA
 
-# logging.getLogger("bungie").setLevel(logging.DEBUG)
+# logging.getLogger("bspl").setLevel(logging.DEBUG)
 
 adapter = Adapter(TA, grading, config)
 adapter.load_asl("ta.asl")

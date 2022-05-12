@@ -1,5 +1,5 @@
-from bungie import Adapter, Remind
-from bungie.statistics import stats_logger
+from bspl import Adapter, Remind
+from bspl.statistics import stats_logger
 from configuration import config
 import random
 import time
@@ -12,7 +12,7 @@ from Logistics import Merchant, RequestLabel, RequestWrapping, Packed
 
 adapter = Adapter(Merchant, Logistics.protocol, config)
 logger = logging.getLogger("merchant")
-# logging.getLogger("bungie").setLevel(logging.DEBUG)
+# logging.getLogger("bspl").setLevel(logging.DEBUG)
 
 stats = {"init_keys": set(), "finished_keys": set(), "information": [0], "done": False}
 

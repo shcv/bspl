@@ -9,9 +9,9 @@ import signal
 import sys
 import pandas as pd
 
-import bungie
-from bungie import statistics
-from bungie.policies import Remind, Forward
+import bspl
+from bspl import statistics
+from bspl.policies import Remind, Forward
 from spearmint import Experiment
 
 # local files
@@ -69,8 +69,8 @@ def split_losses(exp):
 
 def patient_proc(parameters, queue):
     # patient.logger.setLevel(logging.DEBUG)
-    # bungie.scheduler.logger.setLevel(logging.DEBUG)
-    # bungie.policies.logger.setLevel(logging.DEBUG)
+    # bspl.scheduler.logger.setLevel(logging.DEBUG)
+    # bspl.policies.logger.setLevel(logging.DEBUG)
     if "patient" in parameters["lossy"]:
         patient.emitter.loss = parameters["loss-rate"]
 

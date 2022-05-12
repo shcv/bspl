@@ -2,8 +2,8 @@ import asyncio
 import logging
 import pytest
 from protocheck import bspl
-from bungie.adapter import Adapter, Message
-from bungie.emitter import Emitter
+from bspl.adapter import Adapter, Message
+from bspl.emitter import Emitter
 
 specification = bspl.parse(
     """
@@ -27,7 +27,7 @@ config = {
     RFQ.roles["S"]: ("localhost", 8002),
 }
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
 
 

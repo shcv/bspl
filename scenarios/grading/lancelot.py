@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from bungie import Adapter
+from bspl import Adapter
 from configuration import config, grading, Student
 
 Lancelot = ("0.0.0.0", 8010)

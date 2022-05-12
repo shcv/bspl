@@ -1,13 +1,13 @@
 import logging
-from bungie import Adapter, Remind
+from bspl import Adapter, Remind
 from configuration import config, logistics
-from bungie.statistics import stats_logger
+from bspl.statistics import stats_logger
 
 from Logistics import Packer, Packed
 
 adapter = Adapter(Packer, logistics, config)
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 # logger.setLevel(logging.DEBUG)
 
 

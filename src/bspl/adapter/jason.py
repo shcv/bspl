@@ -13,7 +13,7 @@ from agentspeak.runtime import Agent
 
 from .message import Message
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 
 
 class Environment(agentspeak.runtime.Environment):

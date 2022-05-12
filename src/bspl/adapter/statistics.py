@@ -1,7 +1,7 @@
 import logging
 import asyncio
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 
 stats = {}
 

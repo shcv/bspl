@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import random, logging
-from bungie import Adapter
-from bungie.adapter import COLORS
+from bspl import Adapter
+from bspl.adapter import COLORS
 from configuration import config
 
-# logging.getLogger("bungie").setLevel(logging.DEBUG)
+# logging.getLogger("bspl").setLevel(logging.DEBUG)
 
 import Purchase
 from Purchase import Seller, quote, ship

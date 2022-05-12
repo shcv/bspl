@@ -6,7 +6,7 @@ services:
     cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
     restart: on-failure
     networks:
-      - bungie-net
+      - bspl-net
 
   patient:
     build:
@@ -16,7 +16,7 @@ services:
     expose:
       - 8000/udp
     networks:
-      - bungie-net
+      - bspl-net
     volumes:
       - type: bind
         source: ./patient.py
@@ -37,7 +37,7 @@ services:
     expose:
       - 8000/udp
     networks:
-      - bungie-net
+      - bspl-net
     volumes:
       - type: bind
         source: ./doctor.py
@@ -58,7 +58,7 @@ services:
     expose:
       - 8000/udp
     networks:
-      - bungie-net
+      - bspl-net
     volumes:
       - type: bind
         source: ./pharmacist.py
@@ -75,4 +75,4 @@ services:
     entrypoint: python pharmacist.py
 
 networks:
-  bungie-net:
+  bspl-net:

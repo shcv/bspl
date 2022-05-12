@@ -2,8 +2,8 @@ import asyncio
 import logging
 import pytest
 from protocheck import bspl
-from bungie.adapter import Adapter
-from bungie.history import History
+from bspl.adapter import Adapter
+from bspl.history import History
 
 specification = bspl.parse(
     """
@@ -30,7 +30,7 @@ config = {
 
 a = Adapter(Packer, logistics, config)  # for injection
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
 
 

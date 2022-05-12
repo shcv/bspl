@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import random
-from bungie import Adapter
+from bspl import Adapter
 from configuration import config
 
 import Purchase

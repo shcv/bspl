@@ -1,7 +1,7 @@
-import bungie
+import bspl
 from configuration import config, grading, Prof
 
-adapter = bungie.Adapter(Prof, grading, config, color=bungie.adapter.COLORS[0])
+adapter = bspl.Adapter(Prof, grading, config, color=bspl.adapter.COLORS[0])
 adapter.load_asl("prof.asl")
 
 if __name__ == "__main__":

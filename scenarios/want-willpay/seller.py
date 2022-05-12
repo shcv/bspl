@@ -1,7 +1,7 @@
-from bungie import Adapter
-from bungie.statistics import stats_logger, stats
-from bungie.policies import Acknowledge
-from bungie.receiver import TCPReceiver
+from bspl import Adapter
+from bspl.statistics import stats_logger, stats
+from bspl.policies import Acknowledge
+from bspl.receiver import TCPReceiver
 from configuration import config, protocol, Want, WillPay, Seller
 import random
 import logging
@@ -10,7 +10,7 @@ import datetime
 import argparse
 
 logger = logging.getLogger("seller")
-# logging.getLogger('bungie').setLevel(logging.DEBUG)
+# logging.getLogger('bspl').setLevel(logging.DEBUG)
 
 parser = argparse.ArgumentParser(description="Run the seller agent")
 parser.add_argument(

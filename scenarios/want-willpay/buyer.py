@@ -1,6 +1,6 @@
-from bungie import Adapter
-from bungie.statistics import stats, stats_logger
-from bungie.emitter import TCPEmitter
+from bspl import Adapter
+from bspl.statistics import stats, stats_logger
+from bspl.emitter import TCPEmitter
 from configuration import (
     config,
     protocol,
@@ -28,7 +28,7 @@ parser.add_argument(
 adapter = Adapter(Buyer, protocol, config)
 
 logger = logging.getLogger("buyer")
-# logging.getLogger('bungie').setLevel(logging.DEBUG)
+# logging.getLogger('bspl').setLevel(logging.DEBUG)
 
 
 async def order_generator():

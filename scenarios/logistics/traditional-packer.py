@@ -2,9 +2,9 @@
 
 import logging
 import aiorun
-from bungie import Adapter
+from bspl import Adapter
 from configuration import config, logistics
-from bungie.statistics import stats_logger
+from bspl.statistics import stats_logger
 import ijson, json, socket, asyncio
 
 import Logistics

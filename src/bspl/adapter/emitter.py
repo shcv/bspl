@@ -4,7 +4,7 @@ import socket
 import json
 from asyncio.queues import Queue
 
-logger = logging.getLogger("bungie")
+logger = logging.getLogger("bspl")
 
 
 def encode(msg):
@@ -17,7 +17,7 @@ class Emitter:
     """An Emitter just needs one method: send(message)."""
 
     def __init__(self, encoder=encode, mtu=1500 - 48):
-        """Each component is a function that """
+        """Each component is a function that"""
         self.encode = encoder
         self.mtu = mtu
 
@@ -113,7 +113,7 @@ class BundlingEmitter:
     """An Emitter just needs the send(message) method."""
 
     def __init__(self, encoder=encode, bundler=bundle, mtu=1500 - 48):
-        """Each component is a function that """
+        """Each component is a function that"""
         self.encode = encoder
         self.bundle = bundler
         self.mtu = mtu
@@ -172,7 +172,7 @@ class TCPEmitter:
     """An Emitter just needs the send(message) method."""
 
     def __init__(self, encoder=encode):
-        """Each component is a function that """
+        """Each component is a function that"""
         self.encode = encoder
         self.channels = {}
         self.stats = {"bytes": 0, "packets": 0}
