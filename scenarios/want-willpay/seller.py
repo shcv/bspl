@@ -1,7 +1,7 @@
-from bspl import Adapter
-from bspl.statistics import stats_logger, stats
-from bspl.policies import Acknowledge
-from bspl.receiver import TCPReceiver
+from bspl.adapter import Adapter
+from bspl.adapter.statistics import stats_logger, stats
+from bspl.adapter.policies import Acknowledge
+from bspl.adapter.receiver import TCPReceiver
 from configuration import config, protocol, Want, WillPay, Seller
 import random
 import logging

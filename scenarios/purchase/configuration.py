@@ -1,4 +1,4 @@
-from protocheck import bspl
+import bspl
 
 logistics = bspl.load_file("purchase.bspl").export("Purchase")
 from Purchase import Buyer, Seller, Shipper

@@ -1,4 +1,4 @@
-from protocheck import bspl
+import bspl
 
 prescription = bspl.load_file("prescription-ack.bspl").export("PrescriptionAck")
 

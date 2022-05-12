@@ -1,6 +1,6 @@
-from bspl import Adapter
-from bspl.statistics import stats, stats_logger
-from bspl.emitter import TCPEmitter
+from bspl.adapter import Adapter
+from bspl.adapter.statistics import stats, stats_logger
+from bspl.adapter.emitter import TCPEmitter
 from configuration import (
     config,
     protocol,

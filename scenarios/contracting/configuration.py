@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from protocheck import bspl
+from bspl.parser import load_file
 
-contracting = bspl.load_file("contracting.bspl").export("Contracting")
+contracting = load_file("contracting.bspl").export("Contracting")
 from Contracting import Government, Contractor
 
 from Contracting import Offer, Bid, Accept, Reject

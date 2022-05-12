@@ -1,4 +1,4 @@
-from bspl import Adapter, Remind
+from bspl.adapter import Adapter, Remind
 from configuration import config, logistics, Labeled
 import uuid
 import logging
@@ -12,7 +12,7 @@ RequestLabel = logistics.messages["RequestLabel"]
 
 @adapter.reaction(RequestLabel)
 async def labeled(msg):
-    adapter.send(Labeled(label=str(uuid.uuid4()), **msg.payload))
+    await adapter.send(Labeled(label=str(uuid.uuid4()), **msg.payload))
 
 
 if __name__ == "__main__":

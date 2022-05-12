@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from bspl import Adapter, Remind, Scheduler
-from bspl.statistics import stats_logger
+from bspl.adapter import Adapter, Remind, Scheduler
+from bspl.adapter.statistics import stats_logger
 from configuration import config
 import random
 import time

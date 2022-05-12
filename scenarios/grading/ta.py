@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from bspl import Adapter
+from bspl.adapter import Adapter
 from configuration import config, grading, TA
 
 # logging.getLogger("bspl").setLevel(logging.DEBUG)

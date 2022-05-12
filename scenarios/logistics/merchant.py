@@ -1,5 +1,5 @@
-from bspl import Adapter, Remind
-from bspl.statistics import stats_logger
+from bspl.adapter import Adapter, Remind
+from bspl.adapter.statistics import stats_logger
 from configuration import config
 import random
 import time
@@ -19,14 +19,14 @@ stats = {"init_keys": set(), "finished_keys": set(), "information": [0], "done":
 
 async def order_generator():
     for orderID in range(10):
-        adapter.send(
+        await adapter.send(
             RequestLabel(
                 orderID=orderID,
                 address=random.sample(["Lancaster University", "NCSU"], 1)[0],
             )
         )
         for i in range(2):
-            adapter.send(
+            await adapter.send(
                 RequestWrapping(
                     orderID=orderID,
                     itemID=i,

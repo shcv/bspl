@@ -1,4 +1,4 @@
-from bspl import Adapter, schema
+from bspl.adapter import Adapter, schema
 
 # from configuration import config, prescription, Doctor, Complain, Prescribe
 from configuration_remind import (
@@ -10,7 +10,7 @@ from configuration_remind import (
     Prescribe,
     Map,
 )
-from bspl.policies import Acknowledge
+from bspl.adapter.policies import Acknowledge
 
 # from configuration_ack import config, prescription, Doctor, Complain, Repeat, Confirm, Prescribe, Map
 

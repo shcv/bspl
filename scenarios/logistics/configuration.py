@@ -1,4 +1,4 @@
-from protocheck import bspl
+import bspl
 
 logistics = bspl.load_file("logistics.bspl").export("Logistics")
 from Logistics import Merchant, Wrapper, Labeler, Packer

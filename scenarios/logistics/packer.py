@@ -1,7 +1,7 @@
 import logging
-from bspl import Adapter, Remind
+from bspl.adapter import Adapter, Remind
+from bspl.adapter.statistics import stats_logger
 from configuration import config, logistics
-from bspl.statistics import stats_logger
 
 from Logistics import Packer, Packed
 

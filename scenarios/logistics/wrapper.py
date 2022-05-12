@@ -1,4 +1,4 @@
-from bspl import Adapter
+from bspl.adapter import Adapter
 from configuration import config, logistics, Wrapped, RequestWrapping
 import logging
 
@@ -10,7 +10,7 @@ adapter = Adapter(logistics.roles["Wrapper"], logistics, config)
 
 @adapter.reaction(RequestWrapping)
 async def wrap(msg):
-    adapter.send(
+    await adapter.send(
         Wrapped(
             wrapping="bubblewrap" if msg["item"] in ["plate", "glass"] else "paper",
             **msg.payload

@@ -1,10 +1,10 @@
 import random
 import asyncio
 import logging
-from bspl import Adapter
+from bspl.adapter import Adapter
 
 # from configuration import config, prescription, Patient, Complain, Filled
-from bspl.policies import Remind
+from bspl.adapter.policies import Remind
 from configuration_remind import config, prescription, Patient, Complain, Map, Filled
 
 # from configuration_ack import config, prescription, Patient, Complain, Map, Filled

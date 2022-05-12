@@ -1,4 +1,4 @@
-from protocheck import bspl
+import bspl
 
 spec = bspl.load_file("want-willpay.bspl")
 protocol = spec.protocols["Want-Willpay"]

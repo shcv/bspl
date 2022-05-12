@@ -332,7 +332,7 @@ class Adapter:
             emissions = await self.process(event)
             if emissions:
                 if self.history.check_emissions(emissions):
-                    await self.process_send(*emissions)
+                    await self.send(*emissions)
 
     async def process(self, event):
         """

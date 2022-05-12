@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import uuid, random, asyncio
-from bspl import Adapter
-from bspl.adapter import COLORS
+from bspl.adapter import Adapter
+from bspl.adapter.core import COLORS
 from configuration import config
 
 import Purchase

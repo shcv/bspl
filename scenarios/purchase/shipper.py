@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import random
-from bspl import Adapter
+from bspl.adapter import Adapter
 from configuration import config
 
 import Purchase

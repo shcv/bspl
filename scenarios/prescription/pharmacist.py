@@ -1,5 +1,5 @@
 import uuid
-from bspl import Adapter
+from bspl.adapter import Adapter
 from configuration import config, prescription, Pharmacist, Prescribe, Filled
 
 adapter = Adapter(Pharmacist, prescription, config)
