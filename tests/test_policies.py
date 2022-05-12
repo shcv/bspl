@@ -2,7 +2,7 @@ import pytest
 import yaml
 import asyncio
 import logging
-from protocheck import bspl
+import bspl
 from bspl.policies import *
 from bspl.adapter import Message, Adapter
 from bspl.history import History

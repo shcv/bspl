@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import pytest
-from protocheck import bspl
+import bspl
 from bspl.adapter import Adapter
 from bspl.history import History
 

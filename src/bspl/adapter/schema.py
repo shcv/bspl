@@ -1,6 +1,5 @@
 from .message import Message
-from protocheck import protocol
-from protocheck.bspl import load_file
+from bspl import protocol, load_file
 import logging
 
 logger = logging.getLogger("bspl")

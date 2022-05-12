@@ -1,4 +1,4 @@
-from protocheck import bspl
+import bspl
 from bspl.emitter import Bundle
 from collections import deque
 import pytest

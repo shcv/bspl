@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import pytest
-from protocheck import bspl
+import bspl
 from bspl.history import Message
 
 specification = bspl.parse(

@@ -1,4 +1,4 @@
-from protocheck import bspl
+import bspl
 
 treatment = bspl.load_file("treatment.bspl").export("Treatment")
 from Treatment import *

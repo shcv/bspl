@@ -1,4 +1,4 @@
-from protocheck import bspl
+import bspl
 
 grading = bspl.load_file("grading.bspl").export("Grading")
 

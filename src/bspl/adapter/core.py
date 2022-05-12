@@ -130,7 +130,7 @@ class Adapter:
     def inject(self, protocol):
         """Install helper methods into schema objects"""
 
-        from protocheck.protocol import Message
+        from bspl.protocol import Message
 
         Message.__call__ = bspl.adapter.schema.instantiate(self)
 
