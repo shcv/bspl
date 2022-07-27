@@ -322,17 +322,20 @@ class Adapter:
         """
         Publish an event for triggering the update loop
         """
+        if not hasattr(self, "events"):
+            self.events = Queue()
         await self.events.put(event)
 
-    async def update_loop(self):
-        self.events = Queue()
+    async def update(self):
+        event = await self.events.get()
+        emissions = await self.process(event)
+        if emissions:
+            if self.history.check_emissions(emissions):
+                await self.send(*emissions)
 
+    async def update_loop(self):
         while self.running:
-            event = await self.events.get()
-            emissions = await self.process(event)
-            if emissions:
-                if self.history.check_emissions(emissions):
-                    await self.send(*emissions)
+            await self.update()
 
     async def process(self, event):
         """

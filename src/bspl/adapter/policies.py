@@ -49,7 +49,6 @@ def from_ast(protocol, ast):
         "remind": Remind,
         "forward": Forward,
         "send": Send,
-        "acknowledge": Acknowledge,
     }.get(action["verb"])
 
     policy = cls(*lookup(protocol, action["messages"]))

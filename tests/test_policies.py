@@ -61,6 +61,7 @@ async def test_remind_until_received():
 
     m = Message(Buy, {"item": "shoe"})
     await a.send(m)
+    await a.update()
     assert r.active
     selected = r.run(a.history)
     assert selected
@@ -68,6 +69,7 @@ async def test_remind_until_received():
 
     # Buy with Deliver should not
     await a.receive({"item": "shoe", "done": "yep"})
+    await a.update()
     selected = r.run(a.history)
     assert not selected
 
@@ -84,6 +86,7 @@ async def test_remind_until_conjunction():
     assert a.reactors[Buy]
     m = Message(Buy, {"item": "shoe"})
     await a.send(m)
+    await a.update()
     assert r.active
     selected = r.run(a.history)
     assert selected
@@ -91,11 +94,13 @@ async def test_remind_until_conjunction():
 
     # Buy with only Deliver should still be resent
     await a.receive({"item": "shoe", "done": "yep"})
+    await a.update()
     selected = r.run(a.history)
     assert selected
 
     # Buy with both Deliver and Extra should not be resent
     await a.receive({"item": "shoe", "extra": "totally"})
+    await a.update()
     selected = r.run(a.history)
     assert not selected
 
