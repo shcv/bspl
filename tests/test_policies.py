@@ -3,11 +3,14 @@ import yaml
 import asyncio
 import logging
 import bspl
-from bspl.policies import *
-from bspl.adapter import Message, Adapter
-from bspl.history import History
+import bspl.parser
+from bspl.adapter import Adapter
+from bspl.adapter.emitter import MockEmitter
+from bspl.adapter.policies import *
+from bspl.adapter.message import Message
+from bspl.adapter.store import Store
 
-specification = bspl.parse(
+specification = bspl.parser.parse(
     """
 Order {
   roles C, S // Customer, Seller
@@ -38,8 +41,7 @@ from Order import C, S, Buy, Deliver, BuyAck, BuyReminder, Extra
 
 config = {C: ("localhost", 8001), S: ("localhost", 8001)}
 Map = {
-    "forwards": {Buy: (BuyReminder, "remID")},
-    "acknowledgments": {Buy: (BuyAck, "ackID")},
+    "reminders": {Buy: (BuyReminder, "remID")},
 }
 
 logger = logging.getLogger("bspl")
@@ -50,8 +52,7 @@ logger.setLevel(logging.DEBUG)
 async def test_remind_until_received():
     r = Remind(Buy).With(Map).until.received(Deliver)
     assert r
-    assert r.proactors  # proactor for reminding
-    assert r.reactors  # reactors for handling reception
+    assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
     a = Adapter(C, order, config)
@@ -59,7 +60,7 @@ async def test_remind_until_received():
     assert a.reactors[Buy]
 
     m = Message(Buy, {"item": "shoe"})
-    await a.prepare_send(m)
+    await a.send(m)
     assert r.active
     selected = r.run(a.history)
     assert selected
@@ -72,41 +73,17 @@ async def test_remind_until_received():
 
 
 @pytest.mark.asyncio
-async def test_remind_until_ack():
-    r = Remind(Buy).With(Map).until.acknowledged
-    assert r
-    assert r.proactors
-    assert r.reactors
-
-    # Buy without acknowledgement should be resent
-    a = Adapter(C, order, config)
-    a.add_policies(r)
-
-    m = Message(Buy, {"item": "shoe"})
-    await a.prepare_send(m)
-    selected = r.run(a.history)
-    assert selected
-    assert next(selected).schema == BuyReminder
-
-    # Should not be resent after acknowledgement
-    await a.receive({"item": "shoe", "ackID": 1})
-    selected = r.run(a.history)
-    assert next(selected, None) == None
-
-
-@pytest.mark.asyncio
 async def test_remind_until_conjunction():
     r = Remind(Buy).With(Map).until.received(Deliver, Extra)
     assert r
-    assert r.proactors  # proactor for reminding
-    assert r.reactors  # reactors for handling reception
+    assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
     a = Adapter(C, order, config)
     a.add_policies(r)
     assert a.reactors[Buy]
     m = Message(Buy, {"item": "shoe"})
-    await a.prepare_send(m)
+    await a.send(m)
     assert r.active
     selected = r.run(a.history)
     assert selected
@@ -115,7 +92,7 @@ async def test_remind_until_conjunction():
     # Buy with only Deliver should still be resent
     await a.receive({"item": "shoe", "done": "yep"})
     selected = r.run(a.history)
-    assert not selected
+    assert selected
 
     # Buy with both Deliver and Extra should not be resent
     await a.receive({"item": "shoe", "extra": "totally"})
@@ -137,8 +114,6 @@ def test_from_ast():
     assert type(policy) == Remind
     assert "Buy" in [m.name for m in policy.schemas]
     assert not policy.reactive
-    print([e for e in ast["events"]])
-    assert policy.proactors[0].__name__ == "process"
 
     ast = model.parse("remind seller of Buy until received Deliver or received Extra")
     print(ast)
@@ -147,8 +122,6 @@ def test_from_ast():
     assert type(policy) == Remind
     assert "Buy" in [m.name for m in policy.schemas]
     assert not policy.reactive
-    print([e for e in ast["events"]])
-    assert policy.proactors[0].__name__ == "process"
 
 
 def test_policy_parser():
@@ -158,13 +131,3 @@ def test_policy_parser():
       max tries: 5
     """
     assert parse(order, reminder_policy)
-
-    ack_policy = """
-    - policy: acknowledge Buy
-    """
-    assert parse(order, ack_policy)
-
-    until_ack_policy = """
-    - policy: remind S of Buy until acknowledged
-    """
-    assert parse(order, until_ack_policy)

@@ -1,8 +1,10 @@
 import pytest
 from ttictoc import Timer
 from statistics import median
-from ..verification import sat, paths
-from ..verification.refinement import *
+from bspl.verification import sat, paths
+from bspl.verification.refinement import *
+
+pytestmark = pytest.mark.performance
 
 
 def perf_test(objects, properties):

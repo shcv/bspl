@@ -1,5 +1,5 @@
-from bspl.adapter import Message
-from bspl.scheduler import *
+from bspl.adapter.message import Message
+from bspl.adapter.scheduler import *
 
 
 def test_exponential_backoff():
@@ -11,7 +11,7 @@ def test_exponential_backoff():
 
     for i in range(5):
         m.meta["retries"] = i
-        assert backoff(m) <= 2 ** i - 1
+        assert backoff(m) <= 2**i - 1
 
 
 def test_schedule_format():

@@ -1,7 +1,7 @@
 import pytest
 from boolexpr import not_
-from ..parser import *
-from ..verification import logic, precedence
+from bspl.parser import *
+from bspl.verification import logic, precedence
 
 
 @pytest.fixture(scope="module")

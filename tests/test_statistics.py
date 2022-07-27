@@ -1,4 +1,4 @@
-from bspl.statistics import *
+from bspl.adapter.statistics import *
 
 
 def test_net_usage():

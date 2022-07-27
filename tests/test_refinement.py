@@ -1,7 +1,7 @@
 import pytest
-from ..verification.refinement import *
-from ..verification.paths import Emission, Reception, empty_path, viable
-from ..verification import paths
+from bspl.verification.refinement import *
+from bspl.verification.paths import Emission, Reception, empty_path, viable
+from bspl.verification import paths
 
 
 @pytest.fixture(scope="module")

@@ -1,6 +1,6 @@
 import pytest
-from ..parser import load_file
-from ..protocol import *
+from bspl.parser import load_file
+from bspl.protocol import *
 
 
 @pytest.fixture(scope="module")

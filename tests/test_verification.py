@@ -1,8 +1,8 @@
 import pytest
 from boolexpr import not_
-from ..parser import *
-from ..verification import precedence, logic
-from ..verification.sat import *
+from bspl.parser import *
+from bspl.verification import precedence, logic
+from bspl.verification.sat import *
 
 
 @pytest.fixture(scope="module")

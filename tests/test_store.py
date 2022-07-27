@@ -2,10 +2,11 @@ import asyncio
 import logging
 import pytest
 import bspl
+import bspl.parser
 from bspl.adapter import Adapter
-from bspl.history import History
+from bspl.adapter.store import Store
 
-specification = bspl.parse(
+specification = bspl.parser.parse(
     """
 Logistics {
   roles Merchant, Wrapper, Labeler, Packer
@@ -34,35 +35,35 @@ logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
 
 
-def test_observe():
-    h = History()
+def test_add():
+    h = Store()
     m = Labeled(orderID=1, address="home", label="0001")
-    h.observe(m)
-    assert m in h.messages[Labeled].values()
+    h.add(m)
+    assert m in [m for m in h.messages if m.schema is Labeled]
 
 
 def test_context_messages():
-    h = History()
+    h = Store()
     m = Labeled(orderID=1, address="home", label="0001")
-    h.observe(m)
+    h.add(m)
     print(h.contexts)
     assert m in h.contexts["orderID"][1].messages
 
 
 def test_context_all_messages():
-    h = History()
+    h = Store()
     m2 = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
-    h.observe(m2)
+    h.add(m2)
     print(h.contexts)
     print([m for m in h.contexts["orderID"][1].all_messages])
     assert m2 in h.contexts["orderID"][1].all_messages
 
 
 def test_context_bindings():
-    h = History()
+    h = Store()
 
     m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
-    h.observe(m)
+    h.add(m)
     print(h.contexts["orderID"][1].bindings)
     assert h.contexts["orderID"][1].bindings.get("orderID") == None
     assert (
@@ -71,11 +72,11 @@ def test_context_bindings():
 
 
 def test_context_all_bindings():
-    h = History()
+    h = Store()
     m = Wrapped(orderID=1, itemID=0, item="ball", wrappeng="paper")
-    h.observe(m)
+    h.add(m)
     m2 = Wrapped(orderID=1, itemID=1, item="bat", wrappeng="paper")
-    h.observe(m2)
+    h.add(m2)
     print(h.contexts["orderID"][1].all_bindings)
     items = h.contexts["orderID"][1].all_bindings["itemID"]
     assert not items.isdisjoint([0, 1])
@@ -83,13 +84,13 @@ def test_context_all_bindings():
 
 
 def test_matching_contexts():
-    h = History()
+    h = Store()
     m = Wrapped(orderID=1, itemID=0, item="ball", wrappeng="paper")
-    h.observe(m)
+    h.add(m)
     m2 = Wrapped(orderID=1, itemID=1, item="bat", wrappeng="paper")
-    h.observe(m2)
+    h.add(m2)
     m3 = Labeled(orderID=1, address="home", label="0001")
-    h.observe(m3)
+    h.add(m3)
     contexts = h.matching_contexts(**m3.payload)
     print([c.bindings for c in contexts])
     assert len(contexts) == 3

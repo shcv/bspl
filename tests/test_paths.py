@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import pytest
-from ..parser import load_file
-from ..verification.paths import *
+from bspl.parser import load_file
+from bspl.verification.paths import *
 
 
 @pytest.fixture(scope="module")

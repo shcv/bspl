@@ -1,11 +1,12 @@
 import asyncio
 import logging
 import pytest
-import bspl
-from bspl.adapter import Adapter, Message
-from bspl.emitter import Emitter
+import bspl.parser
+from bspl.adapter import Adapter
+from bspl.adapter.message import Message
+from bspl.adapter.emitter import Emitter
 
-specification = bspl.parse(
+specification = bspl.parser.parse(
     """
 RFQ {
   roles C, S // Customer, Seller
@@ -46,7 +47,7 @@ async def test_send_process():
     a = Adapter(RFQ.roles["C"], RFQ, config, emitter=Emitter())
     m = Message(RFQ.messages["req"], {"item": "ball"})
     await a.task()
-    await a.process_send(m)
+    await a.send(m)
     await a.stop()
 
 

@@ -1,6 +1,6 @@
 import pytest
 from boolexpr import and_, not_, impl
-from ..verification.precedence import (
+from bspl.verification.precedence import (
     transitivity,
     relationships,
     var,
