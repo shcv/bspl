@@ -1,18 +1,8 @@
-name("Sir Lancelot of Camelot").
-quest("To seek the Holy Grail").
-color("Blue").
++challenge(Prof, Student, SID, QID, Question) <-
+  !answer(Question, Answer);
+  .emit(response(Student, TA, SID, QID, Question, Answer)).
 
-+!response(Student, TA, SID, QID, Question, Answer) <-
-  !answer(Question, Answer).
-
-+!answer("What is your name?", Answer) <-
-  name(Answer).
-
-+!answer("What is your quest?", Answer) <-
-  quest(Answer).
-
-+!answer("What is your favorite color?", Answer) <-
-  color(Answer).
-
-+!answer(_, Answer) <-
-  Answer = "I don't know that".
++!answer("What is your name?", "Sir Lancelot of Camelot").
++!answer("What is your quest?", "To seek the Holy Grail").
++!answer("What is your favorite color?", "Blue").
++!answer(_, "I don't know that").

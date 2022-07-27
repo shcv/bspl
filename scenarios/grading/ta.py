@@ -5,9 +5,9 @@ from configuration import config, grading, TA
 
 # logging.getLogger("bspl").setLevel(logging.DEBUG)
 
-adapter = Adapter(TA, grading, config)
-adapter.load_asl("ta.asl")
+adapter = Adapter(TA, grading, config, name="Timofey")
+adapter.load_asl("timofey.asl")
 
 if __name__ == "__main__":
-    print("Starting TA...")
+    print("Starting Timofey...")
     adapter.start()
