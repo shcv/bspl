@@ -79,6 +79,7 @@ class Adapter:
         configuration,
         emitter=Emitter(),
         receiver=None,
+        name=None,
         color=None,
     ):
         """
@@ -96,13 +97,15 @@ class Adapter:
         self.color = agentspeak.stdlib.COLORS[0] = color
         reset = colorama.Fore.RESET + colorama.Back.RESET
         formatter = logging.Formatter(
-            f"%(asctime)-15s ({''.join(self.color)}%(role)s{reset}) %(module)s: %(message)s"
+            f"%(asctime)-15s ({''.join(self.color)}{name or role.name}{reset}) %(module)s: %(message)s"
         )
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
+        self.logger.handlers.clear()
         self.logger.addHandler(handler)
 
         self.role = role
+        self.name = name
         self.protocol = protocol
         self.configuration = configuration
         self.reactors = {}  # dict of message -> [handlers]
@@ -409,4 +412,5 @@ class Adapter:
             self.bdi = self.environment.build_agent(
                 source, actions, agent_cls=bspl.adapter.jason.Agent
             )
+            self.bdi.name = self.name or self.bdi.name
             self.bdi.bind(self)
