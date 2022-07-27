@@ -3,7 +3,6 @@
 import agentspeak
 from agentspeak import Literal, Var
 import re
-from fastcore.foundation import camel2snake
 
 
 def get_key(schema, payload):
