@@ -1,0 +1,7 @@
+;; This is a Guix channel
+
+(channel
+  (version 0)
+  (keyring-reference "keyring")
+  (directory "guix")
+  (url "https://gitlab.com/masr/bspl.git"))
