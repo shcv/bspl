@@ -5,4 +5,11 @@
    "python-ttictoc"
    "python-fire"
    "python-boolexpr"
-   "python-pytest"))
+   "python-pytest"
+   "python-pytest-asyncio"
+   "python-aiocron"
+   "python-pyyaml"
+   "python-aiorun"
+   "python-agentspeak"
+   "python-colorama"
+   "python-ijson"))
