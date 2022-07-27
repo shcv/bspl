@@ -65,6 +65,11 @@ class Emitter:
         self.socket.close()
 
 
+class MockEmitter(Emitter):
+    def transmit(self, packet, dest):
+        pass
+
+
 class Bundle:
     def __init__(self, max_size):
         self.max_size = max_size

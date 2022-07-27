@@ -55,7 +55,7 @@ async def test_remind_until_received():
     assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
-    a = Adapter(C, order, config)
+    a = Adapter(C, order, config, emitter=MockEmitter())
     a.add_policies(r)
     assert a.reactors[Buy]
 
@@ -79,7 +79,7 @@ async def test_remind_until_conjunction():
     assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
-    a = Adapter(C, order, config)
+    a = Adapter(C, order, config, emitter=MockEmitter())
     a.add_policies(r)
     assert a.reactors[Buy]
     m = Message(Buy, {"item": "shoe"})
