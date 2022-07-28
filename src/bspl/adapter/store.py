@@ -250,14 +250,15 @@ class Store:
 
         return True
 
-    def add(self, message):
+    def add(self, *messages):
         """
         Add a message instance to the store.
         """
 
         # log under the correct context
-        context = self.context(message)
-        context.add(message)
+        for m in messages:
+            context = self.context(m)
+            context.add(m)
 
     def context(self, message):
         """Find or create a context for message"""
