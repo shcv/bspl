@@ -118,6 +118,7 @@ class Adapter:
 
         self.inject(protocol)
 
+        self.events = Queue()
         self.enabled_messages = Store()
         self.decision_handler = None
 
@@ -379,6 +380,9 @@ class Adapter:
         """
         Compute updates to the enabled set based on a list of an observations
         """
+
+        # Add initioators
+        self.enabled_messages.add(*(m() for m in self.protocol.initiators()))
 
         # clear out matching keys from enabled set
         removed = set()

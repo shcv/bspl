@@ -43,7 +43,7 @@ async def test_receive_process():
 
 
 @pytest.mark.asyncio
-async def test_send_process():
+async def test_send():
     a = Adapter(RFQ.roles["C"], RFQ, config, emitter=Emitter())
     m = Message(RFQ.messages["req"], {"item": "ball"})
     await a.task()
@@ -68,3 +68,12 @@ async def test_match():
     ms2 = RFQ.messages["ship"].match(item="ball")
     assert len(ms2) == 0
     await a.stop()
+
+
+@pytest.mark.asyncio
+async def test_enabled_initiators():
+    a = Adapter(RFQ.roles["S"], RFQ, config)
+    a.compute_enabled({})
+
+    assert len(a.enabled_messages.messages) == 1
+    assert a.enabled_messages.messages.pop().schema == RFQ.messages["req"]
