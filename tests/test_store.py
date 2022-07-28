@@ -23,7 +23,7 @@ Logistics {
 )
 
 logistics = specification.export("Logistics")
-from Logistics import Packer, Wrapped, Labeled, Packed
+from Logistics import Packer, Wrapped, RequestLabel, Labeled, Packed
 
 config = {
     Packer: ("localhost", 8001),
@@ -40,6 +40,16 @@ def test_add():
     m = Labeled(orderID=1, address="home", label="0001")
     h.add(m)
     assert m in [m for m in h.messages if m.schema is Labeled]
+
+
+def test_add_partial():
+    h = Store()
+    m = RequestLabel()
+    h.add(m)
+    m2 = RequestLabel()
+    h.add(m2)
+    print(h.contexts)
+    assert len(h.messages) == 1
 
 
 def test_context_messages():
