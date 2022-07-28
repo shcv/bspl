@@ -362,6 +362,9 @@ class Protocol(Base):
     def ordered_params(self):
         return sorted(self.parameters.values())
 
+    def initiators(self):
+        return {m for m in self.messages.values() if len(m.ins) is 0}
+
 
 class Message(Protocol):
     def __init__(

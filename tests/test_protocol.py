@@ -43,3 +43,7 @@ def test_ordered_params(Auction, Bid):
     # regression; assume stable sorting
     assert [p.name for p in Auction.ordered_params()] == ["id", "done", "bidID", "bid"]
     assert [p.name for p in Bid.ordered_params()] == ["id", "bidID", "bid", "done"]
+
+
+def test_initiators(Auction):
+    assert Auction.initiators() == {Auction.messages["Start"]}
