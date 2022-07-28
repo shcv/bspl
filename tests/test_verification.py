@@ -40,6 +40,7 @@ def test_transmission(Bid, A, B):
     )
 
 
+@pytest.mark.skip
 def test_reception(Bid, B):
     # Unreliable even with exhaustive enabled
     assert precedence.consistent(reception(Bid), exhaustive=True)
