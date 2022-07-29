@@ -120,7 +120,7 @@ class Adapter:
 
         self.events = Queue()
         self.enabled_messages = Store()
-        self.decision_handler = None
+        self.decision_handlers = set()
 
     def debug(self, msg):
         self.logger.debug(msg, extra={"role": self.role.name})
@@ -270,6 +270,44 @@ class Adapter:
                         # short circuit on first message to send
                         return
 
+    def decision(self, handler):
+        """
+        Decorator for declaring decision handlers.
+
+        Example:
+        @adapter.decision
+        async def decide(enabled)
+            for m in enabled:
+                if m.schema is Quote:
+                    m.bind("price", 10)
+                    return m
+        """
+        if handler not in self.decision_handlers:
+            self.decision_handlers.add(handler)
+
+    def schedule_decision(self, schedule):
+        """
+        Decorator for adding decision handlers that run on a schedule
+
+        Example:
+        @adapter.schedule_decision("10s") # run every 10s
+        async def decide(enabled)
+            for m in enabled:
+                if m.schema is Quote:
+                    m.bind("price", 10)
+                    return m
+        """
+        s = Scheduler(schedule)
+        self.schedulers.append(s)
+
+        def register(handler):
+            async def task(adapter):
+                return await handler(adapter.enabled_messages)
+
+            s.add_task(task)
+
+        return register
+
     async def task(self):
         loop = asyncio.get_running_loop()
 
@@ -309,6 +347,7 @@ class Adapter:
 
     def start(self, *tasks, use_uvloop=True):
         async def main():
+            self.events = Queue()
             await self.task()
             loop = asyncio.get_running_loop()
             for t in tasks:
@@ -355,6 +394,8 @@ class Adapter:
         Events need a specific structure;
         """
 
+        emissions = []
+
         if isinstance(event, ObservationEvent):
             # Update the enabled messages if there was an emission or reception
             observations = event.messages
@@ -368,13 +409,18 @@ class Adapter:
                 await self.react(m)
                 await self.handle_enabled(m)
 
-        if self.decision_handler:
-            return list(await self.decision_handler(self.enabled_messages, event))
-        elif hasattr(self, "bdi"):
-            return list(
+        for d in self.decision_handlers:
+            s = inspect.signature(d).parameters
+            if len(s) == 1:
+                emissions.extend(await d(self.enabled_messages))
+            elif len(s == 2):
+                emissions.extend(await d(self.enabled_messages, event))
+        if hasattr(self, "bdi"):
+            emissions.extend(
                 bspl.adapter.jason.bdi_handler(self.bdi, self.enabled_messages, event)
             )
             self.environment.wake_signal.set()
+        return emissions
 
     def compute_enabled(self, observations):
         """
