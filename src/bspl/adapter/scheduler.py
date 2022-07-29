@@ -20,7 +20,9 @@ def exponential(interval=1):
 
 
 class Scheduler:
-    def __init__(self, schedule="* * * * *", policies=None, backoff=None):
+    def __init__(
+        self, schedule="* * * * *", policies=None, backoff=None, tasks=tuple()
+    ):
         self.ID = uuid.uuid4()
 
         if croniter.is_valid(schedule):
@@ -38,11 +40,15 @@ class Scheduler:
             raise Exception("Unknown schedule format: {}".format(schedule))
 
         self.policies = policies or set()
+        self.tasks = set(tasks) or set()
         self._backoff = backoff
 
     def add(self, policy):
         self.policies.add(policy)
         return self
+
+    def add_task(self, task):
+        self.tasks.add(task)
 
     def backoff(self, message):
         if "last-retry" in message.meta:
@@ -72,8 +78,12 @@ class Scheduler:
             # give policy access to full history for conditional evaluation
             messages = p.run(self.adapter.history)
             if self._backoff:
-                await self.adapter.process_send(
-                    *[m for m in messages if self.backoff(m)]
-                )
-            else:
-                await self.adapter.process_send(*messages)
+                await self.adapter.send(*[m for m in messages if self.backoff(m)])
+            elif messages:
+                await self.adapter.send(*messages)
+
+        self.adapter.compute_enabled({})
+        for t in self.tasks:
+            messages = await t(self.adapter)
+            if messages:
+                await self.adapter.send(*messages)
