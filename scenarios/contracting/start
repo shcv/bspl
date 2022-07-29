@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VARIANT=$1
+cd $VARIANT
+
+pids=()
+
+for a in bidder accountant expert
+do
+    python "${a}.py" &
+    pids+=($!)
+done
+
+sleep 2
+python customer.py &
+pids+=($!)
+
+
+
+read -n1 -rsp $'Press any key to stop...\n'
+
+kill ${pids[*]}

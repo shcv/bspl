@@ -1,10 +1,16 @@
 Contracting {
-  roles Government, Contractor
-  parameters out contractID key, out bidID key, out spec, out amount, out closed
-  private out accepted, out rejected
+  roles Customer, Bidder, Accountant, Expert
+  parameters any contractID key, out bidID key, out spec, out proposal, out closed
+  private acceptance, rejection, req, req2, approval, report
 
-  Government -> Contractor: Offer[out contractID key, out bidID key, out spec]
-  Contractor -> Government: Bid[in contractID key, in bidID key, in spec, out amount]
-  Government -> Contractor: Accept[in contractID key, in bidID key, in amount, out accepted, out closed]
-  Government -> Contractor: Reject[in contractID key, in bidID key, in amount, out rejected, out closed]
+  Customer -> Bidder: Invite[out contractID key, out bidID key, out spec]
+  Bidder -> Customer: Tender[in contractID key, in bidID key, in spec, out proposal]
+
+  Customer -> Accountant: RequestApproval[in contractID key, in bidID key, in spec, in proposal, out req]
+  Accountant -> Customer: Allow[in contractID key, in bidID key, in proposal, in req, out approval]
+  Customer -> Expert: RequestOpinion[in contractID key, in bidID key, in spec, in proposal, out req2]
+  Expert -> Customer: Opine[in contractID key, in bidID key, in req2, in proposal, out report]
+
+  Customer -> Bidder: Accept[in contractID key, in bidID key, in proposal, in approval, in report, out acceptance, out closed]
+  Customer -> Bidder: Reject[in contractID key, in bidID key, in proposal, out rejection, out closed]
 }
