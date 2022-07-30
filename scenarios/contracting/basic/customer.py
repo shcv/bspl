@@ -48,19 +48,15 @@ async def response_handler(enabled):
         if len(rejects) >= 3 and len(accepts):
             # a bid is only acceptable if accountant says we can afford it
             feasible = [m for m in accepts if m["report"] == "feasible"]
-            selection = None
+            winner = None
             reason = None
             if len(feasible):
                 # want the lowest of the feasible bids
-                selection = min(m["proposal"] for m in feasible)
+                winner = min((m for m in feasible), key=lambda m: m["proposal"])
             else:
                 # want the highest of the lowball options
-                selection = max(m["proposal"] for m in accepts)
-            winner = next(
-                m.bind(acceptance=True, closed=True)
-                for m in accepts
-                if m["proposal"] == selection
-            )
+                winner = min((m for m in feasible), key=lambda m: m["proposal"])
+            winner.bind(acceptance=True, closed=True)
             losers = [
                 m.bind(
                     rejection="lowball" if m["proposal"] < selection else "outbid",
