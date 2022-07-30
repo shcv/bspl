@@ -122,3 +122,10 @@ class Message:
                     return False
                 payload[p] = val
         return Message(self.schema, payload)
+
+    @property
+    def complete(self):
+        # payload must contain something other than None for all ins and outs
+        return all(
+            self.payload.get(k) != None for k in self.schema.ins.union(self.schema.outs)
+        )
