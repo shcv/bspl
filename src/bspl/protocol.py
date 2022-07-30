@@ -363,7 +363,7 @@ class Protocol(Base):
         return sorted(self.parameters.values())
 
     def initiators(self):
-        return {m for m in self.messages.values() if len(m.ins) is 0}
+        return {m for m in self.messages.values() if len(m.ins) == 0}
 
 
 class Message(Protocol):
