@@ -81,6 +81,7 @@ class Adapter:
         receiver=None,
         name=None,
         color=None,
+        in_place=False,
     ):
         """
         Initialize the agent adapter.
@@ -121,6 +122,7 @@ class Adapter:
         self.events = Queue()
         self.enabled_messages = Store()
         self.decision_handlers = set()
+        self._in_place = in_place
 
     def debug(self, msg):
         self.logger.debug(msg, extra={"role": self.role.name})
@@ -411,7 +413,12 @@ class Adapter:
 
         for d in self.decision_handlers:
             s = inspect.signature(d).parameters
-            if len(s) == 1:
+            if self._in_place:
+                await d(self.enabled_messages)
+                emissions.extend(
+                    m for m in self.enabled_messages.messages if m.complete
+                )
+            elif len(s) == 1:
                 emissions.extend(await d(self.enabled_messages))
             elif len(s == 2):
                 emissions.extend(await d(self.enabled_messages, event))

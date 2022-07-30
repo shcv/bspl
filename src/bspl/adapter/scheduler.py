@@ -87,3 +87,7 @@ class Scheduler:
             messages = await t(self.adapter)
             if messages:
                 await self.adapter.send(*messages)
+            elif self.adapter._in_place:
+                await self.adapter.send(
+                    *(m for m in self.adapter.enabled_messages.messages if m.complete)
+                )
