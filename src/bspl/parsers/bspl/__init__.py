@@ -1,4 +1,4 @@
-from ..protocol import *
+from ...protocol import *
 import re
 import tatsu
 import sys

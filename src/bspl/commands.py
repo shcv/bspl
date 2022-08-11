@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from . import __version__
-from .parser import load_file
 
 # Actions that only take one argument, and therefore can be repeated for each input file
 class Commands:

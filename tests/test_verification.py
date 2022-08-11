@@ -1,6 +1,6 @@
 import pytest
 from boolexpr import not_
-from bspl.parser import *
+from bspl.parsers.bspl import *
 from bspl.verification import precedence, logic
 from bspl.verification.sat import *
 

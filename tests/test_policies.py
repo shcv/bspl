@@ -3,14 +3,14 @@ import yaml
 import asyncio
 import logging
 import bspl
-import bspl.parser
+from bspl import parsers
 from bspl.adapter import Adapter
 from bspl.adapter.emitter import MockEmitter
 from bspl.adapter.policies import *
 from bspl.adapter.message import Message
 from bspl.adapter.store import Store
 
-specification = bspl.parser.parse(
+specification = parsers.bspl.parse(
     """
 Order {
   roles C, S // Customer, Seller
