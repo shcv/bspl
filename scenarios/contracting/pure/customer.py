@@ -25,7 +25,7 @@ logger = logging.getLogger("government")
 bidders = 0
 
 
-@adapter.schedule_decision("1s")
+@adapter.schedule_decision("0s")
 async def init(enabled):
     global bidders
     for m in enabled.messages:
@@ -47,7 +47,7 @@ async def request_handler(enabled):
     return requests
 
 
-@adapter.schedule_decision("10s")
+@adapter.schedule_decision("1s")
 async def response_handler(enabled):
     results = []
     for contractID in set(m["contractID"] for m in enabled.messages):

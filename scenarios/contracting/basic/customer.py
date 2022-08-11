@@ -18,7 +18,7 @@ from Contracting import (
 )
 
 adapter = Adapter(Customer, Contracting.protocol, config)
-logger = logging.getLogger("government")
+logger = logging.getLogger("customer")
 
 
 async def main():
@@ -38,6 +38,11 @@ async def request_handler(enabled):
     return requests
 
 
+@adapter.enabled(RequestApproval)
+async def req(msg):
+    msg.bind(req=True)
+
+
 @adapter.schedule_decision("1s")
 async def response_handler(enabled):
     results = []
@@ -55,11 +60,13 @@ async def response_handler(enabled):
                 winner = min((m for m in feasible), key=lambda m: m["proposal"])
             else:
                 # want the highest of the lowball options
-                winner = min((m for m in feasible), key=lambda m: m["proposal"])
+                winner = max((m for m in feasible), key=lambda m: m["proposal"])
             winner.bind(acceptance=True, closed=True)
             losers = [
                 m.bind(
-                    rejection="lowball" if m["proposal"] < selection else "outbid",
+                    rejection="lowball"
+                    if m["proposal"] < winner["proposal"]
+                    else "outbid",
                     closed=True,
                 )
                 for m in rejects
