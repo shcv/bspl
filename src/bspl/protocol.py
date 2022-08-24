@@ -69,11 +69,14 @@ class Base:
             self.spec = parent
             self.parent_protocol = None
         elif type(parent) is Protocol:
-            self.spec = parent.spec
+            self.spec = getattr(parent, "spec", None)
             self.parent_protocol = parent
         elif parent:
-            self.spec = parent.spec
+            self.spec = getattr(parent, "spec", None)
             self.parent_protocol = parent.parent_protocol
+        else:
+            self.spec = None
+            self.parent_protocol = None
 
     @property
     def name(self):
@@ -123,12 +126,14 @@ class Protocol(Base):
         parent=None,
         private_parameters=None,
         type="protocol",
+        autoregister_privates=False,
     ):
         super().__init__(name, parent, type)
         self.public_parameters = {}
         self.private_parameters = {}
         self.roles = {}
         self.references = {}
+        self.autoregister_privates = autoregister_privates
         Protocol.configure(
             self, roles, public_parameters, private_parameters, references
         )
@@ -157,17 +162,23 @@ class Protocol(Base):
             self.update()
         if references:
             self.references = {}
-            name_counts = {}
             for r in references:
-                if r.name in name_counts:
-                    name_counts[r.name] += 1
-                    r.idx = name_counts[r.name]
-                else:
-                    name_counts[r.name] = 1
-                self.references[r.name] = r
+                self.add_reference(r)
+
+    def add_reference(self, reference):
+        duplicates = 1
+        for r in self.references.values():
+            if r.raw_name == reference.raw_name:
+                duplicates += 1
+        reference.idx = duplicates
+        self.references[reference.name] = reference
 
     def set_parameters(self, parameters):
         self.public_parameters = {p.name: p for p in parameters}
+        self.update()
+
+    def add_private(self, parameter):
+        self.private_parameters[parameter.name] = parameter
         self.update()
 
     def update(self):
@@ -326,6 +337,9 @@ class Protocol(Base):
         for i, par in enumerate(self.public_parameters.values()):
             ref_name = reference.parameters[i + len(p.roles)].name
             if ref_name not in parent.parameters:
+                if parent.autoregister_privates:
+                    self.add_private()
+
                 raise LookupError(
                     f"Parameter {ref_name} from reference {reference.name} not declared in parent {parent.name}"
                 )

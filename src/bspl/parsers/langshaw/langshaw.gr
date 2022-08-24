@@ -1,0 +1,39 @@
+@@eol_comments :: ?/‌‌#|(//).*?$/?
+@@whitespace :: //
+
+document = {{/\s/} @:block {/\s/}}+ $;
+
+block =
+       | who:who
+       | what:what
+       | actions:action_block
+       | conflicts:conflicts
+       | sayso:sayso
+       | see:see
+       ;
+
+who = ('who'|'roles') [':'] S @:roles;
+roles = ','.{role} ;
+role = @:word ;
+
+what = ('what'|'parameters') [':'] S @:','.{clause};
+clause = 'or'.{param};
+param = name:word [key:'key'];
+
+action_block = ('action'['s'] | 'do') [':'] S @:{action}+;
+action = {' '}+ actor:word ':' {' '} ~ name:word '(' parameters:params ')' S ;
+params = ','.{word};
+
+conflicts = ('conflict' | 'nono') [':'] S @:{conflict}+;
+conflict = {' '}+ @:{word}+ S;
+
+sayso = 'sayso' [':'] S @:{sayso_expression}+;
+sayso_expression = {' '}+ roles:priority ':' parameters:params S;
+priority = '>'.{role} ;
+
+see = 'see' [':'] S @:{thing}+;
+thing = {' '}+ roles:roles ':' parameters:params S;
+
+word = {' '} @:/[\w@-]+/ {' '} ;
+spacename = /[ \w@-]+/ ;
+S = [{' '} '\n'];
