@@ -47,3 +47,27 @@ def test_ordered_params(Auction, Bid):
 
 def test_initiators(Auction):
     assert Auction.initiators() == {Auction.messages["Start"]}
+
+
+def test_message_construct(Bid):
+    # bind positional parameters
+    assert Bid.construct("a", "b", "c") == {"id": "a", "bidID": "b", "bid": "c"}
+
+    # should raise error when attempting to bind a nil
+    with pytest.raises(Exception) as e:
+        Bid.construct("a", "b", "c", "d")
+    assert e
+
+    # binding nil to None is fine
+    assert Bid.construct("a", "b", "c", None) == {"id": "a", "bidID": "b", "bid": "c"}
+
+    # should raise error when attempting to bind unknown key parameter
+    with pytest.raises(Exception) as e:
+        Bid.construct("a", "b", blah="c")
+    assert e
+    # binding known kwargs is fine
+    assert Bid.construct("a", bidID="b", bid="c") == {
+        "id": "a",
+        "bidID": "b",
+        "bid": "c",
+    }

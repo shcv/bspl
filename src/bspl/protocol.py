@@ -513,6 +513,31 @@ class Message(Protocol):
             )
         )
 
+    def construct(self, *args, **kwargs):
+        """Construct a (partial) payload from a positional and keyword values"""
+        payload = {}
+        # Ensure keys are declared
+        for k in self.keys:
+            payload[k] = None
+
+        for i, p in enumerate(self.public_parameters):
+            is_nil = self.parameters[p].adornment == "nil"
+            if i < len(args):
+                if args[i] and is_nil:
+                    raise Exception(
+                        f"Attempting to bind nil parameter: {p} = {args[i]}"
+                    )
+                elif not is_nil:
+                    payload[p] = args[i]
+
+        for k in kwargs:
+            if k in self.parameters:
+                payload[k] = kwargs[k]
+            else:
+                raise Exception(f"Parameter not in schema {self}: {k}")
+
+        return payload
+
     def order_params(self, payload, default=None):
         """Yield each parameter from payload in the order the parameters appear
         in the message schema

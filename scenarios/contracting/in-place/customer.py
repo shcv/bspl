@@ -20,11 +20,17 @@ from Contracting import (
 adapter = Adapter(Customer, Contracting.protocol, config, in_place=True)
 logger = logging.getLogger("government")
 
+started = False
 
-async def main():
-    invitations = [Invite(contractID=1, bidID=i, spec="mobile app") for i in range(10)]
-    logger.info(f"Inviting bids: {invitations}")
-    await adapter.send(*invitations)
+
+@adapter.decision
+async def start(enabled):
+    global started
+    if not started:
+        m = next(m for m in enabled.messages if m.schema == Invite)
+        for i in range(10):
+            m.bind(contractID=1, bidID=i, spec="mobile app")
+        started = True
 
 
 @adapter.decision
@@ -38,7 +44,6 @@ async def request_handler(enabled):
 
 @adapter.schedule_decision("1s")
 async def response_handler(enabled):
-    logger.info(enabled.messages)
     for contractID in set(m["contractID"] for m in enabled.messages):
         messages = [m for m in enabled.messages if m["contractID"] == contractID]
         accepts = [m for m in messages if m.schema == Accept]
@@ -54,7 +59,6 @@ async def response_handler(enabled):
                 # want the highest of the lowball options
                 winner = max((m for m in feasible), key=lambda m: m["proposal"])
             winner.bind(acceptance=True, closed=True)
-            print(winner)
             for m in rejects:
                 if m["bidID"] is not winner["bidID"]:
                     m.bind(
@@ -66,4 +70,4 @@ async def response_handler(enabled):
 
 
 if __name__ == "__main__":
-    adapter.start(main())
+    adapter.start()

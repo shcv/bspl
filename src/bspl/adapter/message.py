@@ -19,9 +19,11 @@ class Message:
     meta = {}
     key = None
 
-    def __init__(self, schema, payload, acknowledged=False, dest=None, adapter=None):
+    def __init__(
+        self, schema, payload=None, acknowledged=False, dest=None, adapter=None
+    ):
         self.schema = schema
-        self.payload = payload
+        self.payload = payload or {}
         self.acknowledged = acknowledged
         self.dest = dest
         self.adapter = adapter
@@ -129,3 +131,24 @@ class Message:
         return all(
             self.payload.get(k) != None for k in self.schema.ins.union(self.schema.outs)
         )
+
+    def partial(self):
+        return Partial(self)
+
+
+class Partial(Message):
+    def __init__(self, message):
+        self.schema = message.schema
+        # the base bindings that are used to initialize each instance
+        self.bindings = self.payload = message.payload.copy()
+        self.dest = None
+
+        self.instances = []
+
+    def bind(self, **kwargs):
+        inst = Message(self.schema, self.bindings.copy(), dest=self.dest)
+        for k, v in kwargs.items():
+            inst[k] = v
+        if not inst.complete:
+            raise Exception(f"Bind must produce a complete instance: {inst}")
+        self.instances.append(inst)

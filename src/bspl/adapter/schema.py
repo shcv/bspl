@@ -7,22 +7,7 @@ logger = logging.getLogger("bspl")
 
 def instantiate(adapter):
     def inner(schema, *args, **kwargs):
-        payload = {}
-        for i, p in enumerate(schema.parameters.values()):
-            if i < len(args):
-                payload[p] = args[i]
-
-        # Ensure keys are declared
-        for k in schema.keys:
-            payload[k] = None
-
-        for k in kwargs:
-            if k in schema.parameters:
-                payload[k] = kwargs[k]
-            # else:
-            #     logger.error(f'Parameter not in schema: {k}')
-            #     return None
-
+        payload = schema.construct(*args, **kwargs)
         return Message(schema, payload, adapter=adapter)
 
     return inner
@@ -39,5 +24,9 @@ def match(schema, **params):
             and all(p in c.bindings for p in schema.ins)
             and not any(p in c.bindings for p in schema.nils)
         ):
-            candidates.add(schema(**c.bindings))
+            candidates.add(
+                schema(
+                    **{p: c.bindings[p] for p in schema.parameters if p in c.bindings}
+                )
+            )
     return candidates

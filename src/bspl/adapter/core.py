@@ -415,9 +415,12 @@ class Adapter:
             s = inspect.signature(d).parameters
             if self._in_place:
                 await d(self.enabled_messages)
-                emissions.extend(
-                    m for m in self.enabled_messages.messages if m.complete
-                )
+                instances = []
+                for m in self.enabled_messages.messages:
+                    if m.instances:
+                        instances.extend(m.instances)
+                        m.instances.clear()
+                emissions.extend(instances)
             elif len(s) == 1:
                 emissions.extend(await d(self.enabled_messages))
             elif len(s == 2):
@@ -435,7 +438,7 @@ class Adapter:
         """
 
         # Add initioators
-        self.enabled_messages.add(*(m() for m in self.protocol.initiators()))
+        self.enabled_messages.add(*(m().partial() for m in self.protocol.initiators()))
 
         # clear out matching keys from enabled set
         removed = set()
@@ -447,10 +450,11 @@ class Adapter:
         added = set()
         for o in observations:
             for schema in self.projection.messages.values():
-                added.update(schema.match(**o.payload))
+                if schema.sender == self.role:
+                    added.update(schema.match(**o.payload))
         for m in added:
             self.debug(f"new enabled message: {m}")
-            self.enabled_messages.add(m)
+            self.enabled_messages.add(m.partial())
         removed.difference_update(added)
 
         return {"added": added, "removed": removed, "observations": observations}

@@ -83,9 +83,9 @@ def test_context_bindings():
 
 def test_context_all_bindings():
     h = Store()
-    m = Wrapped(orderID=1, itemID=0, item="ball", wrappeng="paper")
+    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
     h.add(m)
-    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrappeng="paper")
+    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrapping="paper")
     h.add(m2)
     print(h.contexts["orderID"][1].all_bindings)
     items = h.contexts["orderID"][1].all_bindings["itemID"]
@@ -95,9 +95,9 @@ def test_context_all_bindings():
 
 def test_matching_contexts():
     h = Store()
-    m = Wrapped(orderID=1, itemID=0, item="ball", wrappeng="paper")
+    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
     h.add(m)
-    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrappeng="paper")
+    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrapping="paper")
     h.add(m2)
     m3 = Labeled(orderID=1, address="home", label="0001")
     h.add(m3)
