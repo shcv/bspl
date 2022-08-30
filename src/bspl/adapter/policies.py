@@ -11,7 +11,7 @@ logger = logging.getLogger("bspl")
 def autoincrement(parameter):
     def _autoinc(context):
         current = 0
-        for m in context.messages:
+        for m in context.messages():
             current = max(current, m.payload.get(parameter))
         return current + 1
 
@@ -126,10 +126,9 @@ class Remind:
 
     async def action(self, adapter, schema, context):
         # remind message
-        for m in context.messages:
-            if m.schema == schema:
-                reminder = map_message(self.map, self.key, m)
-                adapter.send(reminder)
+        for m in context.messages(schema):
+            reminder = map_message(self.map, self.key, m)
+            adapter.send(reminder)
 
     def With(self, map):
         self.map = map

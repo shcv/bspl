@@ -39,7 +39,7 @@ def test_add():
     h = Store()
     m = Labeled(orderID=1, address="home", label="0001")
     h.add(m)
-    assert m in [m for m in h.messages if m.schema is Labeled]
+    assert m in [m for m in h.messages() if m.schema is Labeled]
 
 
 def test_add_partial():
@@ -49,7 +49,7 @@ def test_add_partial():
     m2 = RequestLabel()
     h.add(m2)
     print(h.contexts)
-    assert len(h.messages) == 1
+    assert len(list(h.messages())) == 1
 
 
 def test_context_messages():
@@ -57,16 +57,45 @@ def test_context_messages():
     m = Labeled(orderID=1, address="home", label="0001")
     h.add(m)
     print(h.contexts)
-    assert m in h.contexts["orderID"][1].messages
+    c = h.contexts["orderID"][1]
+    print(list(c.messages()))
+    assert m in c.messages()
+
+    m2 = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
+    h.add(m2)
+    c2 = c["itemID"][0]
+    print([m for m in c2.messages()])
+    assert m2 in set(c2.messages())
+
+    # message is not in parent context's messages list
+    print([m for m in c.messages()])
+    assert not m2 in set(c.messages())
+
+    assert m in c.messages(Labeled)
+    assert m not in c.messages(Wrapped)
+    assert m in c.messages(orderID=1)
+    assert m not in c.messages(orderID=2)
 
 
 def test_context_all_messages():
     h = Store()
+    m = Labeled(orderID=1, address="home", label="0001")
+    h.add(m)
+    print(h.contexts)
+    c = h.contexts["orderID"][1]
+    print(list(c.all_messages()))
+    assert m in c.all_messages()
+
     m2 = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
     h.add(m2)
     print(h.contexts)
-    print([m for m in h.contexts["orderID"][1].all_messages])
-    assert m2 in h.contexts["orderID"][1].all_messages
+    print([m for m in c.messages()])
+    assert m2 in set(c.all_messages())
+
+    assert m in c.all_messages(Labeled)
+    assert m not in c.all_messages(Wrapped)
+    assert m in c.all_messages(orderID=1)
+    assert m not in c.all_messages(orderID=2)
 
 
 def test_context_bindings():
@@ -89,7 +118,7 @@ def test_context_all_bindings():
     h.add(m2)
     print(h.contexts["orderID"][1].all_bindings)
     items = h.contexts["orderID"][1].all_bindings["itemID"]
-    assert not items.isdisjoint([0, 1])
+    assert items == [0, 1]
     assert h.contexts["orderID"][1].all_bindings["orderID"] == [1]
 
 

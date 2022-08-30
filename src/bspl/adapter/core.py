@@ -416,7 +416,7 @@ class Adapter:
             if self._in_place:
                 await d(self.enabled_messages)
                 instances = []
-                for m in self.enabled_messages.messages:
+                for m in self.enabled_messages.messages():
                     if m.instances:
                         instances.extend(m.instances)
                         m.instances.clear()
@@ -444,7 +444,7 @@ class Adapter:
         removed = set()
         for msg in observations:
             context = self.enabled_messages.context(msg)
-            removed.update(context.messages)
+            removed.update(context.messages())
             context.clear()
 
         added = set()

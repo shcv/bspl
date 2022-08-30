@@ -33,11 +33,11 @@ class Context:
 
     def _all_bindings(self):
         """
-        Return all bindings accessible from a context - including all bindings from subcontexts
+        Return all bindings declared within a context - including its subcontexts
         """
         bs = {}
         for p in self.subcontexts:
-            bs[p] = self.subcontexts[p].keys()
+            bs[p] = list(self.subcontexts[p].keys())
             for sub in self.subcontexts[p].values():
                 bs.update(**{k: v for k, v in sub.all_bindings.items() if k != p})
         return bs
@@ -46,24 +46,32 @@ class Context:
     def all_bindings(self):
         return {**{k: [v] for k, v in self.bindings.items()}, **self._all_bindings()}
 
-    @property
-    def messages(self):
+    def messages(self, schema=None, **kwargs):
         if self.parent:
-            yield from self.parent.messages
-        yield from self._messages.values()
+            yield from self.parent.messages(schema, **kwargs)
 
-    def _all_messages(self):
-        yield from self._messages.values()
+        yield from filter(
+            lambda m: (not schema or m.schema == schema)
+            and all(m[k] == kwargs[k] for k in kwargs),
+            self._messages.values(),
+        )
+
+    def _all_messages(self, schema=None, **kwargs):
+        yield from filter(
+            lambda m: (not schema or m.schema == schema)
+            and all(m[k] == kwargs[k] for k in kwargs),
+            self._messages.values(),
+        )
         for p in self.subcontexts:
             for sub in self.subcontexts[p].values():
-                yield from sub._all_messages()
+                yield from sub._all_messages(schema, **kwargs)
 
-    @property
-    def all_messages(self):
+    def all_messages(self, schema=None, **kwargs):
         if self.parent:
-            return set(itertools.chain(self.parent.messages, self._all_messages()))
+            yield from self.parent.messages(schema, **kwargs)
+            yield from self._all_messages(schema, **kwargs)
         else:
-            return set(self._all_messages())
+            yield from self._all_messages(schema, **kwargs)
 
     def find(self, schema):
         m = self._messages.get(schema)
@@ -77,7 +85,7 @@ class Context:
                         return m
 
     def __repr__(self):
-        return f"Context(bindings={self.bindings},messages={[m for m in self.messages]},subcontexts={self.subcontexts})"
+        return f"Context(bindings={self.bindings},messages={[m for m in self.messages()]},subcontexts={self.subcontexts})"
 
     def instance(self, schema):
         payload = {}
@@ -115,9 +123,12 @@ class Store:
         # recursive (key -> value -> context -> subkey -> value -> subcontext...)
         self.contexts = Context()
 
+    def messages(self, *args, **kwargs):
+        return self.contexts.all_messages(*args, **kwargs)
+
     @property
-    def messages(self):
-        return self.contexts.all_messages
+    def all_bindings(self):
+        return self.contexts.all_bindings
 
     def find_context(self, **params):
         """Find context whose keys match params (ignoring extra parameters)"""

@@ -39,7 +39,7 @@ async def test_receive_process():
     await a.receive({"item": "ball"})
     await a.stop()
 
-    print(f"messages: {a.history.messages}")
+    print(f"messages: {a.history.messages()}")
 
 
 @pytest.mark.asyncio
@@ -75,5 +75,5 @@ async def test_enabled_initiators():
     a = Adapter(RFQ.roles["S"], RFQ, config)
     a.compute_enabled({})
 
-    assert len(a.enabled_messages.messages) == 1
-    assert a.enabled_messages.messages.pop().schema == RFQ.messages["req"]
+    assert len(list(a.enabled_messages.messages())) == 1
+    assert next(a.enabled_messages.messages()).schema == RFQ.messages["req"]
