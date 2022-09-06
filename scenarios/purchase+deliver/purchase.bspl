@@ -1,0 +1,10 @@
+Purchase {
+  roles Buyer, Seller
+  parameters out ID key, out item, out price, out done
+  private payment, accept, reject
+
+  Buyer -> Seller: RFQ[out ID key, out item]
+  Seller -> Buyer: Quote[in ID, in item, out price]
+  Buyer -> Seller: Buy[in ID, in price, out payment, out accept, out done]
+  Buyer -> Seller: Reject[in ID, in price, out reject, out done]
+}

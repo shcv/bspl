@@ -33,6 +33,13 @@ logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
 
 
+def test_message_init():
+    m1 = Message(req)
+    m2 = Message(req)
+
+    assert m1.meta is not m2.meta
+
+
 def test_message_complete():
     m = Message(req)
     assert not m.complete
@@ -90,6 +97,6 @@ def test_partial_bind():
         p.bind(payment=10)
     assert (
         str(e.value)
-        == "Bind must produce a complete instance: pay(item='ball',price=10,payment=10)"
+        == "Bind must produce a complete instance: pay(item='ball',price=10,payment=10){system=None}"
     )
     p.bind(payment=10, address="home")

@@ -154,7 +154,6 @@ class Protocol(Base):
             self.set_parameters(public_parameters)
         if private_parameters:
             self.private_parameters = {p.name: p for p in private_parameters}
-            self.update()
         if references:
             self.references = {}
             name_counts = {}
@@ -168,19 +167,26 @@ class Protocol(Base):
 
     def set_parameters(self, parameters):
         self.public_parameters = {p.name: p for p in parameters}
-        self.update()
 
-    def update(self):
-        "Recompute some basic parameter information"
-        if hasattr(self, "private_parameters"):
-            self.parameters = self.public_parameters.copy()
-            self.parameters.update(self.private_parameters)
-        else:
-            self.parameters = self.public_parameters.copy()
-        self.ins = self.adorned("in")
-        self.outs = self.adorned("out")
-        self.nils = self.adorned("nil")
-        self.keys = self.get_keys()
+    @property
+    def parameters(self):
+        return {**self.public_parameters, **self.private_parameters}
+
+    @property
+    def ins(self):
+        return self.adorned("in")
+
+    @property
+    def outs(self):
+        return self.adorned("out")
+
+    @property
+    def nils(self):
+        return self.adorned("nil")
+
+    @property
+    def keys(self):
+        return self.get_keys()
 
     @property
     def all_parameters(self):
@@ -205,11 +211,7 @@ class Protocol(Base):
 
     @property
     def messages(self):
-        if not hasattr(self, "_messages") or not self._messages:
-            self._messages = {
-                k: v for r in self.references.values() for k, v in r.messages.items()
-            }
-        return self._messages
+        return {k: v for r in self.references.values() for k, v in r.messages.items()}
 
     @property
     def is_entrypoint(self):

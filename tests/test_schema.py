@@ -3,6 +3,7 @@
 import asyncio
 import pytest
 import bspl.parser
+from bspl.adapter import Adapter
 from bspl.adapter.schema import *
 
 
@@ -25,6 +26,6 @@ from RFQ import C, S, req, quote
 
 
 def test_instantiate():
-    i = instantiate("test")
+    i = instantiate(Adapter("C", {0: {"protocol": rfq, "roles": {}, "agents": {}}}))
     assert i(req, item="ball").payload == {"item": "ball"}
     assert i(req, "ball").payload == {"item": "ball"}

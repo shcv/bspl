@@ -73,14 +73,15 @@ class Scheduler:
             await self.run()
 
     async def run(self):
-        logger.debug(f"running policies: {self.policies}")
-        for p in self.policies:
-            # give policy access to full history for conditional evaluation
-            messages = p.run(self.adapter.history)
-            if self._backoff:
-                await self.adapter.send(*[m for m in messages if self.backoff(m)])
-            elif messages:
-                await self.adapter.send(*messages)
+        if self.policies:
+            logger.debug(f"running policies: {self.policies}")
+            for p in self.policies:
+                # give policy access to full history for conditional evaluation
+                messages = p.run(self.adapter.history)
+                if self._backoff:
+                    await self.adapter.send(*[m for m in messages if self.backoff(m)])
+                elif messages:
+                    await self.adapter.send(*messages)
 
         self.adapter.compute_enabled({})
         for t in self.tasks:

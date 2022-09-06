@@ -39,7 +39,13 @@ With-Reject {
 order = specification.export("Order")
 from Order import C, S, Buy, Deliver, BuyAck, BuyReminder, Extra
 
-config = {C: ("localhost", 8001), S: ("localhost", 8001)}
+systems = {
+    0: {
+        "protocol": order,
+        "agents": {"C": ("localhost", 8001), "S": ("localhost", 8001)},
+        "roles": {C: "C", S: "S"},
+    }
+}
 Map = {
     "reminders": {Buy: (BuyReminder, "remID")},
 }
@@ -55,11 +61,11 @@ async def test_remind_until_received():
     assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
-    a = Adapter(C, order, config, emitter=MockEmitter())
+    a = Adapter("C", systems, emitter=MockEmitter())
     a.add_policies(r)
     assert a.reactors[Buy]
 
-    m = Message(Buy, {"item": "shoe"})
+    m = Buy(item="shoe")
     await a.send(m)
     await a.update()
     assert r.active
@@ -68,7 +74,7 @@ async def test_remind_until_received():
     assert selected[0].schema == BuyReminder
 
     # Buy with Deliver should not
-    await a.receive({"item": "shoe", "done": "yep"})
+    await a.receive(Deliver(item="shoe", done="yep", system=0).serialize())
     await a.update()
     selected = r.run(a.history)
     assert not selected
@@ -81,10 +87,10 @@ async def test_remind_until_conjunction():
     assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
-    a = Adapter(C, order, config, emitter=MockEmitter())
+    a = Adapter("C", systems, emitter=MockEmitter())
     a.add_policies(r)
     assert a.reactors[Buy]
-    m = Message(Buy, {"item": "shoe"})
+    m = Buy(item="shoe", system=0)
     await a.send(m)
     await a.update()
     assert r.active
@@ -93,13 +99,13 @@ async def test_remind_until_conjunction():
     assert selected[0].schema == BuyReminder
 
     # Buy with only Deliver should still be resent
-    await a.receive({"item": "shoe", "done": "yep"})
+    await a.receive(Deliver(item="shoe", done="yep", system=0).serialize())
     await a.update()
     selected = r.run(a.history)
     assert selected
 
     # Buy with both Deliver and Extra should not be resent
-    await a.receive({"item": "shoe", "extra": "totally"})
+    await a.receive(Extra(item="shoe", extra="totally", system=0).serialize())
     await a.update()
     selected = r.run(a.history)
     assert not selected

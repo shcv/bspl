@@ -8,7 +8,10 @@ logger = logging.getLogger("bspl")
 
 
 def encode(msg):
-    s = json.dumps(msg.payload, separators=(",", ":"))
+    s = json.dumps(
+        msg.serialize(),
+        separators=(",", ":"),
+    )
     b = s.encode()
     return b
 

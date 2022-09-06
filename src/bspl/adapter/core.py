@@ -24,6 +24,7 @@ from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
 from .jason import Environment, Agent, Actions, actions
 from . import policies
+from ..protocol import Parameter
 import bspl
 import bspl.adapter.jason
 import bspl.adapter.schema
@@ -74,64 +75,78 @@ class EmissionEvent(ObservationEvent):
 class Adapter:
     def __init__(
         self,
-        role,
-        protocol,
-        configuration,
+        name,
+        systems,
         emitter=Emitter(),
         receiver=None,
-        name=None,
         color=None,
         in_place=False,
+        address=None,
     ):
         """
         Initialize the agent adapter.
 
-        role: name of the role being implemented
-        protocol: a protocol specification
-          {name, keys, messages: [{name, from, to, parameters, keys, ins, outs, nils}]}
-        configuration: a dictionary of roles to endpoint URLs
-          {role: url}
+        name: name of this agent
+        systems: a list of MAS to participate in
         """
-        self.logger = logging.getLogger(f"bspl.adapter.{role.name}")
+        self.name = name
+
+        self.logger = logging.getLogger(f"bspl.adapter.{name}")
         self.logger.propagate = False
-        color = color or COLORS[int(role.name, 36) % len(COLORS)]
+        color = color or (
+            COLORS[int(name, 36) % len(COLORS)]
+            if name
+            else COLORS[random.randint(0, len(COLORS) - 1)]
+        )
         self.color = agentspeak.stdlib.COLORS[0] = color
         reset = colorama.Fore.RESET + colorama.Back.RESET
         formatter = logging.Formatter(
-            f"%(asctime)-15s ({''.join(self.color)}{name or role.name}{reset}) %(module)s: %(message)s"
+            f"%(asctime)-15s ({''.join(self.color)}{name}{reset}): %(message)s"
         )
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
         self.logger.handlers.clear()
         self.logger.addHandler(handler)
 
-        self.role = role
-        self.name = name
-        self.protocol = protocol
-        self.configuration = configuration
+        self.roles = {
+            r for s in systems.values() for r in s["roles"] if s["roles"][r] == name
+        }
+        self.protocols = [s["protocol"] for s in systems.values()]
+        self.systems = systems
+        self.address = address
+        if not address:
+            for s in self.systems.values():
+                if name in s["agents"]:
+                    self.address = s["agents"][name]
+                    break  # use first address found
         self.reactors = {}  # dict of message -> [handlers]
         self.generators = {}  # dict of (scheema tuples) -> [handlers]
-        self.history = Store()
+        self.history = Store(systems)
         self.emitter = emitter
-        self.receiver = receiver or Receiver(configuration[role])
+        self.receiver = receiver or Receiver(self.address)
         self.schedulers = []
-        self.projection = protocol.projection(role)
+        self.messages = {
+            name: message
+            for p in self.protocols
+            for name, message in p.messages.items()
+        }
 
-        self.inject(protocol)
+        for p in self.protocols:
+            self.inject(p)
 
         self.events = Queue()
-        self.enabled_messages = Store()
+        self.enabled_messages = Store(systems)
         self.decision_handlers = set()
         self._in_place = in_place
 
     def debug(self, msg):
-        self.logger.debug(msg, extra={"role": self.role.name})
+        self.logger.debug(msg)
 
     def info(self, msg):
-        self.logger.info(msg, extra={"role": self.role.name})
+        self.logger.info(msg)
 
-    def warn(self, msg):
-        self.logger.warn(msg, extra={"role": self.role.name})
+    def warning(self, msg):
+        self.logger.warning(msg)
 
     def inject(self, protocol):
         """Install helper methods into schema objects"""
@@ -144,16 +159,13 @@ class Adapter:
             m.match = MethodType(bspl.adapter.schema.match, m)
             m.adapter = self
 
-    async def receive(self, payload):
-        if not isinstance(payload, dict):
-            self.warn("Payload does not parse to a dictionary: {}".format(payload))
+    async def receive(self, data):
+        if not isinstance(data, dict):
+            self.warning("Data does not parse to a dictionary: {}".format(data))
             return
 
-        schema = self.protocol.find_schema(payload, to=self.role)
-        if not schema:
-            self.warn("No schema matching payload: {}".format(payload))
-            return
-        message = Message(schema, payload)
+        schema = self.messages[data["schema"]]
+        message = Message(schema, data["payload"], meta=data.get("meta", {}))
         message.meta["received"] = datetime.datetime.now()
         if self.history.is_duplicate(message):
             self.debug("Duplicate message: {}".format(message))
@@ -170,13 +182,16 @@ class Adapter:
     async def send(self, *messages):
         def prep(message):
             if not message.dest:
-                message.dest = self.configuration[message.schema.recipient]
+                system = self.systems[message.system]
+                message.dest = system["agents"][
+                    system["roles"][message.schema.recipient]
+                ]
             return message
 
         emissions = set(prep(m) for m in messages if not self.history.is_duplicate(m))
         if len(emissions) < len(messages):
             self.info(
-                f"({self.role.name}) Skipped duplicate messages: {set(messages).difference(emissions)}"
+                f"Skipped {len(messages) - len(emissions)} duplicate messages: {set(messages).difference(emissions)}"
             )
 
         if self.history.check_emissions(emissions):
@@ -263,7 +278,7 @@ class Adapter:
         Note: sending a message triggers the loop again
         """
         for tup in self.generators.keys():
-            for group in zip(*(schema.match(**message.payload) for schema in tup)):
+            for group in zip(*(schema.match(message) for schema in tup)):
                 for handler in self.generators[tup]:
                     # assume it returns only one message for now
                     msg = await handler(*group)
@@ -304,7 +319,16 @@ class Adapter:
 
         def register(handler):
             async def task(adapter):
-                return await handler(adapter.enabled_messages)
+                if self._in_place:
+                    emissions = []
+                    await handler(adapter.enabled_messages)
+                    for m in self.enabled_messages.messages():
+                        if m.instances:
+                            emissions.extend(m.instances)
+                            m.instances.clear()
+                    return emissions
+                else:
+                    return await handler(adapter.enabled_messages)
 
             s.add_task(task)
 
@@ -334,9 +358,11 @@ class Adapter:
     def load_policies(self, spec):
         if type(spec) is str:
             spec = yaml.full_load(spec)
-        if self.role.name in spec:
-            for condition, ps in spec[self.role.name].items():
-                self.add_policies(*ps, when=condition)
+        if any(r.name in spec for r in self.roles):
+            for r in self.roles:
+                if r.name in spec:
+                    for condition, ps in spec[r.name].items():
+                        self.add_policies(*ps, when=condition)
         else:
             # Assume the file contains policies only for agent
             for condition, ps in spec.items():
@@ -438,7 +464,12 @@ class Adapter:
         """
 
         # Add initioators
-        self.enabled_messages.add(*(m().partial() for m in self.protocol.initiators()))
+        for sID, s in self.systems.items():
+            for m in s["protocol"].initiators():
+                if m.sender in self.roles:
+                    p = m().partial()
+                    p.meta["system"] = sID
+                    self.enabled_messages.add(p)
 
         # clear out matching keys from enabled set
         removed = set()
@@ -449,9 +480,9 @@ class Adapter:
 
         added = set()
         for o in observations:
-            for schema in self.projection.messages.values():
-                if schema.sender == self.role:
-                    added.update(schema.match(**o.payload))
+            for schema in self.systems[o.system]["protocol"].messages.values():
+                if schema.sender in self.roles:
+                    added.update(schema.match(o))
         for m in added:
             self.debug(f"new enabled message: {m}")
             self.enabled_messages.add(m.partial())

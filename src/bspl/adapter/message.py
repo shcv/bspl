@@ -20,25 +20,46 @@ class Message:
     key = None
 
     def __init__(
-        self, schema, payload=None, acknowledged=False, dest=None, adapter=None
+        self,
+        schema,
+        payload=None,
+        meta={},
+        acknowledged=False,
+        dest=None,
+        adapter=None,
+        system=None,
     ):
         self.schema = schema
         self.payload = payload or {}
         self.acknowledged = acknowledged
         self.dest = dest
         self.adapter = adapter
-        self.meta = {}
+        self.meta = {"system": system, **meta}
 
     @property
     def key(self):
         return get_key(self.schema, self.payload)
 
+    @property
+    def system(self):
+        return self.meta["system"]
+
+    @property
+    def recipient(self):
+        s = self.adapter.systems[self.system]
+        return s["roles"][self.schema.recipient]
+
     def __repr__(self):
         payload = ",".join("{0}={1!r}".format(k, v) for k, v in self.payload.items())
-        return f"{self.schema.name}({payload})"
+        meta = ",".join("{0}={1!r}".format(k, v) for k, v in self.meta.items())
+        return f"{self.schema.name}({payload}){{{meta}}}"
 
     def __eq__(self, other):
-        return self.payload == other.payload and self.schema == other.schema
+        return (
+            self.payload == other.payload
+            and self.schema == other.schema
+            and self.system == other.system
+        )
 
     def __hash__(self):
         return hash(self.schema.qualified_name + self.key)
@@ -90,10 +111,7 @@ class Message:
         self.adapter.send(self)
 
     def context(self, schema=None):
-        if schema:
-            return self.adapter.history.find_context(**self.project_key(schema))
-        else:
-            return self.adapter.history.context(self)
+        return self.adapter.history.context(self, schema)
 
     def term(self):
         functor = self.schema.name
@@ -135,18 +153,25 @@ class Message:
     def partial(self):
         return Partial(self)
 
+    def serialize(self):
+        return {"schema": self.schema.name, "payload": self.payload, "meta": self.meta}
+
 
 class Partial(Message):
     def __init__(self, message):
         self.schema = message.schema
+        self.adapter = message.adapter
         # the base bindings that are used to initialize each instance
         self.bindings = self.payload = message.payload.copy()
         self.dest = None
 
         self.instances = []
+        self.meta = message.meta.copy()
 
     def bind(self, **kwargs):
-        inst = Message(self.schema, self.bindings.copy(), dest=self.dest)
+        inst = Message(
+            self.schema, self.bindings.copy(), dest=self.dest, system=self.system
+        )
         for k, v in kwargs.items():
             inst[k] = v
         if not inst.complete:

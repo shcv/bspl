@@ -4,6 +4,7 @@ import json
 import ijson
 import datetime
 from asyncio.queues import Queue
+from .message import Message
 
 
 def unbundle(bundle):

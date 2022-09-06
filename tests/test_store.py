@@ -25,43 +25,49 @@ Logistics {
 logistics = specification.export("Logistics")
 from Logistics import Packer, Wrapped, RequestLabel, Labeled, Packed
 
-config = {
-    Packer: ("localhost", 8001),
+systems = {
+    0: {
+        "protocol": logistics,
+        "agents": {"P": ("localhost", 8001)},
+        "roles": {Packer: "P"},
+    }
 }
 
-a = Adapter(Packer, logistics, config)  # for injection
+a = Adapter("P", systems)  # for injection
 
 logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
 
 
-def test_add():
-    h = Store()
-    m = Labeled(orderID=1, address="home", label="0001")
+@pytest.fixture()
+def h():
+    return Store(systems)
+
+
+def test_add(h):
+    m = Labeled(orderID=1, address="home", label="0001", system=0)
     h.add(m)
     assert m in [m for m in h.messages() if m.schema is Labeled]
 
 
-def test_add_partial():
-    h = Store()
-    m = RequestLabel()
+def test_add_partial(h):
+    m = RequestLabel(system=0)
     h.add(m)
-    m2 = RequestLabel()
+    m2 = RequestLabel(system=0)
     h.add(m2)
     print(h.contexts)
     assert len(list(h.messages())) == 1
 
 
-def test_context_messages():
-    h = Store()
-    m = Labeled(orderID=1, address="home", label="0001")
+def test_context_messages(h):
+    m = Labeled(orderID=1, address="home", label="0001", system=0)
     h.add(m)
     print(h.contexts)
-    c = h.contexts["orderID"][1]
+    c = h.contexts[0]["orderID"][1]
     print(list(c.messages()))
     assert m in c.messages()
 
-    m2 = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
+    m2 = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper", system=0)
     h.add(m2)
     c2 = c["itemID"][0]
     print([m for m in c2.messages()])
@@ -77,16 +83,15 @@ def test_context_messages():
     assert m not in c.messages(orderID=2)
 
 
-def test_context_all_messages():
-    h = Store()
-    m = Labeled(orderID=1, address="home", label="0001")
+def test_context_all_messages(h):
+    m = Labeled(orderID=1, address="home", label="0001", system=0)
     h.add(m)
     print(h.contexts)
-    c = h.contexts["orderID"][1]
+    c = h.contexts[0]["orderID"][1]
     print(list(c.all_messages()))
     assert m in c.all_messages()
 
-    m2 = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
+    m2 = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper", system=0)
     h.add(m2)
     print(h.contexts)
     print([m for m in c.messages()])
@@ -98,38 +103,35 @@ def test_context_all_messages():
     assert m not in c.all_messages(orderID=2)
 
 
-def test_context_bindings():
-    h = Store()
-
-    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
+def test_context_bindings(h):
+    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper", system=0)
     h.add(m)
-    print(h.contexts["orderID"][1].bindings)
-    assert h.contexts["orderID"][1].bindings.get("orderID") == None
+    print(h.contexts[0]["orderID"][1].bindings)
+    assert h.contexts[0]["orderID"][1].bindings.get("orderID") == None
     assert (
-        h.contexts["orderID"][1].subcontexts["itemID"][0].bindings.get("orderID") == 1
+        h.contexts[0]["orderID"][1].subcontexts["itemID"][0].bindings.get("orderID")
+        == 1
     )
 
 
-def test_context_all_bindings():
-    h = Store()
-    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
+def test_context_all_bindings(h):
+    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper", system=0)
     h.add(m)
-    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrapping="paper")
+    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrapping="paper", system=0)
     h.add(m2)
-    print(h.contexts["orderID"][1].all_bindings)
-    items = h.contexts["orderID"][1].all_bindings["itemID"]
+    print(h.contexts[0]["orderID"][1].all_bindings)
+    items = h.contexts[0]["orderID"][1].all_bindings["itemID"]
     assert items == [0, 1]
-    assert h.contexts["orderID"][1].all_bindings["orderID"] == [1]
 
 
-def test_matching_contexts():
-    h = Store()
-    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper")
+def test_store_matching_contexts(h):
+    m = Wrapped(orderID=1, itemID=0, item="ball", wrapping="paper", system=0)
     h.add(m)
-    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrapping="paper")
+    m2 = Wrapped(orderID=1, itemID=1, item="bat", wrapping="paper", system=0)
     h.add(m2)
-    m3 = Labeled(orderID=1, address="home", label="0001")
+    m3 = Labeled(orderID=1, address="home", label="0001", system=0)
     h.add(m3)
-    contexts = h.matching_contexts(**m3.payload)
+    contexts = h.matching_contexts(m3)
     print([c.bindings for c in contexts])
     assert len(contexts) == 3
+    assert h.contexts[0]["orderID"][1].all_bindings["orderID"] == [1]

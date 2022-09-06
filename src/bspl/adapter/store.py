@@ -117,48 +117,34 @@ class Context:
 
 
 class Store:
-    def __init__(self):
+    def __init__(self, systems):
+        """
+        Construct a store, with separate contexts for each of the system IDs in `systems`.
+        """
         # message indexes
-
         # recursive (key -> value -> context -> subkey -> value -> subcontext...)
-        self.contexts = Context()
+        self.contexts = {k: Context() for k in systems}
 
     def messages(self, *args, **kwargs):
-        return self.contexts.all_messages(*args, **kwargs)
+        for c in self.contexts.values():
+            yield from c.all_messages(*args, **kwargs)
 
     @property
     def all_bindings(self):
         return self.contexts.all_bindings
 
-    def find_context(self, **params):
-        """Find context whose keys match params (ignoring extra parameters)"""
-
-        def step(context):
-            for k in set(context.keys()).intersection(params.keys()):
-                # assume only one
-                return context[k].get(params[k])
-
-        context = self.contexts
-        while True:
-            new_context = step(context)
-            if new_context:
-                context = new_context
-            else:
-                break
-        return context
-
-    def matching_contexts(self, **params):
+    def matching_contexts(self, message):
         """Find contexts that either have the same bindings, or don't have the parameter"""
 
-        context = self.find_context(**params)
+        context = self.context(message)
 
         if len(context.subcontexts):
             return [
                 c
                 for c in context.flatten()
                 if all(
-                    c.bindings.get(p) == params[p] or p not in c.bindings
-                    for p in params
+                    c.bindings.get(p) == message[p] or p not in c.bindings
+                    for p in message.payload
                 )
             ]
         else:
@@ -171,7 +157,7 @@ class Store:
         Each message in context should have the same keys.
         Returns true if the parameters are consistent with all messages in the matching context.
         """
-        context = context or self.find_context(**message.payload)
+        context = context or self.context(message)
         result = all(
             message.payload[p] == context.bindings[p]
             for p in message.payload
@@ -221,10 +207,9 @@ class Store:
 
     def check_emissions(self, messages, use_context=None):
         # message assumed not to be duplicate; otherwise recheck unnecessary
-
         parameters = {}
         for message in messages:
-            context = use_context or self.find_context(**message.payload)
+            context = use_context or self.context(message)
             if not self.check_outs(message.schema, context):
                 logger.info(
                     f"Failed {message.schema.name} out check: {message.payload}"
@@ -252,12 +237,17 @@ class Store:
                     f"Message {message} disabled by other emissions: {messages}"
                 )
                 return False
-            if parameters.get(message.key):
-                parameters[message.key].update(
+
+            if parameters.get(message.system, {}).get(message.key):
+                parameters[message.system][message.key].update(
                     message.schema.ins.union(message.schema.outs)
                 )
             else:
-                parameters[message.key] = message.schema.ins.union(message.schema.outs)
+                if message.system not in parameters:
+                    parameters[message.system] = {}
+                parameters[message.system][message.key] = message.schema.ins.union(
+                    message.schema.outs
+                )
 
         return True
 
@@ -271,11 +261,13 @@ class Store:
             context = self.context(m)
             context.add(m)
 
-    def context(self, message):
+    def context(self, message, schema=None):
         """Find or create a context for message"""
         parent = None
-        context = self.contexts
-        for k in message.schema.keys:
+        context = self.contexts[message.system]
+        if not schema:
+            schema = message.schema
+        for k in schema.keys:
             v = message.payload.get(k)
             if k in context:
                 if v is not None and v in context[k]:

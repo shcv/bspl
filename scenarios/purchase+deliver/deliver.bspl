@@ -1,0 +1,7 @@
+Deliver {
+  roles Sender, Shipper, Recipient
+  parameters out pID key, out package, out delivered
+
+  Sender -> Shipper: Send[out pID key, out package]
+  Shipper -> Recipient: Ship[in pID, in package, out delivered]
+}
