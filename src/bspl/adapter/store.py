@@ -1,9 +1,17 @@
 import logging
 import itertools
+import types
 from .message import Message
 
 logger = logging.getLogger("bspl.store")
 logger.setLevel(logging.DEBUG)
+
+
+def check(p, test):
+    if type(test) == types.FunctionType:
+        return test(p)
+    else:
+        return p == test
 
 
 class Context:
@@ -52,14 +60,14 @@ class Context:
 
         yield from filter(
             lambda m: (not schema or m.schema == schema)
-            and all(m[k] == kwargs[k] for k in kwargs),
+            and all(check(m[k], kwargs[k]) for k in kwargs),
             self._messages.values(),
         )
 
     def _all_messages(self, schema=None, **kwargs):
         yield from filter(
             lambda m: (not schema or m.schema == schema)
-            and all(m[k] == kwargs[k] for k in kwargs),
+            and all(check(m[k], kwargs[k]) for k in kwargs),
             self._messages.values(),
         )
         for p in self.subcontexts:
