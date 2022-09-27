@@ -4,7 +4,7 @@ import socket
 import json
 from asyncio.queues import Queue
 
-logger = logging.getLogger("bspl")
+logger = logging.getLogger("bspl.emitter")
 
 
 def encode(msg):

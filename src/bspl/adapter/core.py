@@ -77,6 +77,7 @@ class Adapter:
         self,
         name,
         systems,
+        agents,
         emitter=Emitter(),
         receiver=None,
         color=None,
@@ -113,17 +114,18 @@ class Adapter:
         }
         self.protocols = [s["protocol"] for s in systems.values()]
         self.systems = systems
-        self.address = address
-        if not address:
-            for s in self.systems.values():
-                if name in s["agents"]:
-                    self.address = s["agents"][name]
-                    break  # use first address found
+        self.agents = agents
+        self.addresses = self.agents[self.name]
         self.reactors = {}  # dict of message -> [handlers]
         self.generators = {}  # dict of (scheema tuples) -> [handlers]
         self.history = Store(systems)
         self.emitter = emitter
-        self.receiver = receiver or Receiver(self.address)
+        if receiver:
+            self.receivers = [receiver]
+        else:
+            self.receivers = []
+            for addr in self.addresses:
+                self.receivers.append(Receiver(addr))
         self.schedulers = []
         self.messages = {
             name: message
@@ -183,9 +185,13 @@ class Adapter:
         def prep(message):
             if not message.dest:
                 system = self.systems[message.system]
-                message.dest = system["agents"][
-                    system["roles"][message.schema.recipient]
-                ]
+                r = self.agents[system["roles"][message.schema.recipient]]
+                # rexipient could have more than one endpoint
+                if isinstance(r, list):
+                    # randomly select from available endpoints
+                    message.dest = random.choice(r)
+                else:
+                    message.dest = r
             return message
 
         emissions = set(prep(m) for m in messages if not self.history.is_duplicate(m))
@@ -339,7 +345,8 @@ class Adapter:
 
         loop.create_task(self.update_loop())
 
-        await self.receiver.task(self)
+        for r in self.receivers:
+            await r.task(self)
 
         if hasattr(self.emitter, "task"):
             await self.emitter.task()

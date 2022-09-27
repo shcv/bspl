@@ -47,7 +47,7 @@ class Receiver:
         adapter.debug(f"Attempting to bind: {self.address}")
         transport, protocol = await loop.create_datagram_endpoint(
             lambda: UDPReceiverProtocol(self.queue, adapter),
-            local_addr=("0.0.0.0", self.address[1]),
+            local_addr=(self.address[0], self.address[1]),
         )
         self.listening = True
         self.transport = transport
