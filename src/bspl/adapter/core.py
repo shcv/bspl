@@ -381,6 +381,12 @@ class Adapter:
             self.load_policies(spec)
 
     def start(self, *tasks, use_uvloop=True):
+        if use_uvloop:
+            try:
+                import uvloop
+            except:
+                use_uvloop = False
+
         async def main():
             self.events = Queue()
             await self.task()
