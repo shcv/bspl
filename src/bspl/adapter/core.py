@@ -23,11 +23,13 @@ from .receiver import Receiver
 from .scheduler import Scheduler, exponential
 from .statistics import stats, increment
 from .jason import Environment, Agent, Actions, actions
+from .event import Event, ObservationEvent, ReceptionEvent, EmissionEvent, InitEvent
 from . import policies
 from ..protocol import Parameter
 import bspl
 import bspl.adapter.jason
 import bspl.adapter.schema
+from bspl.utils import identity
 
 FORMAT = "%(asctime)-15s %(module)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
@@ -53,23 +55,6 @@ COLORS = [
     (colorama.Back.CYAN, colorama.Fore.BLACK),
     (colorama.Back.RED, colorama.Fore.WHITE),
 ]
-
-
-class ObservationEvent:
-    type = None
-    pass
-
-
-class ReceptionEvent(ObservationEvent):
-    def __init__(self, message):
-        self.type = "reception"
-        self.messages = [message]
-
-
-class EmissionEvent(ObservationEvent):
-    def __init__(self, messages):
-        self.type = "emission"
-        self.messages = messages
 
 
 class Adapter:
@@ -138,7 +123,7 @@ class Adapter:
 
         self.events = Queue()
         self.enabled_messages = Store(systems)
-        self.decision_handlers = set()
+        self.decision_handlers = {}
         self._in_place = in_place
 
     def debug(self, msg):
@@ -293,7 +278,9 @@ class Adapter:
                         # short circuit on first message to send
                         return
 
-    def decision(self, handler):
+    def decision(
+        self, handler=None, event=None, filter=None, received=None, sent=None, **kwargs
+    ):
         """
         Decorator for declaring decision handlers.
 
@@ -305,54 +292,62 @@ class Adapter:
                     m.bind("price", 10)
                     return m
         """
-        if handler not in self.decision_handlers:
-            self.decision_handlers.add(handler)
+        fn = identity
+        if event != None:
+            if isinstance(event, str):
+                prev = fn
+                fn = lambda e: (prev(e) and (hasattr(e, "type") and e.type == event))
+            elif issubclass(event, Event):
+                prev = fn
+                fn = lambda e: (prev(e) and isinstance(e, event))
+            elif isinstance(event, bspl.protocol.Message):
+                schema = event
+                prev = fn
+                fn = lambda e: (
+                    prev(e)
+                    and isinstance(e, ObservationEvent)
+                    and any(m.schema == event for m in e.messages)
+                )
+        if received != None:
+            schema = received
+            prev = fn
+            fn = lambda e: (
+                prev(e)
+                and isinstance(e, ReceptionEvent)
+                and any(m.schema == event for m in e.messages)
+            )
+        if sent != None:
+            schema = sent
+            prev = fn
+            fn = lambda e: (
+                prev(e)
+                and isinstance(e, EmissionEvent)
+                and any(m.schema == event for m in e.messages)
+            )
+        if filter != None:
+            prev = fn
+            fn = lambda e: (prev(e) and filter(e))
 
-    def schedule_decision(self, schedule):
-        """
-        Decorator for adding decision handlers that run on a schedule
+        if kwargs:
 
-        Example:
-        @adapter.schedule_decision("10s") # run every 10s
-        async def decide(enabled)
-            for m in enabled:
-                if m.schema is Quote:
-                    m.bind("price", 10)
-                    return m
-        """
-        s = Scheduler(schedule)
-        self.schedulers.append(s)
+            def match(event):
+                for k in kwargs:
+                    if k in event:
+                        return event[k] == kwargs[k]
+
+            prev = fn
+            fn = lambda e: (prev(e) and match(e))
 
         def register(handler):
-            async def task(adapter):
-                if self._in_place:
-                    emissions = []
-                    await handler(adapter.enabled_messages)
-                    for m in self.enabled_messages.messages():
-                        if m.instances:
-                            emissions.extend(m.instances)
-                            m.instances.clear()
-                    return emissions
-                else:
-                    return await handler(adapter.enabled_messages)
+            if fn not in self.decision_handlers:
+                self.decision_handlers[fn] = {handler}
+            else:
+                self.decision_handlers[fn].add(handler)
 
-            s.add_task(task)
-
-        return register
-
-    async def task(self):
-        loop = asyncio.get_running_loop()
-
-        loop.create_task(self.update_loop())
-
-        for r in self.receivers:
-            await r.task(self)
-
-        if hasattr(self.emitter, "task"):
-            await self.emitter.task()
-        for s in self.schedulers:
-            # todo: add stop event support
-            loop.create_task(s.task(self))
+        if handler != None:
+            register(handler)
+        else:
+            return register
 
     def add_policies(self, *ps, when=None):
         s = None
@@ -389,8 +384,21 @@ class Adapter:
 
         async def main():
             self.events = Queue()
-            await self.task()
             loop = asyncio.get_running_loop()
+            loop.create_task(self.update_loop())
+
+            for r in self.receivers:
+                await r.task(self)
+
+            if hasattr(self.emitter, "task"):
+                await self.emitter.task()
+
+            for s in self.schedulers:
+                # todo: add stop event support
+                loop.create_task(s.task(self))
+
+            await self.signal(InitEvent())
+
             for t in tasks:
                 loop.create_task(t)
 
@@ -408,14 +416,15 @@ class Adapter:
         """
         if not hasattr(self, "events"):
             self.events = Queue()
+        if isinstance(event, str):
+            event = Event(event)
         await self.events.put(event)
 
     async def update(self):
         event = await self.events.get()
         emissions = await self.process(event)
         if emissions:
-            if self.history.check_emissions(emissions):
-                await self.send(*emissions)
+            await self.send(*emissions)
 
     async def update_loop(self):
         while self.running:
@@ -449,21 +458,29 @@ class Adapter:
                     self.environment.wake_signal.set()
                 await self.react(m)
                 await self.handle_enabled(m)
+        elif isinstance(event, InitEvent):
+            self.construct_initiators()
 
-        for d in self.decision_handlers:
-            s = inspect.signature(d).parameters
-            if self._in_place:
-                await d(self.enabled_messages)
-                instances = []
-                for m in self.enabled_messages.messages():
-                    if m.instances:
-                        instances.extend(m.instances)
-                        m.instances.clear()
-                emissions.extend(instances)
-            elif len(s) == 1:
-                emissions.extend(await d(self.enabled_messages))
-            elif len(s == 2):
-                emissions.extend(await d(self.enabled_messages, event))
+        for fn in self.decision_handlers:
+            if fn(event):
+                for d in self.decision_handlers[fn]:
+                    s = inspect.signature(d).parameters
+                    result = None
+                    if len(s) == 1:
+                        result = await d(self.enabled_messages)
+                    elif len(s == 2):
+                        result = await d(self.enabled_messages, event)
+
+                    if self._in_place:
+                        instances = []
+                        for m in self.enabled_messages.messages():
+                            if m.instances:
+                                instances.extend(m.instances)
+                                m.instances.clear()
+                        emissions.extend(instances)
+                    else:
+                        emissions.extend(result)
+
         if hasattr(self, "bdi"):
             emissions.extend(
                 bspl.adapter.jason.bdi_handler(self.bdi, self.enabled_messages, event)
@@ -471,11 +488,7 @@ class Adapter:
             self.environment.wake_signal.set()
         return emissions
 
-    def compute_enabled(self, observations):
-        """
-        Compute updates to the enabled set based on a list of an observations
-        """
-
+    def construct_initiators(self):
         # Add initioators
         for sID, s in self.systems.items():
             for m in s["protocol"].initiators():
@@ -484,6 +497,10 @@ class Adapter:
                     p.meta["system"] = sID
                     self.enabled_messages.add(p)
 
+    def compute_enabled(self, observations):
+        """
+        Compute updates to the enabled set based on a list of an observations
+        """
         # clear out matching keys from enabled set
         removed = set()
         for msg in observations:

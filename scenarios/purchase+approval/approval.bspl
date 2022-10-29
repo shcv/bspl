@@ -1,0 +1,7 @@
+Approval {
+  roles Requester, Approver
+  parameters out aID key, out request, out approved
+
+  Requester -> Approver: Ask[out aID key, out request]
+  Approver -> Requester: Approve[in aID, in request, out approved]
+}

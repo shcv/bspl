@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 
+def identity(x):
+    return x
+
+
 def merge(*dicts):
     """
     Given any number of dicts, shallow copy and merge into a new dict,

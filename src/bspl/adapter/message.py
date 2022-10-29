@@ -177,3 +177,4 @@ class Partial(Message):
         if not inst.complete:
             raise Exception(f"Bind must produce a complete instance: {inst}")
         self.instances.append(inst)
+        return inst
