@@ -27,7 +27,11 @@ On Windows, Python 3.6+ is recommended.
     #+end_example
   - Windows:
     #+begin_example
-    $ venv\Scripts\activate.bat
+    $ venv\Scripts\activate.bat # or venv\Scripts\Activate.ps1 in PowerShell
+    #+end_example
+    If you get an error on Windows because running script is disabled, you can fix it by running the following command:
+    #+begin_example PowerShell
+    $ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted
     #+end_example
 3. Install package in development mode
   #+begin_example
