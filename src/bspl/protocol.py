@@ -382,9 +382,19 @@ class Protocol(Base):
 
 class Message(Protocol):
     def __init__(
-        self, name, sender=None, recipient=None, parameters=None, parent=None, idx=1
+        self,
+        name,
+        sender=None,
+        recipient=None,
+        parameters=None,
+        parent=None,
+        idx=1,
+        validate=True,
     ):
         self.idx = idx
+        self.validate = validate
+        self.msg = self
+
         if sender and recipient:
             super().__init__(
                 name, roles=[sender, recipient], parent=parent, type="message"
@@ -392,8 +402,6 @@ class Message(Protocol):
             self.configure(sender, recipient, parameters, parent)
         else:
             super().__init__(name, parent=parent, type="message")
-
-        self.msg = self
 
     def configure(self, sender=None, recipient=None, parameters=None, parent=None):
         parent = parent or getattr(self, "parent", None)
@@ -405,11 +413,11 @@ class Message(Protocol):
                 getattr(recipient, "name", None)
             )
             for p in parameters or []:
-                if p.name not in parent.parameters:
+                if self.validate and p.name not in parent.parameters:
                     raise LookupError(
                         f"Undeclared parameter {p.name} in {self.type} {self.name}"
                     )
-                elif parent.parameters[p.name].key:
+                elif p.name in parent.parameters and parent.parameters[p.name].key:
                     p.key = True
         else:
             self.sender = sender if isinstance(sender, Role) else Role(sender, self)
@@ -417,10 +425,11 @@ class Message(Protocol):
                 recipient if isinstance(recipient, Role) else Role(recipient, self)
             )
 
-        if not self.sender:
-            raise LookupError("Role not found", sender, self.name, parent)
-        if not self.recipient:
-            raise LookupError("Role not found", recipient, self.name, parent)
+        if self.validate:
+            if not self.sender:
+                raise LookupError("Role not found", sender, self.name, parent)
+            if not self.recipient:
+                raise LookupError("Role not found", recipient, self.name, parent)
 
         super().configure(
             roles=[self.sender, self.recipient],

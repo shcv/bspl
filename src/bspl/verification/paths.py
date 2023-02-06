@@ -187,6 +187,7 @@ class Tangle:
         def propagate(a, b):
             self.endows[a].update(self.endows.get(b, []))
             for c in self.endows.get(b, []).copy():
+                print(f"c:{c}")
                 propagate(a, c)
 
         for a in self.endows:
@@ -388,13 +389,14 @@ def partition(graph, ps):
         options = parts.difference({coloring.get(n) for n in neighbors[vertex]})
 
         # generate a new color if necessary
-        if not len(options):
+        if len(options) == 0:
             color = Color()
             parts.add(color)
         elif len(options) > 1:
             # Choose a color that
             #  (1) has the highest cardinality (number of vertices)
-            max_cardinality = max(len(c) for c in parts)
+            max_cardinality = max(len(c) for c in options)
+            print(f"max_cardinality: {max_cardinality}, {[len(o) for o in options]}")
             options = {o for o in options if len(o) == max_cardinality}
 
             #  (2) within such, the color whose vertex of highest degree has the smallest degree
@@ -407,6 +409,7 @@ def partition(graph, ps):
                 options = {o for o in options if max_degree(o) == min_max}
 
             # choose color from options (randomly?)
+            print(f"options: {len(options)}")
             color = next(o for o in options)
         else:
             color = next(o for o in options)

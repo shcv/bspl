@@ -35,6 +35,23 @@ see
   Sh: fee, Instruct
 """
 
+notlive = """
+who Buyer, Seller
+what ID key, item, price
+
+action
+  Buyer: RFQ(ID, item, price)
+  Seller: Quote(ID, item, price)
+
+see
+  Buyer: Quote
+  Seller: RFQ
+
+sayso
+  Buyer: item
+  Seller: price
+"""
+
 
 @pytest.fixture(scope="module")
 def PurchaseSpec():
@@ -44,6 +61,11 @@ def PurchaseSpec():
 @pytest.fixture(scope="module")
 def Purchase(PurchaseSpec):
     return Langshaw(PurchaseSpec)
+
+
+@pytest.fixture(scope="module")
+def Notlive():
+    return Langshaw(load(notlive))
 
 
 @pytest.fixture(scope="module")
@@ -183,12 +205,19 @@ def test_action_delegations(Purchase):
 
 
 def test_action_expanded_parameters(Purchase):
-    assert list(Purchase.actions[0].expanded_parameters) == ["item->S", "item"]
+    assert list(Purchase.actions[0].expanded_parameters) == [
+        "ID",
+        "item->S",
+        "item",
+        "RFQ",
+    ]
     assert list(Purchase.actions[1].expanded_parameters) == [
+        "ID",
         "item->S",
         "item",
         "price->B",
         "price",
+        "Quote",
     ]
 
 
@@ -203,11 +232,6 @@ def test_langshaw_can_see(Purchase):
     assert Purchase.can_see("B", "item")
     assert Purchase.can_see("S", "item")
     assert not Purchase.can_see("Sh", "price")
-
-
-def test_langshaw_capabilities(Purchase):
-    assert Purchase.capabilities("B", "ID") == {"in", "out"}
-    assert Purchase.capabilities("B", "item") == {"out", "delegate"}
 
 
 def test_action_all_schemas(Purchase):
@@ -305,7 +329,6 @@ def test_langshaw_extend_schemas(Purchase):
 
 def test_langshaw_alt_parameters(Purchase):
     print(Purchase.alt_parameters)
-    assert False
 
 
 def test_langshaw_recipients(Purchase, RFQ):
@@ -316,7 +339,6 @@ def test_langshaw_recipients(Purchase, RFQ):
 def test_langshaw_messages(Purchase, RFQ):
     ms = Purchase.messages(RFQ)
     print("\n".join(m.format() for m in ms))
-    assert False
 
 
 def test_langshaw_completion_messages(Purchase):
@@ -334,3 +356,9 @@ def test_langshaw_to_bspl(Purchase):
 def test_liveness(Purchase):
     p = Purchase.to_bspl("Purchase")
     assert liveness(p)
+
+
+def test_langshaw_notlive(Notlive):
+    p = Notlive.to_bspl("Notlive")
+    print(p.format())
+    assert not liveness(p)

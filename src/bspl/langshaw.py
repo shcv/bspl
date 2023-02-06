@@ -116,7 +116,7 @@ class Action:
         return [p for p in self.parameters if p not in self.parent.keys]
 
     @property
-    def delegations(self, p):
+    def delegations(self):
         for p in self.non_keys:
             if self.parent.can_be_delegated(self.actor, p):
                 yield f"{p}->{self.actor}"
@@ -195,6 +195,7 @@ class Langshaw:
         validate(spec)
         self.spec = spec
         self.actions = [Action(a, self) for a in self.get_clause("actions")]
+        self.autonomy_parameters = set()
 
     def get_clause(self, kind):
         return get_clause(self.spec, kind)
@@ -227,7 +228,7 @@ class Langshaw:
 
     @property
     def conflicts(self):
-        return self.get_clause("conflicts")
+        return self.get_clause("conflicts") or []
 
     @property
     def saysos(self):
@@ -343,11 +344,14 @@ class Langshaw:
                 parameters = []
                 for p in s:
                     if p[0] == action.autonomy_parameter:
+                        aps = []
                         if n == 0:
-                            parameters.append(Parameter(p[0], "out"))
+                            aps.append(Parameter(p[0], "out"))
                         else:
-                            parameters.append(Parameter(p[0], "in"))
-                            parameters.append(Parameter(p[0] + str(n + 1), "out"))
+                            aps.append(Parameter(p[0], "in"))
+                            aps.append(Parameter(p[0] + str(n + 1), "out"))
+                        self.autonomy_parameters.update(aps)
+                        parameters.extend(aps)
                     else:
                         parameters.append(
                             Parameter(p[0], p[1] if n == 0 or p[1] != "out" else "in")
@@ -359,6 +363,7 @@ class Langshaw:
                     sender=action.actor,
                     recipient=Role(r),
                     parameters=parameters,
+                    validate=False,
                 )
                 n += 1
 
@@ -382,6 +387,7 @@ class Langshaw:
                                 recipient=r,
                                 parameters=[Parameter(k, "in", "key") for k in keys]
                                 + [Parameter(p, "in"), Parameter(alt, "out")],
+                                validate=False,
                             )
 
     def to_bspl(self, name):
@@ -394,8 +400,11 @@ class Langshaw:
                 if p not in self.alt_parameters
             ]
             + [Parameter(p, "out") for p in set(self.alt_parameters.values())],
-            private_parameters=[Parameter(p, None) for p in self.private],
+            private_parameters=chain(
+                [Parameter(p, None) for p in self.private], self.autonomy_parameters
+            ),
         )
+        print(p.parameters)
         for r in chain(
             (m for a in self.actions for m in self.messages(a, p)),
             self.completion_messages(p),
