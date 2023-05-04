@@ -96,8 +96,17 @@ class Role(Base):
             if m.sender == self or m.recipient == self
         }
 
-    def sent_messages(self, protocol):
+    def emissions(self, protocol):
         return [m for m in protocol.messages.values() if m.sender == self]
+
+    def receptions(self, protocol):
+        return [m for m in protocol.messages.values() if m.recipient == self]
+
+    def observations(self, protocol):
+        return self.emissions(protocol) + self.receptions(protocol)
+
+    def dependencies(self, em):
+        """Return a list of messages that are necessary for"""
 
 
 class Reference(Base):

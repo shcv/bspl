@@ -1,7 +1,6 @@
 from ..protocol import Message, Role, Parameter
 from pprint import pformat
 from ttictoc import Timer
-from ..commands import register_commands
 from ..parser import load_protocols
 
 
@@ -340,6 +339,10 @@ class Reception:
         return f"{self.recipient.name}?{self.msg.name}"
 
 
+def emissions(path):
+    return [e.msg for e in path if type(e) is Emission]
+
+
 def unreceived(path):
     sent = set(e for e in path if isinstance(e, Emission))
     received = set(r.emission for r in path if isinstance(r, Reception))
@@ -558,7 +561,7 @@ def total_knowledge(U, path):
 
 
 def all_paths(U, **kwargs):
-    default_kwargs = {"debug": False, "verbose": False}
+    default_kwargs = {"debug": False, "verbose": False, "quiet": False}
     kwargs = {**default_kwargs, **kwargs}
     t = Timer()
     t.start()
@@ -586,9 +589,10 @@ def all_paths(U, **kwargs):
                 print(p)
 
         paths.add(p)  # add path to paths even if it has unreceived messages
-    print(
-        f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}, elapsed: {t.stop()}"
-    )
+    if not kwargs["quiet"]:
+        print(
+            f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}, elapsed: {t.stop()}"
+        )
     return paths
 
 
@@ -679,12 +683,3 @@ def handle_safety(
                 reduction=reduction,
             )
         )
-
-
-register_commands(
-    {
-        "safety": handle_safety,
-        "liveness": handle_liveness,
-        "all-paths": handle_all_paths,
-    }
-)

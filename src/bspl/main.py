@@ -3,7 +3,7 @@ from .verification import paths, refinement
 import fire
 import json
 from .commands import Commands, register_commands
-from . import node_red
+from . import generators
 
 
 def handle_projection(role_name, *files, filter=".*", verbose=False):

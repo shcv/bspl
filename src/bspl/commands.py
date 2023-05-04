@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 from . import __version__
 from .parser import load_file
+from .generators import Generate
+from .verification import Verify
 
 # Actions that only take one argument, and therefore can be repeated for each input file
 class Commands:
     def version(self):
         """Print the currently running version of bspl"""
         print(__version__)
+
+    def __init__(self):
+        self.generate = Generate()
+        self.verify = Verify()
 
 
 def register_commands(new_commands):

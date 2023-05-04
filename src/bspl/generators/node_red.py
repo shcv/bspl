@@ -1,9 +1,7 @@
-from .parser import load_file
+from ..parser import load_file
 import os
 import simplejson as json
 import random
-from .commands import register_commands
-
 
 roles = {}
 base_port = 8000
@@ -20,7 +18,7 @@ def get_port(role, base_port=base_port):
 
 
 def node_id():
-    return "{:08x}.{:06x}".format(random.randrange(16 ** 8), random.randrange(16 ** 6))
+    return "{:08x}.{:06x}".format(random.randrange(16**8), random.randrange(16**6))
 
 
 def create_role_tab(role):
@@ -266,6 +264,3 @@ def handle_node_flow(path, output="flow.json", append=False):
 
     with open(output, "w") as file:
         json.dump(nodes, file)
-
-
-register_commands({"flow": handle_node_flow})
