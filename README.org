@@ -44,7 +44,7 @@ On Windows, Python 3.6+ is recommended.
 
    #+begin_example
 SYNOPSIS
-    bspl COMMAND | -
+    bspl COMMAND | - (Alternatively, python -m bspl.main on Windows)
 
 COMMANDS
     COMMAND is one of the following:
