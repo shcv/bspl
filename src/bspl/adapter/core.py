@@ -468,7 +468,7 @@ class Adapter:
                     result = None
                     if len(s) == 1:
                         result = await d(self.enabled_messages)
-                    elif len(s == 2):
+                    elif len(s) == 2:
                         result = await d(self.enabled_messages, event)
 
                     if self._in_place:
