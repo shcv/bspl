@@ -29,6 +29,17 @@ def WithReject():
     return load_file("samples/tests/composition").protocols["With-Reject"]
 
 
+def test_load():
+    # minimal protocol
+    assert load(
+        """
+    Protocol {
+      roles A, B
+      parameters out id key, out done
+    }"""
+    )
+
+
 def test_keys(Bid, Auction):
     print(Auction.keys)
     assert [p for p in Auction.keys] == ["id"]
