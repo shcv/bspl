@@ -28,12 +28,13 @@ from Logistics import Packer, Wrapped, RequestLabel, Labeled, Packed
 systems = {
     0: {
         "protocol": logistics,
-        "agents": {"P": ("localhost", 8001)},
         "roles": {Packer: "P"},
     }
 }
 
-a = Adapter("P", systems)  # for injection
+agents = {"P": ("localhost", 8001)}
+
+a = Adapter("P", systems, agents)  # for injection
 
 logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
