@@ -43,12 +43,16 @@ def systems(C, S, RFQ):
     return {
         0: {
             "protocol": RFQ,
-            "agents": {
-                "C": ("localhost", 8001),
-                "S": ("localhost", 8002),
-            },
             "roles": {S: "S", C: "C"},
         }
+    }
+
+
+@pytest.fixture(scope="module")
+def agents():
+    return {
+        "C": [("localhost", 8001)],
+        "S": [("localhost", 8002)],
     }
 
 
@@ -68,8 +72,8 @@ def ship(RFQ):
 
 
 @pytest.mark.asyncio
-async def test_receive_process(systems, req):
-    a = Adapter("S", systems)
+async def test_receive_process(systems, agents, req):
+    a = Adapter("S", systems, agents)
     await a.receive(req(item="ball").serialize())
     await a.update()
 
@@ -77,17 +81,17 @@ async def test_receive_process(systems, req):
 
 
 @pytest.mark.asyncio
-async def test_send(systems, req):
-    a = Adapter("C", systems)
+async def test_send(systems, agents, req):
+    a = Adapter("C", systems, agents)
     m = req(item="ball")
     await a.send(m)
 
 
 @pytest.mark.asyncio
-async def test_match(RFQ, systems, req, quote, ship):
+async def test_match(RFQ, systems, agents, req, quote, ship):
     """Test that the schema.match(**params) method works"""
     # create adapter and inject methods
-    a = Adapter("S", systems)
+    a = Adapter("S", systems, agents)
     # make sure there's a req in the history
     m = req(item="ball")
     await a.receive(m.serialize())
@@ -102,8 +106,8 @@ async def test_match(RFQ, systems, req, quote, ship):
 
 
 @pytest.mark.asyncio
-async def test_enabled_initiators(systems, req):
-    a = Adapter("s", systems)
+async def test_enabled_initiators(systems, agents, req):
+    a = Adapter("C", systems, agents)
     a.compute_enabled({})
 
     print(list(a.enabled_messages.messages()))
