@@ -284,10 +284,13 @@ class UoD:
     @staticmethod
     def from_protocol(protocol, **kwargs):
         if not protocol.ins.union(protocol.nils) or not kwargs.get("external", True):
+            # either there are no potential blockers (no ins or nils)
+            # or there are, but we aren't generating external sources for them
             return UoD(
                 list(protocol.messages.values()), protocol.roles.values(), **kwargs
             )
         else:
+            # generate external messages for each role providing the in parameters its messages depend on
             dependencies = {}
             for r in protocol.roles.values():
                 if r.name is External.name:
@@ -295,7 +298,7 @@ class UoD:
                 keys = protocol.ins.intersection(protocol.keys)
                 # generate messages that provide p to each sender
                 msg = Message(
-                    "external->{r.name}",
+                    f"external->{r.name}",
                     External,
                     r,
                     [Parameter(k, "in", True, parent=protocol) for k in keys]
