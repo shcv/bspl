@@ -1,0 +1,36 @@
+CreateOrder {
+  roles S, P, PS, C, CS, L, LS, R
+  parameters out ID key, out complaint, out results
+  private order, collection, specimen, unsuitable, received, result-id, request, subject, instructions, appointment, results-id
+
+  S -> P: Complain[out ID, out complaint]
+  P -> PS: EnterRequest[in ID, in complaint, out order]
+
+  // Provider collection
+  P -> L: Ship[in ID, in order key, out collection, out specimen]
+
+  // Lab collection
+  P -> S: Instruct[in ID, in order key, out instructions, out collection]
+  S -> L: Visit[in ID, in order key, in instructions, out specimen, nil appointment]
+
+  // Third-party
+  // P -> S: Instructions[in ID, in order key, out instructions, out collection]
+  S -> C: SetupAppointment[in ID, in order key, in instructions, out appointment, nil specimen]
+  C -> L: Specimen[in ID, in order key, in appointment, out specimen]
+
+  // Get order
+  R -> P: QueryOrder[in ID, out subject key]
+  P -> R: Order[in ID, in subject key, out order]
+
+  L -> C: NotifyUnsuitable[in ID, in order, in specimen, out unsuitable]
+  L -> C: NotifyReceived[in ID, in order, in specimen, out received]
+
+  L -> P: Results[in ID, in order, out results]
+  L -> P: ResultsAvailable[in ID, in order, out result-id]
+
+  // Query Results
+  P -> L: Query[in ID, in order key, in results-id]
+  L -> P: Results[in ID, in order key, in results-id, out results]
+
+  P -> S: AllReceived[in ID, in request, out results]
+}

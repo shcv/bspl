@@ -12,7 +12,7 @@ def generate_asl(
     roles: list = None,
     dir: str = None,
     out: str = None,
-    all: bool = None,
+    all_roles: bool = None,
     stdout: bool = False,
     dry: bool = False,
 ):
@@ -21,7 +21,7 @@ def generate_asl(
 
     if roles and out:
         abort("Can't specify filename for multiple roles")
-    if all and out:
+    if all_roles and out:
         abort("Can't specify filename for multiple roles")
 
     spec = load_file(path)
@@ -31,23 +31,30 @@ def generate_asl(
         ps = spec.protocols.values()
 
     for p in ps:
+        if stdout:
+            print(f"#----- Protocol {p.name} ({path}): -----#")
         if role:
             # working with a single role
             roles = [p.roles[role]]
             out = out or role + ".asl"
+        elif all_roles:
+            # all roles
+            roles = [r for r in p.roles.values()]
         elif roles:
             # multiple specified roles
             roles = [p.roles[r] for r in roles]
-        elif all:
-            # all roles
-            roles = [r for r in p.roles.values()]
         else:
-            abort("You must identify some role(s) to generate code for, or use --all")
+            abort(
+                "You must identify some role(s) to generate code for, or use --all_roles"
+            )
         for r in roles:
             if r not in goals:
                 goals[r] = []
             covers = generate_covers(p, r)
-            goals[r].extend(generate_goals(covers))
+            covers = {m: [prune(m, c) for c in covers[m]] for m in covers}
+            new_goals = generate_goals(covers)
+            print(f"New goals for {r.name}: ", *new_goals, sep="\n")
+            goals[r].extend(new_goals)
 
     for r in roles:
         if dir and out:
@@ -60,6 +67,7 @@ def generate_asl(
             fp = "./" + r.name + ".asl"
 
         if stdout:
+            print(f"  #----- Goals for {r.name}: -----#")
             for g in goals[r]:
                 print(g)
             # go to the next role, without writing to a file
@@ -85,26 +93,43 @@ def generate_asl(
 
 
 def generate_covers(protocol, role):
-    u = UoD.from_protocol(protocol)
+    """For each emission by ROLE in PROTOCOL, generate a list of covers for that emission.
+    Each cover is a set of messages that must be received before the emission can be sent."""
+    u = UoD.from_protocol(protocol, external=True)
     ps = max_paths(u)
     covers = {}
     for e in role.emissions(protocol):
         covers[e] = []
-        ins = set(e.ins)
         inclusive_ps = [p for p in ps if e in paths.emissions(p)]
         for p in inclusive_ps:
             cover = set()
+            ins = set(e.ins)  # need to track ins for current cover
             for ev in p:
                 m = ev.msg
                 intersection = ins.intersection(m.parameters.keys())
-                if m in role.observations(protocol) and intersection:
+                if m != e and m in role.observations(protocol) and intersection:
                     cover.add(m)
                     for i in ins.intersection(m.parameters.keys()):
                         ins.discard(i)
-                if not ins:
+                if not ins and cover not in covers[e]:
                     covers[e].append(cover)
                     break
     return covers
+
+
+def prune(emission, cover):
+    """Prune a cover by removing messages whose portion of the emission's 'in' parameters are fully covered by other messages in the cover"""
+    pruned = set()
+
+    for m in cover:
+        if not any(
+            emission.ins.intersection(m.ins.union(m.outs))
+            <= other.ins.union(other.outs)
+            for other in cover
+            if other != m
+        ):
+            pruned.add(m)
+    return pruned
 
 
 def msg_term(message):
