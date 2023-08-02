@@ -458,12 +458,12 @@ def extensions(U, path, **kwargs):
     return xs
 
 
-def max_paths(U):
+def max_paths(U, **kwargs):
     max_paths = []
     new_paths = [empty_path()]
     while len(new_paths):
         p = new_paths.pop()
-        xs = extensions(U, p)
+        xs = extensions(U, p, **kwargs)
         if xs:
             new_paths.extend(xs)
         else:
