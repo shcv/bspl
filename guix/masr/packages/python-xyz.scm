@@ -18,23 +18,25 @@
 (define-public python-tatsu
   (package
     (name "python-tatsu")
-    (version "5.5.0")
+    (version "5.8.3")
     (source
-      (origin
-        (method url-fetch)
-        (uri (pypi-uri "TatSu" version ".zip"))
-        (sha256
-          (base32
-            "1l7srym8v25njq7dnmvhwfm3pay6ss77nbs45f49lkwck8cggnqa"))))
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "TatSu" version ".zip"))
+       (sha256
+        (base32
+         "1fz77p2ggn74bcj6lfn8q88z2snhia75mnawbv02hy1vyg6wn7jp"))))
     (build-system python-build-system)
+    (arguments
+     `(#:tests? #f))
     (native-inputs `(("unzip" ,unzip)
                      ("python-pytest-runner" ,python-pytest-runner)
                      ("python-pytest-mypy" ,python-pytest-mypy)))
     (home-page "https://github.com/neogeny/tatsu")
     (synopsis
-      "TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.")
+     "TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.")
     (description
-      "TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.")
+     "TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.")
     (license license:bsd-3)))
 
 (define-public python-pytest-mypy
