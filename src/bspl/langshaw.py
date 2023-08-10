@@ -238,7 +238,7 @@ class Langshaw:
     def keys(self):
         for pc in self.get_clause("what"):
             for p in pc:
-                if "key" in p:
+                if "key" in p and p["key"] != None:
                     yield p["name"]
 
     @property
