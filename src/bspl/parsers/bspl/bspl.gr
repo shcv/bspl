@@ -2,7 +2,12 @@
 
 document = {protocol ~ }+ $;
 
-protocol = type:`protocol` ('protocol' | ()) name:spacename '{' ~ 'roles' roles:roles 'parameters' parameters:params (('private' private:params) | ()) references:references '}';
+protocol = type:`protocol` ('protocol' | ()) name:spacename '{' ~
+  'roles' roles:roles
+  'parameters' parameters:params
+  (('private' private:params) | ())
+  references:references
+'}';
 
 roles = ','.{role} ;
 role = name:word ;
@@ -17,5 +22,5 @@ ref = type:`protocol` name:spacename '(' ~ [roles:roles '|'] params:params ')' ;
 
 message = type:`message` sender:word ('->'|'→'|'↦') ~ recipient:word [':'] name:word ('[' parameters:params ']' | ());
 
-word = /[\w@-]+/ ;
+word = /[\w@>-]+/ ;
 spacename = /[ \w@-]+/ ;
