@@ -51,6 +51,8 @@ def not_nil(*params):
 
 
 def delegation_role_alignment(role):
+    "Only pass schemas with 'in' delegations, if the sender is the role delegated to"
+
     def inner(s):
         for p in s:
             if delegates(p[0]) and delegates_to(p[0]) != role and p[1] == "in":
@@ -117,6 +119,9 @@ class Action:
 
     @property
     def delegations(self):
+        """Returns a sequence of delegations for this action, where a
+        delegation is a name of the form 'parameter@role'
+        """
         for p in self.non_keys:
             if self.parent.can_be_delegated(self.actor, p):
                 yield f"{p}->{self.actor}"
@@ -138,12 +143,16 @@ class Action:
 
     def possibilities(self, parameter):
         if parameter in self.keys:
+            # keys can't be nil
             return ["in", "out"]
         elif parameter == self.autonomy_parameter:
+            # autonomy parameter for this action is always out
             return ["out"]
         elif parameter in [a.name for a in self.parent.actions]:
+            # autonomy parameters for other actions are always in
             return ["in"]
         elif self.parent.can_bind(self.actor, parameter):
+            # if the actor can bind the parameter, it can be anything
             return ["in", "out", "nil"]
         else:
             return ["in", "nil"]
@@ -160,6 +169,9 @@ class Action:
 
     def schemas(self):
         return filter(
+            # call each filter function on s
+            # each function passes it on if it succeeds the test
+            # but short-circuits if passed None
             lambda s: reduce(
                 apply,
                 [
@@ -257,11 +269,16 @@ class Langshaw:
         return not any(parameter in c["parameters"] for c in self.saysos)
 
     def can_be_delegated(self, role, parameter):
+        """
+        Returns true if role can be delegated parameter;
+        In other words, if role is in the priority list for parameter but not first
+        """
         roles = self.priorities(parameter)
         if roles:
             return role in roles and roles.index(role) > 0
 
     def delegates_to(self, role, parameter):
+        "Returns the next role in the priority list for parameter after role, if any"
         roles = self.priorities(parameter)
         if roles and role in roles:
             pos = roles.index(role)
@@ -327,6 +344,10 @@ class Langshaw:
         return alts
 
     def recipients(self, action, schema):
+        """
+        The set of roles that can receive action
+        Recipients are roles that can see the action, except the actor
+        """
         recipients = set()
         for r in self.roles:
             if r != action.actor:
