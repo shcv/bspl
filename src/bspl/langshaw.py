@@ -253,6 +253,7 @@ class Langshaw:
         for c in self.saysos:
             if parameter in c["parameters"]:
                 return c["roles"]
+        return []
 
     def can_bind(self, role, parameter):
         """Check if role can bind parameter in some message (ignoring priority)"""
