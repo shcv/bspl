@@ -184,11 +184,16 @@ class Tangle:
                     self.endows[a] = {b}
 
         # propagate endowment, since it is transitive
-        def propagate(a, b):
+        def propagate(a, b, visited=None):
+            # avoid loops by tracking visits
+            if visited == None:
+                visited = set()
+            if b in visited:
+                return
+            visited.add(b)
             self.endows[a].update(self.endows.get(b, []))
             for c in self.endows.get(b, []).copy():
-                print(f"c:{c}")
-                propagate(a, c)
+                propagate(a, c, visited.copy())
 
         for a in self.endows:
             propagate(a, a)
