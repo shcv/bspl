@@ -306,7 +306,18 @@ class Langshaw:
                         ds.add(d)
         return ds
 
-    def can_see(self, role, parameter):
+    def can_see(self, role, action):
+        """
+        Return true if role can see action:
+          Either role can perform action or is explicitly allowed to see it
+        """
+        if action.actor == role:
+            return True
+        for c in self.get_clause("see"):
+            if role in c["roles"] and action.name in c["parameters"]:
+                return True
+
+    def observes(self, role, parameter):
         """
         Check if a role can observe a parameter or not.
         Roles should be able to observe all parameters from their own actions,
@@ -320,8 +331,9 @@ class Langshaw:
                 return True
 
     def observers(self, parameter):
+        "A sequence of roles that can observe parameter"
         for r in self.roles:
-            if self.can_see(r, parameter):
+            if self.observes(r, parameter):
                 yield r
 
     def extend_schemas(self, action):
@@ -347,25 +359,22 @@ class Langshaw:
                 i += 1
         return alts
 
-    def recipients(self, action, schema):
+    def recipients(self, action):
         """
         The set of roles that can receive action
         Recipients are roles that can see the action, except the actor
         """
         recipients = set()
         for r in self.roles:
-            if r != action.actor:
-                for p in schema:
-                    if p[1] == "out" and (
-                        delegates_to(p[0]) == r or self.can_see(r, p[0])
-                    ):
-                        recipients.add(r)
+            if r != action.actor and self.can_see(r, action):
+                # if the role can see the action, it can receive the message
+                recipients.add(r)
         return recipients
 
     def messages(self, action, protocol=None):
         for s in self.extend_schemas(action):
             n = 0
-            for r in self.recipients(action, s):
+            for r in self.recipients(action):
                 parameters = []
                 for p in s:
                     if p[0] == action.autonomy_parameter:
