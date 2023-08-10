@@ -1,0 +1,14 @@
+who A, B, C
+what ID key, potato
+
+do
+  A: Start(ID, potato)
+  B: Pass(ID, potato)
+  C: Finish(ID, potato)
+
+sayso
+  A > B > C: potato
+
+see
+  B: Start
+  C: Pass

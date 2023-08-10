@@ -1,0 +1,13 @@
+EitherOffer {
+  roles Buyer, Seller
+  parameters out ID key, out RFQ, out Quote
+  private price, item, price@Seller, Quote, RFQ
+
+  Buyer -> Seller: RFQ[in ID key, out item, out price@Seller, nil price, out RFQ]
+  Buyer -> Seller: RFQ[in ID key, out item, nil price@Seller, in price, out RFQ]
+  Buyer -> Seller: RFQ[in ID key, out item, nil price@Seller, out price, out RFQ]
+  Buyer -> Seller: RFQ[out ID key, out item, out price@Seller, nil price, out RFQ]
+  Buyer -> Seller: RFQ[out ID key, out item, nil price@Seller, out price, out RFQ]
+  Seller -> Buyer: Quote[in ID key, in item, in price@Seller, out price, out Quote]
+  Seller -> Buyer: Quote[in ID key, in item, nil price@Seller, in price, out Quote]
+}

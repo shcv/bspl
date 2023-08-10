@@ -1,0 +1,9 @@
+who A, B
+what ID key, result
+
+do
+  A: Block(ID, result)
+  B: Contra(ID, result)
+
+sayso
+  A > B: result
