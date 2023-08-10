@@ -18,18 +18,18 @@ def get_clause(spec, kind):
 
 def delegates(parameter):
     """Returns the name of the parameter being delegated by the argument
-    e.g. delegates("item->S") == "item"
+    e.g. delegates("item@S") == "item"
     """
-    m = re.match(r"(.*)->.*", parameter)
+    m = re.match(r"(.*)@.*", parameter)
     if m:
         return m.groups()[0]
 
 
 def delegates_to(parameter):
     """Returns the role being delegated to by the argument
-    e.g. delegates("item->S") == "S"
+    e.g. delegates("item@S") == "S"
     """
-    m = re.match(r".*->(.*)", parameter)
+    m = re.match(r".*@(.*)", parameter)
     if m:
         return m.groups()[0]
 
@@ -124,10 +124,10 @@ class Action:
         """
         for p in self.non_keys:
             if self.parent.can_be_delegated(self.actor, p):
-                yield f"{p}->{self.actor}"
+                yield f"{p}@{self.actor}"
             to = self.parent.delegates_to(self.actor, p)
             if to:
-                yield f"{p}->{to}"
+                yield f"{p}@{to}"
 
     @property
     def autonomy_parameter(self):
@@ -287,10 +287,10 @@ class Langshaw:
 
     def delegations(self, role, parameter):
         if self.can_be_delegated(role, parameter):
-            yield f"{parameter}->{role}"
+            yield f"{parameter}@{role}"
         to = self.delegates_to(role, parameter)
         if to:
-            yield f"{parameter}->{to}"
+            yield f"{parameter}@{to}"
 
     @property
     def all_delegations(self):
@@ -402,7 +402,7 @@ class Langshaw:
                     for r in recipients:
                         if r != s:
                             yield Message(
-                                name=f"{p}->{alt}",
+                                name=f"{p}#{alt}",
                                 parent=protocol,
                                 sender=s,
                                 recipient=r,
