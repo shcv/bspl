@@ -482,7 +482,7 @@ class Message(Protocol):
         return "{} -> {}: {}[{}]".format(
             self.sender.name,
             self.recipient.name,
-            self.name,
+            self.raw_name,
             ", ".join([p.format() for p in self.parameters.values()]),
         )
 
