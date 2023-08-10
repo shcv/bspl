@@ -1,4 +1,4 @@
-from .parser import load_file
+from .parsers.bspl import load_file
 import os
 import simplejson as json
 import random
@@ -20,7 +20,7 @@ def get_port(role, base_port=base_port):
 
 
 def node_id():
-    return "{:08x}.{:06x}".format(random.randrange(16 ** 8), random.randrange(16 ** 6))
+    return "{:08x}.{:06x}".format(random.randrange(16**8), random.randrange(16**6))
 
 
 def create_role_tab(role):

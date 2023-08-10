@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from bspl.parser import load_file
+from bspl.parsers.bspl import load_file
 
 contracting = load_file("../contracting.bspl").export("Contracting")
 from Contracting import Customer, Bidder, Accountant, Expert

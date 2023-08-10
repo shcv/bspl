@@ -1,4 +1,4 @@
-from .parser import load_file, model, strip_latex, load_protocols
+from .parsers.bspl import load_file, model, strip_latex, load_protocols
 from .verification import paths, refinement
 import fire
 import json
