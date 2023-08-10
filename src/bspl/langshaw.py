@@ -64,8 +64,9 @@ def delegation_role_alignment(role):
     return some(inner)
 
 
-def getp(parameter, schema):
-    return next(p for p in schema if p[0] == parameter)
+def getp(name, schema):
+    "find parameter in schema by name"
+    return next((p for p in schema if p[0] == name), None)
 
 
 @some
