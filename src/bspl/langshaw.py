@@ -14,6 +14,7 @@ def get_clause(spec, kind):
     for c in spec:
         if kind in c:
             return c[kind]
+    return []
 
 
 def delegates(parameter):
