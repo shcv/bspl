@@ -71,6 +71,7 @@ def getp(name, schema):
 
 @some
 def delegation_out_parameter_nil(s):
+    "If a delegation is out, the parameter must be nil"
     ds = {p[0]: delegates(p[0]) for p in s if delegates(p[0])}
     for d in ds:
         if getp(d, s)[1] == "out" and getp(ds[d], s)[1] != "nil":
@@ -78,16 +79,95 @@ def delegation_out_parameter_nil(s):
     return s
 
 
+def handle_delegation(role):
+    "Schema receiving delegation must bind or re-delegate"
+
+    def inner(s):
+        d_self = {
+            p[0]: delegates(p[0])
+            for p in s
+            if delegates(p[0]) and delegates_to(p[0]) == role
+        }
+        d_other = {
+            # index by delegated parameter
+            delegates(p[0]): p[0]
+            for p in s
+            # only include active delegations to other roles
+            if delegates(p[0]) and delegates_to(p[0]) != role and p[1] == "out"
+        }
+        for d in d_self:
+            direction = getp(d, s)[1]
+            if direction == "out":
+                return  # can't delegate to self
+            elif direction == "in":
+                # received delegation
+                # must bind or delegate
+                p = d_self[d]
+                bound = getp(p, s)[1] == "out"
+                if not bound and p not in d_other:
+                    return
+
+        return s
+
+    return some(inner)
+
+
+def ensure_priority(protocol, role):
+    """
+    Ensure that schemas reflect the priority of the actor.
+    If the actor is not first, it may only bind or delegate if it has been delegated to.
+    """
+
+    def inner(s):
+        for p in s:
+            if protocol.can_be_delegated(role, p[0]):
+                # not the first priority
+                d_in = f"{p[0]}@{role}"
+                if getp(d_in, s)[1] != "in":
+                    # didn't receive delegation
+                    to = protocol.delegates_to(role, p[0])
+                    d_out = f"{p[0]}@{to}"
+                    if (to and getp(d_out, s)[1] == "out") or getp(p[0], s)[1] == "out":
+                        # can't delegate or bind
+                        return
+        return s
+
+    return some(inner)
+
+
 @some
 def ensure_sayso(s):
+    "Only pass schemas if there are no parameters that are nil but not delegated"
     for p in s:
         if (
-            not delegates(p[0])
-            and p[1] == "nil"
-            and all(d[1] == "nil" for d in s if delegates(d[0]) == p[0])
+            not delegates(p[0])  # p is not a delegation
+            and p[1] == "nil"  # p is nil
+            and all(  # all parameters delegating p are nil
+                d[1] == "nil" for d in s if delegates(d[0]) == p[0]
+            )
         ):
             return
     return s
+
+
+def handle_exclusivity(protocol, role):
+    "If a role has exclusive sayso for a parameter, and it only appears in one message, it must be out"
+
+    def inner(s):
+        for p in s:
+            ps = protocol.priorities(p[0])
+            if role in ps and len(ps) == 1:
+                actions = [
+                    a
+                    for a in protocol.actions
+                    if any(ap == p[0] and a.actor == role for ap in a.parameters)
+                ]
+                if len(actions) == 1:
+                    if getp(p[0], s)[1] != "out":
+                        return
+        return s
+
+    return some(inner)
 
 
 def out_keys(keys):
@@ -162,9 +242,6 @@ class Action:
 
     def columns(self):
         for p in self.expanded_parameters:
-            # if p in self.keys:
-            #     yield map(lambda p: p + ("key",), product([p], self.possibilities(p)))
-            # else:
             yield product([p], self.possibilities(p))
 
     def all_schemas(self):
@@ -180,8 +257,11 @@ class Action:
                 [
                     delegation_role_alignment(self.actor),
                     delegation_out_parameter_nil,
+                    handle_delegation(self.actor),
                     ensure_sayso,
                     out_keys(self.keys),
+                    handle_exclusivity(self.parent, self.actor),
+                    ensure_priority(self.parent, self.actor),
                 ],
                 s,
             ),
@@ -438,7 +518,6 @@ class Langshaw:
                 [Parameter(p, None) for p in self.private], self.autonomy_parameters
             ),
         )
-        print(p.parameters)
         for r in chain(
             (m for a in self.actions for m in self.messages(a, p)),
             self.completion_messages(p),
