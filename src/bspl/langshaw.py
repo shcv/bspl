@@ -37,7 +37,8 @@ def delegates_to(parameter):
 
 def some(f):
     def wrap(v):
-        if v:
+        # only call f on v if v is not None
+        if v != None:
             return f(v)
 
     return wrap
