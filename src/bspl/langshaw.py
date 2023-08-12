@@ -4,6 +4,8 @@ from itertools import chain, product
 from functools import reduce, partial
 from .protocol import Protocol, Role, Parameter, Message
 import re
+from pathlib import Path
+from .parsers.langshaw import load
 
 
 def apply(a, f):
@@ -287,10 +289,19 @@ def validate(spec):
 
 class Langshaw:
     def __init__(self, spec):
+        self.source = spec
+        if isinstance(spec, str):
+            spec = load(spec)
         validate(spec)
         self.spec = spec
         self.actions = [Action(a, self) for a in self.get_clause("actions")]
         self.autonomy_parameters = set()
+
+    @classmethod
+    def load_file(cls, path):
+        source = Path(path).read_text()
+        inst = cls(source)
+        return inst
 
     def get_clause(self, kind):
         return get_clause(self.spec, kind)
