@@ -125,7 +125,7 @@ def ensure_priority(protocol, role):
             if protocol.can_be_delegated(role, p[0]):
                 # not the first priority
                 d_in = f"{p[0]}@{role}"
-                if getp(d_in, s)[1] != "in":
+                if getp(d_in, s) and getp(d_in, s)[1] != "in":
                     # didn't receive delegation
                     to = protocol.delegates_to(role, p[0])
                     d_out = f"{p[0]}@{to}"
