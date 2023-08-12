@@ -306,6 +306,11 @@ class Langshaw:
     def get_clause(self, kind):
         return get_clause(self.spec, kind)
 
+    def action(self, name):
+        for a in self.actions:
+            if a.name == name:
+                return a
+
     @property
     def roles(self):
         return self.get_clause("who")
