@@ -172,6 +172,13 @@ def handle_exclusivity(protocol, role):
     return some(inner)
 
 
+@some
+def strip_nil_delegations(s):
+    """ """
+    result = tuple(p for p in s if not delegates(p[0]) or p[1] != "nil")
+    return result
+
+
 def out_keys(keys):
     def inner(s):
         if not (
@@ -251,23 +258,27 @@ class Action:
 
     def schemas(self):
         return filter(
-            # call each filter function on s
-            # each function passes it on if it succeeds the test
-            # but short-circuits if passed None
-            lambda s: reduce(
-                apply,
-                [
-                    delegation_role_alignment(self.actor),
-                    delegation_out_parameter_nil,
-                    handle_delegation(self.actor),
-                    ensure_sayso,
-                    out_keys(self.keys),
-                    handle_exclusivity(self.parent, self.actor),
-                    ensure_priority(self.parent, self.actor),
-                ],
-                s,
+            lambda s: s,
+            map(
+                # call each filter function on s
+                # each function passes it on if it succeeds the test
+                # but short-circuits if passed None
+                lambda s: reduce(
+                    apply,
+                    [
+                        delegation_role_alignment(self.actor),
+                        delegation_out_parameter_nil,
+                        handle_delegation(self.actor),
+                        ensure_sayso,
+                        out_keys(self.keys),
+                        handle_exclusivity(self.parent, self.actor),
+                        ensure_priority(self.parent, self.actor),
+                        strip_nil_delegations,
+                    ],
+                    s,
+                ),
+                self.all_schemas(),
             ),
-            self.all_schemas(),
         )
 
 
