@@ -6,7 +6,7 @@ action
   S: Quote(ID, item, price)
   B: Accept(ID, item, price, address)
   B: Reject(ID, Quote)
-  S: Instruct(ID, Accept, fee)
+  S: Instruct(ID, Accept, item, address, fee)
   Sh: Deliver(ID, item, address, Instruct)
 
 sayso
