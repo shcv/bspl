@@ -1,5 +1,5 @@
 who B, S, Sh
-what ID key, item, price, Reject or Deliver
+what ID key, Reject or Deliver
 
 action
   B: RFQ(ID, item)
@@ -9,17 +9,17 @@ action
   S: Instruct(ID, Accept, fee)
   Sh: Deliver(ID, item, address, Instruct)
 
-conflict
-  Accept Reject
-  Reject Deliver
-
 sayso
   B > S: item
   S > B: price
-  B > Sh: address
   S: fee
+  B: address
 
 see
   B: Quote, Deliver
   S: RFQ, Accept, Reject, Deliver
-  Sh: fee, Instruct
+  Sh: Instruct
+
+conflict
+  Accept Reject
+  Reject Deliver
