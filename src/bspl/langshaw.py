@@ -54,13 +54,24 @@ def not_nil(*params):
     return some(inner)
 
 
-def delegation_role_alignment(role):
-    "Only pass schemas with 'in' delegations, if the sender is the role delegated to"
+def delegation_role_alignment(protocol, role):
+    """
+    Delegations can only be 'out' if the sender can delegate to that role.
+    If a delegation is 'in' for a different role, the parameter must be 'in'
+      - must have been delegated earlier, should be bound by the other role
+    """
 
     def inner(s):
         for p in s:
-            if delegates(p[0]) and delegates_to(p[0]) != role and p[1] == "in":
-                return
+            if delegates(p[0]):
+                to = delegates_to(p[0])
+                if to != role and p[1] == "in":
+                    # delegation is in for a different role
+                    # ensure delegated parameter is in
+                    if getp(delegates(p[0]), s)[1] != "in":
+                        return
+                if to != protocol.delegates_to(role, delegates(p[0])) and p[1] == "out":
+                    return
         return s
 
     return some(inner)
@@ -297,14 +308,13 @@ class Action:
                 lambda s: reduce(
                     apply,
                     [
-                        delegation_role_alignment(self.actor),
+                        delegation_role_alignment(self.parent, self.actor),
                         delegation_out_parameter_nil,
                         handle_delegation(self.actor),
                         ensure_sayso,
                         out_keys(self.keys),
                         handle_exclusivity(self.parent, self.actor),
                         ensure_priority(self.parent, self.actor),
-                        strip_nil_delegations,
                     ],
                     s,
                 ),
