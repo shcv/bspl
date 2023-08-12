@@ -206,8 +206,30 @@ class Action:
         return [p for p in self.parameters if p in self.parent.keys]
 
     @property
-    def non_keys(self):
+    def base_non_keys(self):
         return [p for p in self.parameters if p not in self.parent.keys]
+
+    @property
+    def imports(self):
+        ps = set()
+        for p in self.base_non_keys:
+            action = self.parent.action(p)
+            if action:
+                # a dependency on another action
+                ps.update(action.base_non_keys)
+                ps.update(action.imports)
+
+        return ps
+
+    @property
+    def non_keys(self):
+        for p in self.base_non_keys:
+            yield from self.parent.delegations(self.actor, p)
+            action = self.parent.action(p)
+            if action:
+                # a dependency on another action
+                yield from action.non_keys
+            yield p
 
     @property
     def delegations(self):
@@ -228,7 +250,7 @@ class Action:
     @property
     def expanded_parameters(self):
         yield from self.keys
-        for p in self.non_keys:
+        for p in self.base_non_keys:
             yield from self.parent.delegations(self.actor, p)
             yield p
         yield self.autonomy_parameter
@@ -254,7 +276,16 @@ class Action:
             yield product([p], self.possibilities(p))
 
     def all_schemas(self):
-        return product(*self.columns())
+        schemas = product(*self.columns())
+        if self.imports:
+            for s in schemas:
+                for p in sorted(self.imports):  # sort for stability
+                    # add p to s if it is not already present
+                    if not any(sp[0] == p for sp in s):
+                        s += ((p, "in"),)
+                yield s
+        else:
+            yield from schemas
 
     def schemas(self):
         return filter(
