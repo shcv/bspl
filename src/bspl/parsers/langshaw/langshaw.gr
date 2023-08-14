@@ -21,14 +21,14 @@ clause = 'or'.{param};
 param = name:word [key:'key'];
 
 action_block = ('action'['s'] | 'do') [':'] S @:{action}+;
-action = {' '}+ actor:word ':' {' '} ~ name:word '(' parameters:params ')' S ;
+action = {' '|'\n'}+ actor:word ':' {' '} ~ name:word '(' parameters:params ')' S ;
 params = ','.{word};
 
 conflicts = ('conflict' | 'nono') [':'] S @:{conflict}+;
-conflict = {' '}+ @:{word}+ S;
+conflict = {' '|'\n'}+ @:{word}+ S;
 
 sayso = 'sayso' [':'] S @:{sayso_expression}+;
-sayso_expression = {' '}+ roles:priority ':' parameters:params S;
+sayso_expression = {' '|'\n'}+ roles:priority ':' parameters:params S;
 priority = '>'.{role} ;
 
 see = 'see' [':'] S @:{thing}+;
