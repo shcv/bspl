@@ -9,7 +9,6 @@ block =
        | actions:action_block
        | conflicts:conflicts
        | sayso:sayso
-       | see:see
        ;
 
 who = ('who'|'roles') [':'] S @:roles;
@@ -30,9 +29,6 @@ conflict = {' '|'\n'}+ @:{word}+ S;
 sayso = 'sayso' [':'] S @:{sayso_expression}+;
 sayso_expression = {' '|'\n'}+ roles:priority ':' parameters:params S;
 priority = '>'.{role} ;
-
-see = 'see' [':'] S @:{thing}+;
-thing = {' '}+ roles:roles ':' parameters:params S;
 
 word = {' '} @:/[\w@-]+/ {' '} ;
 spacename = /[ \w@-]+/ ;

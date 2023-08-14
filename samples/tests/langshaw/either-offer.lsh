@@ -5,10 +5,6 @@ do
  Buyer: RFQ(ID, item, price)
  Seller: Quote(ID, item, price)
 
-see
-  Buyer: Quote
-  Seller: RFQ
-
 sayso
  Buyer: item
  Buyer > Seller: price

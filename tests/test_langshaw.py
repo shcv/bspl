@@ -104,6 +104,7 @@ def test_langshaw_parameters(Purchase):
     assert Purchase.parameters == [
         "ID",
         "Reject",
+        "Deny",
         "Deliver",
     ]
 
@@ -121,6 +122,7 @@ def test_langshaw_private(Purchase):
             "address",
             "Reject",
             "Deliver",
+            "Deny",
             "item@S",
             "price@B",
         ]
@@ -132,14 +134,14 @@ def test_langshaw_keys(Purchase):
 
 
 def test_langshaw_actions(Purchase):
-    assert len(Purchase.actions) == 6
+    assert len(Purchase.actions) == 7
     assert Purchase.actions[0].actor == "B"
     assert Purchase.actions[0].name == "RFQ"
     assert Purchase.actions[0].parameters == ["ID", "item"]
 
 
 def test_langshaw_conflicts(Purchase):
-    assert len(Purchase.conflicts) == 2
+    assert len(Purchase.conflicts) == 3
     assert len(Purchase.conflicts[0]) == 2
     assert Purchase.conflicts[0] == ["Accept", "Reject"]
 
@@ -178,6 +180,7 @@ def test_action_expanded_parameters(Purchase):
     ]
     assert list(Purchase.actions[1].expanded_parameters) == [
         "ID",
+        "RFQ",
         "item@S",
         "item",
         "price@B",
@@ -200,11 +203,12 @@ def test_langshaw_observes(Purchase):
 
 
 def test_langshaw_can_see(Purchase):
-    a = {a.name: a for a in Purchase.actions}
-    assert Purchase.can_see("B", a["RFQ"])
-    assert Purchase.can_see("B", a["Quote"])
-    assert Purchase.can_see("S", a["RFQ"])
-    # assert not Purchase.can_see("Sh", a["Accept"])
+    a = Purchase.action
+    assert Purchase.can_see("B", a("RFQ"))
+    assert Purchase.can_see("B", a("Quote"))
+    assert Purchase.can_see("S", a("RFQ"))
+    assert not Purchase.can_see("Sh", a("Accept"))
+    assert Purchase.can_see("B", a("Deliver"))
 
 
 def test_langshaw_recipients(Purchase):
@@ -358,6 +362,7 @@ def test_Quote_action_schemas(Purchase):
     pprint.pprint(result)
     assert (  # can bind item if delegated, and delegate price
         ("ID", "in"),
+        ("RFQ", "in"),
         ("item@S", "in"),
         ("item", "out"),
         ("price@B", "out"),
@@ -365,17 +370,9 @@ def test_Quote_action_schemas(Purchase):
         ("Quote", "out"),
     ) in result
 
-    # ( # unnecessary case; doesn't make sense for price to be in here
-    #     ("ID", "in"),
-    #         ("item@S", "in"),
-    #         ("item", "out"),
-    #         ("price@B", "nil"),
-    #         ("price", "in"),
-    #         ("Quote", "out"),
-    # )
-
     assert (  # can bind item if delegated, and price
         ("ID", "in"),
+        ("RFQ", "in"),
         ("item@S", "in"),
         ("item", "out"),
         ("price@B", "nil"),
@@ -385,6 +382,7 @@ def test_Quote_action_schemas(Purchase):
 
     assert (  # ok; receives bound item, delegates price
         ("ID", "in"),
+        ("RFQ", "in"),
         ("item@S", "nil"),
         ("item", "in"),
         ("price@B", "out"),
@@ -392,18 +390,9 @@ def test_Quote_action_schemas(Purchase):
         ("Quote", "out"),
     ) in result
 
-    # assert (  # not ideal; has priority for price but receives it as in without delegating
-    #           # in theory, could receive price from one of the agent's other messages
-    #     ("ID", "in"),
-    #     ("item@S", "nil"),
-    #     ("item", "in"),
-    #     ("price@B", "nil"),
-    #     ("price", "in"),
-    #     ("Quote", "out"),
-    # ) not in result
-
     assert (  # ok, receives item, binds price
         ("ID", "in"),
+        ("RFQ", "in"),
         ("item@S", "nil"),
         ("item", "in"),
         ("price@B", "nil"),
@@ -413,6 +402,7 @@ def test_Quote_action_schemas(Purchase):
 
     assert (  # not ok; can't bind item without receiving delegation
         ("ID", "in"),
+        ("RFQ", "in"),
         ("item@S", "nil"),
         ("item", "out"),
         ("price@B", "out"),
@@ -422,6 +412,7 @@ def test_Quote_action_schemas(Purchase):
 
     assert (  # not ok, can't bind item without receiving delegation
         ("ID", "in"),
+        ("RFQ", "in"),
         ("item@S", "nil"),
         ("item", "out"),
         ("price@B", "nil"),
@@ -431,24 +422,7 @@ def test_Quote_action_schemas(Purchase):
 
     assert (  # not ok, can't bind item without receiving delegation
         ("ID", "in"),
-        ("item@S", "nil"),
-        ("item", "out"),
-        ("price@B", "nil"),
-        ("price", "out"),
-        ("Quote", "out"),
-    ) not in result
-
-    assert (  # not ok, can't bind item without receiving delegation
-        ("ID", "out"),
-        ("item@S", "nil"),
-        ("item", "out"),
-        ("price@B", "out"),
-        ("price", "nil"),
-        ("Quote", "out"),
-    ) not in result
-
-    assert (  # not ok, can't bind item without receiving delegation
-        ("ID", "out"),
+        ("RFQ", "in"),
         ("item@S", "nil"),
         ("item", "out"),
         ("price@B", "nil"),
@@ -464,16 +438,9 @@ def test_Accept_schemas(Purchase):
 
 def test_redelegation(Redelegation):
     result = list(Redelegation.actions[1].schemas())  # Pass
-    # print(result)
-    # assert (  # superfluous
-    #     ("ID", "in"),
-    #     ("potato@B", "in"),
-    #     ("potato@C", "nil"),
-    #     ("potato", "in"),
-    #     ("Pass", "out"),
-    # ) not in result
     assert (  # can't receive delegation without binding parameter or delegating
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "in"),
         ("potato@C", "nil"),
         ("potato", "nil"),
@@ -481,6 +448,7 @@ def test_redelegation(Redelegation):
     ) not in result
     assert (  # can't delegate to self; can't have two delegations out
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "out"),
         ("potato@C", "out"),
         ("potato", "nil"),
@@ -488,6 +456,7 @@ def test_redelegation(Redelegation):
     ) not in result
     assert (  # can't delegate to self
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "out"),
         ("potato@C", "nil"),
         ("potato", "nil"),
@@ -495,6 +464,7 @@ def test_redelegation(Redelegation):
     ) not in result
     assert (  # can't delegate to self
         ("ID", "out"),
+        ("Start", "in"),
         ("potato@B", "out"),
         ("potato@C", "out"),
         ("potato", "nil"),
@@ -502,6 +472,7 @@ def test_redelegation(Redelegation):
     ) not in result
     assert (  # can't delegate to self
         ("ID", "out"),
+        ("Start", "in"),
         ("potato@B", "out"),
         ("potato@C", "nil"),
         ("potato", "nil"),
@@ -510,6 +481,7 @@ def test_redelegation(Redelegation):
 
     assert (  # can't re-delegate without receiving delegation
         ("ID", "out"),
+        ("Start", "in"),
         ("potato@B", "nil"),
         ("potato@C", "out"),
         ("potato", "nil"),
@@ -518,6 +490,7 @@ def test_redelegation(Redelegation):
 
     assert (  # if ID is in, should have been delegated or bound...
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "nil"),
         ("potato@C", "nil"),
         ("potato", "out"),
@@ -526,6 +499,7 @@ def test_redelegation(Redelegation):
 
     assert (  # if ID is in, should have been delegated or bound...
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "nil"),
         ("potato@C", "out"),
         ("potato", "nil"),
@@ -534,6 +508,7 @@ def test_redelegation(Redelegation):
 
     assert (  # Can't bind without receiving delegation without priority
         ("ID", "out"),
+        ("Start", "in"),
         ("potato@B", "nil"),
         ("potato@C", "nil"),
         ("potato", "out"),
@@ -543,6 +518,7 @@ def test_redelegation(Redelegation):
     pprint.pprint(result)
     assert (  # ok, re-delegating
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "in"),
         ("potato@C", "out"),
         ("potato", "nil"),
@@ -550,39 +526,20 @@ def test_redelegation(Redelegation):
     ) in result
     assert (  # ok, received delegation and binding
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "in"),
         ("potato@C", "nil"),
         ("potato", "out"),
         ("Pass", "out"),
     ) in result
-    # assert (  # unnecessary; potato won't be bound
-    #     ("ID", "in"),
-    #     ("potato@B", "nil"),
-    #     ("potato@C", "in"),
-    #     ("potato", "in"),
-    #     ("Pass", "out"),
-    # ) in result
     assert (  # propagating information to C
         ("ID", "in"),
+        ("Start", "in"),
         ("potato@B", "nil"),
         ("potato@C", "nil"),
         ("potato", "in"),
         ("Pass", "out"),
     ) in result
-    # assert (  # superfluous
-    #     ("ID", "in"),
-    #     ("potato@B", "in"),
-    #     ("potato@C", "nil"),
-    #     ("potato", "in"),
-    #     ("Pass", "out"),
-    # ) in result
-    # assert (  # superfluous
-    #     ("ID", "in"),
-    #     ("potato@B", "in"),
-    #     ("potato@C", "in"),
-    #     ("potato", "in"),
-    #     ("Pass", "out"),
-    # ) in result
 
 
 def test_Nonlive_action_schemas(Nonlive):
@@ -619,7 +576,7 @@ def test_langshaw_extend_schemas(Purchase):
 def test_langshaw_alt_parameters(Purchase):
     alts = Purchase.alt_parameters
     print(alts)
-    assert alts == {"Reject": "done0", "Deliver": "done0"}
+    assert alts == {"Reject": "done0", "Deliver": "done0", "Deny": "done0"}
 
 
 def test_langshaw_messages(Purchase, RFQ):
@@ -642,6 +599,9 @@ def test_langshaw_completion_messages(Purchase):
     pprint.pprint(result)
     assert result == [
         "B -> S: Reject#done0[in ID key, in Reject, out done0]",
+        "B -> Sh: Reject#done0[in ID key, in Reject, out done0]",
+        "S -> B: Deny#done0[in ID key, in Deny, out done0]",
+        "S -> Sh: Deny#done0[in ID key, in Deny, out done0]",
         "Sh -> B: Deliver#done0[in ID key, in Deliver, out done0]",
         "Sh -> S: Deliver#done0[in ID key, in Deliver, out done0]",
     ]
@@ -651,6 +611,8 @@ def test_langshaw_nonlive(Nonlive):
     print(Nonlive.source)
     p = Nonlive.to_bspl("Nonlive")
     print(p.format())
+    assert list(Nonlive.messages(Nonlive.action("RFQ")))
+    assert list(Nonlive.messages(Nonlive.action("Quote")))
     assert not liveness(p)["live"]
 
 
@@ -671,19 +633,19 @@ what ID key, thing
 action
   A: One(ID, thing)
   A: Two(ID, thing)
+  B: See(ID, One, Two)
 
 sayso
   A: thing
-
-see
-  B: One, Two
 
 nono
   One Two
 """
     p = Langshaw(repeat).to_bspl("Repeat")
     print(p.format())
-    assert liveness(p)["live"]
+    result = liveness(p)
+    pprint.pprint(result)
+    assert result["live"]
 
 
 def test_langshaw_block_contra(BlockContra):
@@ -713,10 +675,6 @@ do
  Buyer: RFQ(ID, item, price)
  Seller: Quote(ID, QID, item, price)
 
-see
-  Buyer: Quote
-  Seller: RFQ
-
 sayso
  Buyer: item
  Buyer > Seller: price
@@ -731,6 +689,7 @@ def test_liveness(Purchase):
     print("langshaw:\n", Purchase.source)
     p = Purchase.to_bspl("Purchase")
     print("bspl:\n", p.format())
+    print(list(Purchase.completion_messages()))
     result = liveness(p)
     pprint.pprint(result)
     if "path" in result:
@@ -745,8 +704,8 @@ def test_liveness(Purchase):
 
 def test_po_pay_cancel_ship():
     l = Langshaw.load_file("samples/tests/langshaw/po-pay-cancel-ship.lsh")
-    pprint.pprint(l.source)
+    print("langshaw:\n", l.source)
     p = l.to_bspl("PoPayCancelShip")
-    print(p.format())
+    print("bspl:\n", p.format())
     result = liveness(p)
     assert result["live"]

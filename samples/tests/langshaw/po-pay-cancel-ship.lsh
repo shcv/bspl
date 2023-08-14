@@ -1,12 +1,13 @@
 who Buyer, Seller
-what ID key, Ship or RescindConfirm
+what ID key, Ship or ConfirmRescind
 
 do
-  Buyer: Order(ID, item, price)
-  Buyer: RescindRequest(ID, Order)
-  Buyer: Pay(ID, Order)
-  Seller: Ship(ID, Order)
-  Seller: RescindConfirm(ID, RescindRequest)
+  Buyer: PO(ID, item, price)
+  Buyer: RescindRequest(ID, PO)
+  Buyer: Pay(ID, PO)
+
+  Seller: Ship(ID, PO)
+  Seller: ConfirmRescind(ID, RescindRequest)
 
 sayso
   Buyer: item
@@ -14,7 +15,3 @@ sayso
 
 nono
   RescindConfirm Ship
-
-see
-  Seller: Order, RescindRequest, Pay
-  Buyer: Ship, RescindConfirm

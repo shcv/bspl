@@ -1,13 +1,9 @@
 who A, B
-what ID key, result
+what ID key, result, Contra
 
 do
   A: Block(ID, result)
-  B: Contra(ID, result)
+  B: Contra(ID, Block, result)
 
 sayso
   A > B: result
-
-see
-  A: Contra
-  B: Block

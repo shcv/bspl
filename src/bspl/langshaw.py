@@ -84,7 +84,10 @@ def getp(name, schema):
 
 @some
 def delegation_out_parameter_nil(s):
-    "If a delegation is out, the parameter must be nil"
+    """
+    If a role delegates a parameter, it cannot also bind it in the same action.
+      - If a delegation is out, the parameter must be nil.
+    """
     ds = {p[0]: delegates(p[0]) for p in s if delegates(p[0])}
     for d in ds:
         if getp(d, s)[1] == "out" and getp(ds[d], s)[1] != "nil":
@@ -426,25 +429,35 @@ class Langshaw:
     def can_see(self, role, action):
         """
         Return true if role can see action:
-          Either role can perform action or is explicitly allowed to see it
+          1. role can perform the action
+          2. one of its actions references it
+          3. it completes the protocol
         """
         if action.actor == role:
             return True
-        for c in self.get_clause("see"):
-            if role in c["roles"] and action.name in c["parameters"]:
+
+        for a in self.actions:
+            if a.actor == role and action.name in a.parameters:
                 return True
+
+        # include actions mentioned in the 'what' clauses
+        for c in self.get_clause("what"):
+            # there are multiple parameters in each clause
+            for p in c:
+                # if the names match, the action is in the what line, and should be visible
+                if action.name == p["name"]:
+                    return True
 
     def observes(self, role, parameter):
         """
         Check if a role can observe a parameter or not.
-        Roles should be able to observe all parameters from their own actions,
-        plus any parameters declared in the 'sees' section."""
-
-        # A parameter can be seen if the role has an action involving it
-        for x in chain(self.get_clause("actions"), self.get_clause("see")):
-            if (
-                role in x.get("roles", []) or role == x.get("actor")
-            ) and parameter in x["parameters"]:
+        Roles should be able to observe all parameters from actions they can see."""
+        for a in self.actions:
+            if parameter == a.name and self.can_see(role, a):
+                # it's an action name, and the role can see the action
+                return True
+            if self.can_see(role, a) and parameter in a.parameters:
+                print(f"{role} observes {parameter}")
                 return True
 
     def observers(self, parameter):
