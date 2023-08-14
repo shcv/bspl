@@ -99,16 +99,14 @@ def disables(a, b):
     if isinstance(a, Emission) and isinstance(b, Emission) and a.sender == b.sender:
         for p in a.outs:
             # out disables out or nil
-            if p in b.parameters:
-                if b.parameters[p].adornment in ["out", "nil"]:
-                    return True
+            if p in b.parameters and b.parameters[p].adornment in ["out", "nil"]:
+                return True
 
     if isinstance(a, Reception) and isinstance(b, Emission) and a.recipient == b.sender:
         for p in a.outs.union(a.ins):
             # out or in disables out or nil
-            if p in b.parameters:
-                if b.parameters[p].adornment in ["out", "nil"]:
-                    return True
+            if p in b.parameters and b.parameters[p].adornment in ["out", "nil"]:
+                return True
 
 
 def enables(a, b):
@@ -119,10 +117,8 @@ def enables(a, b):
 
     if (
         not isinstance(b, Emission)
-        or isinstance(a, Emission)
-        and a.sender != b.sender
-        or isinstance(a, Reception)
-        and a.recipient != b.sender
+        or (isinstance(a, Emission) and a.sender != b.sender)
+        or (isinstance(a, Reception) and a.recipient != b.sender)
     ):
         # only emissions can be enabled by other messages, and only at the sender
         return False
@@ -130,9 +126,8 @@ def enables(a, b):
     if not disables(a, b):
         # out enables in
         for p in a.outs:
-            if p in b.parameters:
-                if b.parameters[p].adornment == "in":
-                    return True
+            if p in b.parameters and b.parameters[p].adornment == "in":
+                return True
 
 
 class Tangle:
