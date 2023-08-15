@@ -251,33 +251,6 @@ def test_action_all_schemas(Purchase):
     ]
 
 
-def test_delegation_role_alignment(Purchase):
-    f = delegation_role_alignment(Purchase, "B")
-    assert f((("ID", "in"), ("item@S", "nil"), ("item", "nil")))
-    assert not f((("ID", "in"), ("item@S", "in"), ("item", "nil")))
-    assert f((("ID", "in"), ("item@B", "in"), ("item", "nil")))
-    assert not f((("ID", "in"), ("item@B", "out"), ("item", "nil")))
-    assert f((("ID", "in"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")))
-
-
-def test_delegation_out_parameter_nil():
-    f = delegation_out_parameter_nil
-    assert f((("item", "out"), ("item@S", "in")))
-    assert f((("item", "nil"), ("item@S", "out")))
-    assert not f((("item", "out"), ("item@S", "out")))
-    assert not f((("item", "in"), ("item@S", "out")))
-    assert f((("ID", "in"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")))
-
-
-def test_ensure_sayso():
-    f = ensure_sayso
-    assert f((("item", "out"), ("item@S", "in")))
-    assert f((("item", "nil"), ("item@S", "in"), ("item@Sh", "out")))
-    assert f((("item", "nil"), ("item@S", "out")))
-    assert f((("ID", "in"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")))
-    assert not f((("item", "nil"), ("item@S", "nil")))
-
-
 def test_ensure_priority(Redelegation):
     f = ensure_priority(Redelegation, "B")
 
@@ -307,15 +280,6 @@ def test_ensure_priority(Redelegation):
             ("potato", "nil"),
             ("Pass", "out"),
         )
-    )
-
-
-def test_strip_nil_delegations(Purchase):
-    assert strip_nil_delegations(
-        (("ID", "in"), ("item@S", "nil"), ("item", "out"))
-    ) == (
-        ("ID", "in"),
-        ("item", "out"),
     )
 
 
@@ -641,6 +605,7 @@ sayso
 nono
   One Two
 """
+    print(repeat)
     p = Langshaw(repeat).to_bspl("Repeat")
     print(p.format())
     result = liveness(p)
@@ -709,3 +674,11 @@ def test_po_pay_cancel_ship():
     print("bspl:\n", p.format())
     result = liveness(p)
     assert result["live"]
+
+
+def test_exclusivity_diff(Purchase):
+    for a in Purchase.actions:
+        schemas = set(a.schemas())
+        alt = set(filter(handle_exclusivity(a.parent, a.actor), a.schemas()))
+        if schemas != alt:
+            pprint.pprint(schemas.symmetric_difference(alt))

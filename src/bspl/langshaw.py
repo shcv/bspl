@@ -19,13 +19,26 @@ def get_clause(spec, kind):
     return []
 
 
-def delegates(parameter):
+def delegates(parameter, schema=None):
     """Returns the name of the parameter being delegated by the argument
     e.g. delegates("item@S") == "item"
     """
+    if schema:
+        return [p for p in schema if delegates(p[0]) == parameter]
     m = re.match(r"(.*)@.*", parameter)
     if m:
         return m.groups()[0]
+
+
+def delegations(schema, role=None):
+    """
+    Returns a list of delegations in the schema
+    If a role is provided, return only delegations to other roles
+    """
+    if role:
+        return [p for p in schema if delegates(p[0]) and not delegates_to(p[0]) == role]
+    else:
+        return [p for p in schema if delegates(p[0])]
 
 
 def delegates_to(parameter):
@@ -46,83 +59,46 @@ def some(f):
     return wrap
 
 
-def not_nil(*params):
-    def inner(s):
-        if not any(p[1] == "nil" for p in s if p[0] in params):
-            return s
-
-    return some(inner)
-
-
-def delegation_role_alignment(protocol, role):
-    """
-    Delegations can only be 'out' if the sender can delegate to that role.
-    If a delegation is 'in' for a different role, the parameter must be 'in'
-      - must have been delegated earlier, should be bound by the other role
-    """
-
-    def inner(s):
-        for p in s:
-            if delegates(p[0]):
-                to = delegates_to(p[0])
-                if to != role and p[1] == "in":
-                    # delegation is in for a different role
-                    # ensure delegated parameter is in
-                    if getp(delegates(p[0]), s)[1] != "in":
-                        return
-                if to != protocol.delegates_to(role, delegates(p[0])) and p[1] == "out":
-                    return
-        return s
-
-    return some(inner)
-
-
 def getp(name, schema):
     "find parameter in schema by name"
     return next((p for p in schema if p[0] == name), None)
 
 
-@some
-def delegation_out_parameter_nil(s):
+def handle_delegation(protocol, role):
     """
-    If a role delegates a parameter, it cannot also bind it in the same action.
-      - If a delegation is out, the parameter must be nil.
+    p = nil => p@other != nil
+    p@other = in => p = in
+    p@other = out => role can delegate p and p != out or in
+    p@other = nil => p != nil
     """
-    ds = {p[0]: delegates(p[0]) for p in s if delegates(p[0])}
-    for d in ds:
-        if getp(d, s)[1] == "out" and getp(ds[d], s)[1] != "nil":
-            return
-    return s
-
-
-def handle_delegation(role):
-    "Schema receiving delegation must bind or re-delegate"
 
     def inner(s):
-        d_self = {
-            p[0]: delegates(p[0])
-            for p in s
-            if delegates(p[0]) and delegates_to(p[0]) == role
-        }
-        d_other = {
-            # index by delegated parameter
-            delegates(p[0]): p[0]
-            for p in s
-            # only include active delegations to other roles
-            if delegates(p[0]) and delegates_to(p[0]) != role and p[1] == "out"
-        }
-        for d in d_self:
-            direction = getp(d, s)[1]
-            if direction == "out":
-                return  # can't delegate to self
-            elif direction == "in":
-                # received delegation
-                # must copy, bind, or delegate
-                p = d_self[d]
-                bound_or_copy = getp(p, s)[1] in ["out", "in"]
-                if not bound_or_copy and p not in d_other:
-                    return
+        for p in s:
+            if p[1] == "nil" and not delegates(p[0]):
+                if not any(
+                    delegates(d[0]) == p[0] and d[1] == "out"
+                    for d in delegations(s, role)
+                ):
+                    return  # p is nil, but not delegated to other role
 
+        for d in delegations(s):
+            if delegates_to(d[0]) != role:
+                # not a delegation to this role
+                p = delegates(d[0])  # parameter being delegated
+                ad = getp(p, s)[1]  # delegated parameter's adornment
+                if d[1] == "in" and ad != "in":
+                    # already delegated to other role, must already be bound
+                    return
+                elif d[1] == "out" and ad != "nil":
+                    # if delegation is out, parameter must be nil
+                    return
+                elif d[1] == "nil" and ad == "nil":
+                    # if delegation is nil, parameter not must be nil
+                    pass  # return
+            else:
+                # delegation to self
+                if d[1] == "out":
+                    return  # can't delegate to self
         return s
 
     return some(inner)
@@ -151,21 +127,6 @@ def ensure_priority(protocol, role):
     return some(inner)
 
 
-@some
-def ensure_sayso(s):
-    "Only pass schemas if there are no parameters that are nil but not delegated"
-    for p in s:
-        if (
-            not delegates(p[0])  # p is not a delegation
-            and p[1] == "nil"  # p is nil
-            and all(  # all parameters delegating p are nil
-                d[1] == "nil" for d in s if delegates(d[0]) == p[0]
-            )
-        ):
-            return
-    return s
-
-
 def handle_exclusivity(protocol, role):
     "If a role has exclusive sayso for a parameter, and it only appears in one message, it must be out"
 
@@ -173,6 +134,7 @@ def handle_exclusivity(protocol, role):
         for p in s:
             ps = protocol.priorities(p[0])
             if role in ps and len(ps) == 1:
+                # has exclusive sayso for p
                 actions = [
                     a
                     for a in protocol.actions
@@ -186,21 +148,13 @@ def handle_exclusivity(protocol, role):
     return some(inner)
 
 
-@some
-def strip_nil_delegations(s):
-    """ """
-    result = tuple(p for p in s if not delegates(p[0]) or p[1] != "nil")
-    return result
-
-
 def out_keys(keys):
+    "Some key must be in if any parameter is in"
+
     def inner(s):
-        if not (
-            # all keys out
-            all(p[1] == "out" for p in s if p[0] in keys)
-            # some parmeter in
-            and any(p[1] == "in" for p in s if p[0] not in keys)
-        ):
+        if not any(p[1] == "in" for p in s if p[0] not in keys):
+            return s
+        if any(p[1] == "in" for p in s if p[0] in keys):
             return s
 
     return some(inner)
@@ -261,7 +215,7 @@ class Action:
             # if the actor can bind the parameter, it can be anything
             return ["in", "out", "nil"]
         else:
-            return ["in", "nil"]
+            return ["in"]
 
     def columns(self):
         for p in self.expanded_parameters:
@@ -280,13 +234,10 @@ class Action:
                 lambda s: reduce(
                     apply,
                     [
-                        delegation_role_alignment(self.parent, self.actor),
-                        delegation_out_parameter_nil,
-                        handle_delegation(self.actor),
-                        ensure_sayso,
                         out_keys(self.keys),
-                        handle_exclusivity(self.parent, self.actor),
+                        handle_delegation(self.parent, self.actor),
                         ensure_priority(self.parent, self.actor),
+                        handle_exclusivity(self.parent, self.actor),
                     ],
                     s,
                 ),
