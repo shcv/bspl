@@ -169,6 +169,12 @@ class Action:
         self.name = spec["name"]
         self.parameters = spec["parameters"]
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
     @property
     def keys(self):
         return [p for p in self.parameters if p in self.parent.keys]
@@ -197,7 +203,8 @@ class Action:
     def expanded_parameters(self):
         yield from self.keys
         for p in self.non_keys:
-            yield from self.parent.delegations(self.actor, p)
+            if "out" in self.possibilities(p):
+                yield from self.parent.delegations(self.actor, p)
             yield p
         yield self.autonomy_parameter
 
@@ -208,14 +215,35 @@ class Action:
         elif parameter == self.autonomy_parameter:
             # autonomy parameter for this action is always out
             return ["out"]
-        elif parameter in [a.name for a in self.parent.actions]:
+        elif self.parent.action(parameter):
             # autonomy parameters for other actions are always in
             return ["in"]
+        elif delegates(parameter) and delegates_to(parameter) == self.actor:
+            # incoming delegations may not be bound
+            return ["in", "nil"]
         elif self.parent.can_bind(self.actor, parameter):
+            # if the parameter appears in an action this action depends on, it can't be nil
+            pss = []
+            for p in self.parameters:
+                a = self.parent.action(p)
+                if a and a != self:
+                    pss.append(a.possibilities(parameter))
+            if pss and [ps for ps in pss if ps]:
+                if delegates(parameter):
+                    # after first appearance of the delegation, always in/nil
+                    return ["in", "nil"]
+                pss = min(set(ps) for ps in pss if ps)
+                if "nil" in pss:
+                    return ["in", "out"]
+                else:
+                    return ["in"]
             # if the actor can bind the parameter, it can be anything
             return ["in", "out", "nil"]
-        else:
+        elif parameter in self.non_keys:
             return ["in"]
+        elif parameter not in self.expanded_parameters:
+            # not one of ours; no possibilities
+            return []
 
     def columns(self):
         for p in self.expanded_parameters:
@@ -295,6 +323,10 @@ class Langshaw:
         return [p["name"] for pc in self.get_clause("what") for p in pc]
 
     @property
+    def what(self):
+        return self.get_clause("what")
+
+    @property
     def private(self):
         return (
             set(a.name for a in self.actions)
@@ -316,6 +348,12 @@ class Langshaw:
     def conflicts(self):
         return self.get_clause("conflicts") or []
 
+    def conflicting(self, a, b):
+        "Check if actions a and b are in conflict (nono)"
+        for c in self.conflicts:
+            if a.name in c and b.name in c:
+                return True
+
     @property
     def saysos(self):
         return self.get_clause("sayso")
@@ -328,6 +366,10 @@ class Langshaw:
 
     def can_bind(self, role, parameter):
         """Check if role can bind parameter in some message (ignoring priority)"""
+
+        if parameter in self.keys:
+            return True
+
         for c in self.saysos:
             if role in c["roles"]:
                 if parameter in c["parameters"]:
@@ -340,8 +382,13 @@ class Langshaw:
             elif parameter == a.autonomy_parameter and a.actor != role:
                 return False
 
+        # an actor can bind delegations to the next actor in the priority list
+        p = delegates(parameter)
+        if p and delegates_to(parameter) == self.delegates_to(role, p):
+            return True
+
         # anyone can bind parameters that aren't in a sayso clause
-        return not any(parameter in c["parameters"] for c in self.saysos)
+        # return not any(parameter in c["parameters"] for c in self.saysos)
 
     def can_be_delegated(self, role, parameter):
         """
@@ -463,11 +510,13 @@ class Langshaw:
                         if n == 0:
                             aps.append(Parameter(p[0], "out"))
                         else:
+                            # increment index for copies to subsequent recipients
                             aps.append(Parameter(p[0], "in"))
                             aps.append(Parameter(p[0] + str(n + 1), "out"))
                         self.autonomy_parameters.update(aps)
                         parameters.extend(aps)
-                    else:
+                    elif n == 0 or p[1] != "nil":
+                        # don't include nil parameters in copies
                         parameters.append(
                             Parameter(p[0], p[1] if n == 0 or p[1] != "out" else "in")
                         )
@@ -492,18 +541,16 @@ class Langshaw:
             for s in self.roles:
                 if self.can_bind(s, p):
                     alt = self.alt_parameters[p]
-                    recipients = self.observers(p)
-                    for r in recipients:
-                        if r != s:
-                            yield Message(
-                                name=f"{p}#{alt}",
-                                parent=protocol,
-                                sender=s,
-                                recipient=r,
-                                parameters=[Parameter(k, "in", "key") for k in keys]
-                                + [Parameter(p, "in"), Parameter(alt, "out")],
-                                validate=False,
-                            )
+                    r = next(o for o in self.observers(p) if o != s)
+                    yield Message(
+                        name=f"{p}#{alt}",
+                        parent=protocol,
+                        sender=s,
+                        recipient=r,
+                        parameters=[Parameter(k, "in", "key") for k in keys]
+                        + [Parameter(p, "in"), Parameter(alt, "out")],
+                        validate=False,
+                    )
 
     def to_bspl(self, name):
         p = Protocol(

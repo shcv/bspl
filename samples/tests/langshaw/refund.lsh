@@ -1,19 +1,20 @@
 who Buyer, Seller
-what ID key, PayAck or CancelAck
+what ID key, Ship or Refund or CancelAck
 
 do
   Buyer: PO(ID, item, price)
-  Buyer: Pay(ID, PO)
   Buyer: Cancel(ID, PO)
-  Buyer: Receive(ID, Ship)
+  Buyer: Pay(ID, PO)
+  Buyer: RequestRefund(ID, Pay)
 
   Seller: Ship(ID, PO)
   Seller: CancelAck(ID, Cancel)
-  Seller: PayAck(ID, Pay)
+  Seller: Refund(ID, Pay, RequestRefund)
 
 sayso
   Buyer: item
   Buyer: price
 
 nono
-  CancelAck Ship
+  Cancel Pay
+  Refund Ship

@@ -1,0 +1,16 @@
+who A, B
+what ID key, Block or Contra, End
+
+do
+  A: Block(ID, result)
+  A: Prepare(ID)
+
+  B: Contra(ID, Prepare, result)
+  B: End(ID, result)
+
+sayso
+  A: ID
+  A > B: result
+
+nono
+  Block Contra

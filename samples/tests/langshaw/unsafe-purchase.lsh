@@ -1,0 +1,21 @@
+who B, S, Sh
+what ID key, Reject or Deny or Deliver
+
+action
+  B: RFQ(ID, item)
+  S: Quote(ID, RFQ, item, price)
+  B: Accept(ID, Quote, item, price, address)
+  B: Reject(ID, Quote)
+  S: Deny(ID, Accept)
+  S: Instruct(ID, Accept, item, address, fee)
+  Sh: Deliver(ID, Instruct, item, address)
+
+sayso
+  B > S: item
+  S > B: price
+  S: fee
+  B: address
+
+conflict
+  Deny Deliver
+  Reject Deliver

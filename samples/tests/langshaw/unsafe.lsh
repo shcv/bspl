@@ -1,0 +1,13 @@
+who A, B, C
+what start key
+
+do
+  A: One(start, thing)
+  C: Conflict1(start, thing)
+  B: Conflict2(start, thing)
+
+sayso
+  A: thing
+
+nono
+  Conflict1 Conflict2

@@ -396,7 +396,7 @@ def partition(graph, ps):
             # Choose a color that
             #  (1) has the highest cardinality (number of vertices)
             max_cardinality = max(len(c) for c in options)
-            print(f"max_cardinality: {max_cardinality}, {[len(o) for o in options]}")
+            # print(f"max_cardinality: {max_cardinality}, {[len(o) for o in options]}")
             options = {o for o in options if len(o) == max_cardinality}
 
             #  (2) within such, the color whose vertex of highest degree has the smallest degree
@@ -405,11 +405,11 @@ def partition(graph, ps):
                 def max_degree(color):
                     return max(degree(v) for v in color)
 
-                min_max = min(max_degree(c) for c in parts)
+                min_max = min(max_degree(o) for o in options)
                 options = {o for o in options if max_degree(o) == min_max}
 
             # choose color from options (randomly?)
-            print(f"options: {len(options)}")
+            # print(f"options: {len(options)}")
             color = next(o for o in options)
         else:
             color = next(o for o in options)
@@ -455,12 +455,12 @@ def extensions(U, path, **kwargs):
     return xs
 
 
-def max_paths(U):
+def max_paths(U, **kwargs):
     max_paths = []
     new_paths = [empty_path()]
     while len(new_paths):
         p = new_paths.pop()
-        xs = extensions(U, p)
+        xs = extensions(U, p, **kwargs)
         if xs:
             new_paths.extend(xs)
         else:

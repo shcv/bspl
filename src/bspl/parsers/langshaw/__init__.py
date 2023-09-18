@@ -6,17 +6,7 @@ from .build import build_parser, save_parser
 
 debug = True
 
-try:
-    from .langshaw_parser import BsplParser
-
-    model = LangshawParser()
-except:
-    model = build_parser()
-    try:
-        save_parser(model)
-    except:
-        # Couldn't save the file properly; eat the error and continue with dynamically loaded parser
-        pass
+model = build_parser()
 
 
 def parse(definition):

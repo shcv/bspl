@@ -4,9 +4,10 @@ import pytest
 from bspl.parsers.langshaw import load
 from bspl import langshaw
 from bspl.langshaw import *
+from bspl.verification import lpaths
 import inspect
-from bspl.verification.paths import liveness, safety
-import pprint
+from bspl.verification.paths import liveness, safety, UoD, max_paths
+import pprint, glob, os
 
 
 @pytest.fixture(scope="module")
@@ -654,7 +655,7 @@ def test_liveness(Purchase):
     print("langshaw:\n", Purchase.source)
     p = Purchase.to_bspl("Purchase")
     print("bspl:\n", p.format())
-    print(list(Purchase.completion_messages()))
+    print("messages:", len(p.messages))
     result = liveness(p)
     pprint.pprint(result)
     if "path" in result:
@@ -667,12 +668,29 @@ def test_liveness(Purchase):
     assert result["safe"]
 
 
+def test_lpath_liveness(Purchase):
+    print("langshaw:\n", Purchase.source)
+    result = lpaths.liveness(Purchase, debug=True)
+    pprint.pprint(result)
+    if "path" in result:
+        pprint.pprint(list(a.name for a in result["path"]))
+
+    assert result["live"]
+
+    result = lpaths.safety(Purchase)
+    pprint.pprint(result)
+    assert result["safe"]
+
+
 def test_po_pay_cancel_ship():
     l = Langshaw.load_file("samples/tests/langshaw/po-pay-cancel-ship.lsh")
     print("langshaw:\n", l.source)
     p = l.to_bspl("PoPayCancelShip")
     print("bspl:\n", p.format())
+    print("messages:", len(p.messages))
+    pprint.pprint(max_paths(UoD.from_protocol(p)))
     result = liveness(p)
+    pprint.pprint(result)
     assert result["live"]
 
 
@@ -682,3 +700,70 @@ def test_exclusivity_diff(Purchase):
         alt = set(filter(handle_exclusivity(a.parent, a.actor), a.schemas()))
         if schemas != alt:
             pprint.pprint(schemas.symmetric_difference(alt))
+
+
+def test_langshaw_protocols():
+    # get list of langshaw protocol files
+    lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
+    # collect stats into list
+    stats = []
+    # foreach file, load it and convert to bspl
+    for lsh_file in lsh_files:
+        l = Langshaw.load_file(lsh_file)
+        # use the filename as the protocol name
+        name = os.path.basename(lsh_file).split(".")[0]
+        p = l.to_bspl(name)
+        # collect results
+        results = {
+            "name": name,
+            "messages": len(p.messages),
+            "live": liveness(p)["live"],
+        }
+        results.update(safety(p))
+        results["elapsed"] = round(results["elapsed"], 4)
+        stats.append(results)
+    # print stats
+    print(format_table(stats))
+
+
+def format_table(data):
+    """Render list of dicts as a latex table"""
+    columns = list(data[0].keys())
+    sizes = {c: max(max(len(str(d[c])), len(c)) for d in data) for c in columns}
+
+    def justify(field, c):
+        return str(field).ljust(sizes[c], " ")
+
+    # create header
+    # result is a list of strings
+    result = [" & ".join(justify(c, c) for c in columns) + " \\\\ \\hline"]
+
+    for entry in data:
+        # create a row separated with & and terminated with \\
+        result.append(" & ".join(justify(entry[c], c) for c in columns) + " \\\\")
+
+    return "\n".join(result)
+
+
+def test_lpaths():
+    # get list of langshaw protocol files
+    lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
+    # collect stats into list
+    stats = []
+    # foreach file, load it and convert to bspl
+    for lsh_file in lsh_files:
+        l = Langshaw.load_file(lsh_file)
+        # use the filename as the protocol name
+        name = os.path.basename(lsh_file).split(".")[0]
+        print(name)
+
+        # collect results
+        results = {
+            "name": name,
+            "live": lpaths.liveness(l, debug=True)["live"],
+        }
+        results.update(lpaths.safety(l, debug=True))
+        results["elapsed"] = round(results["elapsed"], 4)
+        stats.append(results)
+    # print stats
+    print(format_table(stats))
