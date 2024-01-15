@@ -200,6 +200,16 @@ class Action:
         return self.name
 
     @property
+    def explicit_dependencies(self):
+        """Return the actions that this action explicitly depends on (by referencing its name)"""
+        deps = []
+        for p in self.parameters:
+            a = self.parent.action(p)
+            if a and a != self:
+                deps.append(a)
+        return deps
+
+    @property
     def expanded_parameters(self):
         yield from self.keys
         for p in self.non_keys:
@@ -298,7 +308,7 @@ class Langshaw:
         validate(spec)
         self.spec = spec
         self.actions = [Action(a, self) for a in self.get_clause("actions")]
-        self.autonomy_parameters = set()
+        self.autonomy_parameters = set(a.autonomy_parameter for a in self.actions)
 
     @classmethod
     def load_file(cls, path):
@@ -313,6 +323,10 @@ class Langshaw:
         for a in self.actions:
             if a.name == name:
                 return a
+
+    @property
+    def name(self):
+        return self.get_clause("name")
 
     @property
     def roles(self):
@@ -348,15 +362,26 @@ class Langshaw:
     def conflicts(self):
         return self.get_clause("conflicts") or []
 
+    @property
+    def nogos(self):
+        return self.get_clause("nogos") or []
+
     def conflicting(self, a, b):
-        "Check if actions a and b are in conflict (nono)"
+        "Check if actions a and b are in mutual conflict (nono)"
         for c in self.conflicts:
             if a.name in c and b.name in c:
                 return True
 
+    def prevents(self, a, b):
+        "Check if action a prevents action b (nogo)"
+        for c in self.nogos:
+            # return true if a is before b in list c
+            if a.name in c and b.name in c and c.index(a.name) < c.index(b.name):
+                return True
+
     @property
     def saysos(self):
-        return self.get_clause("sayso")
+        return self.get_clause("saysos")
 
     def priorities(self, parameter):
         for c in self.saysos:
@@ -375,7 +400,7 @@ class Langshaw:
                 if parameter in c["parameters"]:
                     return True
 
-        # only the actor can bind an action's autonomy parametors
+        # only the actor can bind an action's autonomy parameters
         for a in self.actions:
             if parameter == a.autonomy_parameter and a.actor == role:
                 return True
@@ -387,7 +412,7 @@ class Langshaw:
         if p and delegates_to(parameter) == self.delegates_to(role, p):
             return True
 
-        # anyone can bind parameters that aren't in a sayso clause
+        # uncomment if anyone can bind parameters that aren't in a sayso clause
         # return not any(parameter in c["parameters"] for c in self.saysos)
 
     def can_be_delegated(self, role, parameter):

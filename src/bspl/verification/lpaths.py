@@ -31,10 +31,15 @@ def attemptable(path, action):
         return False
 
     k = known(path, action.keys)
+
+    # all direct dependencies must have already occurred
+    for d in action.explicit_dependencies:
+        if d not in path:
+            return False
+
+    # parameters must be known, or actor must have sayso
     result = all(
-        # parameters must be known, or actor must have sayso
-        p in k or action.parent.can_bind(action.actor, p)
-        for p in action.parameters
+        p in k or action.parent.can_bind(action.actor, p) for p in action.parameters
     )
     return result
 
@@ -43,6 +48,8 @@ def unsocial(path, action):
     "An action is unsocial if it conflicts with any prior actions"
     for a in path:
         if action.parent.conflicting(a, action):
+            return True
+        if action.parent.prevents(a, action):
             return True
     return False
 
@@ -53,6 +60,8 @@ def disables(protocol, a, b):
     # a disables b if there's a conflict between them
     # only if they have the same actor
     if protocol.conflicting(a, b) and a.actor == b.actor:
+        return True
+    if protocol.prevents(a, b) and a.actor == b.actor:
         return True
 
     # a disables b if they share parameter p where a's actor has sayso
@@ -77,11 +86,19 @@ def enables(protocol, a, b):
     for p in a.parameters:
         if p not in b.parameters:
             continue
+        if p in protocol.autonomy_parameters:
+            # autonomy parameters indicate direct dependencies on other actions; can't enable anything
+            continue
         # actor for a has sayso over some parameter
         if protocol.can_bind(a.actor, p):
             # actor for b does not have sayso over that parameter
             if not protocol.can_bind(b.actor, p):
+                print(f"{a} enables {b} because {a.actor} has sayso over {p}")
                 return True
+
+    # autonomy parameters indicate direct dependencies on other actions
+    if a.autonomy_parameter in b.parameters:
+        return True
 
 
 class Tangle:
@@ -186,6 +203,7 @@ def partition(graph, ps):
     for vertex in vs:
         # Assign a color to each vertex that isn’t assigned to its neighbors
         options = parts.difference({coloring.get(n) for n in neighbors[vertex]})
+        print(f"vertex: {vertex}, options: {options}, neighbors: {neighbors[vertex]}")
 
         # generate a new color if necessary
         if len(options) == 0:
@@ -228,7 +246,8 @@ def extensions(U, path, **kwargs):
     }
     kwargs = {**default_kwargs, **kwargs}
     ps = possibilities(U, path)
-
+    if kwargs["debug"]:
+        print(f"possibilities: {ps}")
     if not kwargs["reduction"]:
         # all the possibilities
         xs = {path + (p,) for p in ps}
@@ -241,8 +260,16 @@ def extensions(U, path, **kwargs):
 
 
 def max_paths(U, **kwargs):
+    default_kwargs = {
+        "by_degree": False,
+        "reduction": True,
+        "debug": False,
+    }
+    kwargs = {**default_kwargs, **kwargs}
     max_paths = []
     new_paths = [empty_path()]
+    if kwargs["debug"]:
+        print(f"tangled: {pformat(U.tangle.tangles)}")
     while len(new_paths):
         p = new_paths.pop()
         xs = extensions(U, p, **kwargs)

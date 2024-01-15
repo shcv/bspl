@@ -1,7 +1,9 @@
+Unsafe Purchase
+
 who B, S, Sh
 what ID key, Reject or Deny or Deliver
 
-action
+do
   B: RFQ(ID, item)
   S: Quote(ID, RFQ, item, price)
   B: Accept(ID, Quote, item, price, address)
@@ -16,6 +18,6 @@ sayso
   S: fee
   B: address
 
-conflict
+nono
   Deny Deliver
   Reject Deliver

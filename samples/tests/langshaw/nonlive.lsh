@@ -1,7 +1,9 @@
+Nonlive
+
 who Buyer, Seller
 what ID key, RFQ, Quote
 
-action
+do
   Buyer: RFQ(ID, item, price)
   Seller: Quote(ID, item, price)
 

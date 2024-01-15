@@ -36,6 +36,11 @@ def Redelegation():
 
 
 @pytest.fixture(scope="module")
+def RfqQuote():
+    return Langshaw.load_file("samples/tests/langshaw/rfq-quote.lsh")
+
+
+@pytest.fixture(scope="module")
 def RFQ(Purchase):
     return Purchase.actions[0]
 
@@ -46,10 +51,10 @@ def Reject(Purchase):
 
 
 def test_grammar():
-    load("\nwho: A\n")  # extra whitespace
-    load("what: A, B, C or D")
-    load("actions:\n  A: Act(a,b,c)\n")
-    load("actions: A: Act(a,b,c)\n")
+    load("Test\n\nwho: A\n")  # extra whitespace
+    load("Test\n\nwhat: A, B, C or D")
+    load("Test\n\ndo:\n  A: Act(a,b,c)\n")
+    load("Test\n\ndo: A: Act(a,b,c)\n")
 
 
 def test_load_file():
@@ -69,9 +74,10 @@ def test_validate(Purchase):
             load(
                 inspect.cleandoc(
                     """
+        Test
         who A, B
         what a, b
-        actions:
+        do:
             A: Send(a)
         sayso:
           A > B: a
@@ -147,6 +153,12 @@ def test_langshaw_conflicts(Purchase):
     assert Purchase.conflicts[0] == ["Accept", "Reject"]
 
 
+def test_langshaw_nogos(RfqQuote):
+    pprint.pprint(RfqQuote.spec)
+    assert len(RfqQuote.nogos) == 1
+    assert RfqQuote.nogos[0] == ["RescindRequest", "Goods"]
+
+
 def test_langshaw_can_bind(Purchase):
     assert Purchase.can_bind("B", "item")
     assert Purchase.can_bind("S", "item")
@@ -195,6 +207,11 @@ def test_action_possibilities(RFQ, Reject):
     assert RFQ.possibilities("item") == ["in", "out", "nil"]
     assert Reject.possibilities("ID") == ["in", "out"]
     assert Reject.possibilities("Quote") == ["in"]
+
+
+def test_action_explicit_dependencies(Purchase):
+    assert list(Purchase.actions[0].explicit_dependencies) == []
+    assert list(Purchase.actions[1].explicit_dependencies) == [Purchase.actions[0]]
 
 
 def test_langshaw_observes(Purchase):
@@ -592,10 +609,11 @@ def test_langshaw_redelegation(Redelegation):
 
 def test_langshaw_repeat():
     repeat = """
+Repeat
 who A, B
 what ID key, thing
 
-action
+do
   A: One(ID, thing)
   A: Two(ID, thing)
   B: See(ID, One, Two)
@@ -634,6 +652,7 @@ def test_langshaw_either_offer(EitherOffer):
 
 def test_langshaw_multikey():
     multikey = """
+Multikey
 who Buyer, Seller
 what ID key, QID key, RFQ, Quote
 
@@ -694,6 +713,39 @@ def test_po_pay_cancel_ship():
     assert result["live"]
 
 
+def test_rfq_quote():
+    l = Langshaw.load_file("samples/tests/langshaw/rfq-quote.lsh")
+    print("langshaw:\n", l.source)
+    pprint.pprint(l.spec)
+    pprint.pprint(lpaths.max_paths(lpaths.UoD(l), debug=True))
+    result = lpaths.liveness(l, debug=True)
+    pprint.pprint(result)
+    assert result["live"]
+    assert False
+
+
+def test_minimal_rfq_quote():
+    l = Langshaw(
+        """
+        MinimalRFQ
+        who A, B
+        what ID key, item
+        do:
+            A: RFQ(ID, item)
+            A: Accept(ID, RFQ)
+        sayso:
+          A: item
+        """
+    )
+    print("langshaw:\n", l.source)
+    pprint.pprint(l.spec)
+    result = lpaths.liveness(l, debug=True)
+    pprint.pprint(result)
+    assert result["live"]
+    assert result["checked"] == 3
+    assert result["maximal paths"] == 1
+
+
 def test_exclusivity_diff(Purchase):
     for a in Purchase.actions:
         schemas = set(a.schemas())
@@ -752,14 +804,14 @@ def test_lpaths():
     stats = []
     # foreach file, load it and convert to bspl
     for lsh_file in lsh_files:
+        print(lsh_file)
         l = Langshaw.load_file(lsh_file)
-        # use the filename as the protocol name
-        name = os.path.basename(lsh_file).split(".")[0]
-        print(name)
+        print(l.name)
+        print(lpaths.all_paths(lpaths.UoD(l)))
 
         # collect results
         results = {
-            "name": name,
+            "name": l.name,
             "live": lpaths.liveness(l, debug=True)["live"],
         }
         results.update(lpaths.safety(l, debug=True))
@@ -767,3 +819,4 @@ def test_lpaths():
         stats.append(results)
     # print stats
     print(format_table(stats))
+    assert False

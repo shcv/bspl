@@ -1,35 +1,46 @@
 @@eol_comments :: ?/‌‌#|(//).*?$/?
 @@whitespace :: //
+@@keyword :: who what do sayso nono nogo
 
-document = {{/\s/} @:block {/\s/}}+ $;
+document = {'\n'} @:name {{/\s/} @:block {/\s/}}+ $;
+
+name = {' '} name:spacename {' '};
 
 block =
        | who:who
        | what:what
        | actions:action_block
        | conflicts:conflicts
-       | sayso:sayso
+       | nogos:nogos
+       | saysos:saysos
        ;
 
-who = ('who'|'roles') [':'] S @:roles;
+who = 'who' [':'] S @:roles;
 roles = ','.{role} ;
 role = @:word ;
 
-what = ('what'|'parameters') [':'] S @:','.{clause};
+what = 'what' [':'] S @:','.{clause};
 clause = 'or'.{param};
 param = name:word [key:'key'];
 
-action_block = ('action'['s'] | 'do') [':'] S @:{action}+;
-action = {' '|'\n'}+ actor:word ':' {' '} ~ name:word '(' parameters:params ')' S ;
+action_block = 'do' [':'] S @:{action}+;
+action = {' '} actor:word ':' {' '} ~ name:word '(' parameters:params ')' {S} ;
 params = ','.{word};
 
-conflicts = ('conflict' | 'nono') [':'] S @:{conflict}+;
-conflict = {' '|'\n'}+ @:{word}+ S;
+conflicts = 'nono' [':'] S @:{conflict}+ S;
+conflict = {' '} @:{word}+ {'\n'};
 
-sayso = 'sayso' [':'] S @:{sayso_expression}+;
-sayso_expression = {' '|'\n'}+ roles:priority ':' parameters:params S;
+nogos = 'nogo' [':'] S @{nogo}+ S;
+nogo = {' '} @+:word '-/>' @+:word;
+
+saysos = 'sayso' [':'] S @:{sayso}+;
+sayso = {' '} roles:priority ':' parameters:params S;
 priority = '>'.{role} ;
 
-word = {' '} @:/[\w@-]+/ {' '} ;
+@name
+word = {' '} @:/[\w@-]*\w/ {' '};
+
+@name
 spacename = /[ \w@-]+/ ;
+
 S = [{' '} '\n'];
