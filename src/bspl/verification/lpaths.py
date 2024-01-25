@@ -54,6 +54,11 @@ def unsocial(path, action):
     return False
 
 
+def fits(a, b):
+    "Whether a and b agree on their shared keys. In our abstract simulation, this is assumed to be true."
+    return True
+
+
 def disables(protocol, a, b):
     "Return true if action a directly disables action b"
 
@@ -79,21 +84,27 @@ def disables(protocol, a, b):
                 return True
 
 
-def enables(protocol, a, b):
-    "Return true if action a directly enables action b"
+def enables(path, a, b):
+    """
+    Return true if action a directly enables action b, given a path
+    Implements rule Enable"""
+
+    # an action cannot enable itself
+    if a == b:
+        return False
 
     # for some parameter in both a and b
-    for p in a.parameters:
-        if p not in b.parameters:
+    for p in set(a.parameters).intersection(set(b.parameters)):
+        if p in known(path, a.keys):
+            # don't consider parameters that are already known
             continue
-        if p in protocol.autonomy_parameters:
+        if p in a.parent.autonomy_parameters:
             # autonomy parameters indicate direct dependencies on other actions; can't enable anything
             continue
-        # actor for a has sayso over some parameter
-        if protocol.can_bind(a.actor, p):
+        # actor for a has sayso over parameter
+        if a.parent.can_bind(a.actor, p):
             # actor for b does not have sayso over that parameter
-            if not protocol.can_bind(b.actor, p):
-                print(f"{a} enables {b} because {a.actor} has sayso over {p}")
+            if not a.parent.can_bind(b.actor, p):
                 return True
 
     # autonomy parameters indicate direct dependencies on other actions
@@ -101,65 +112,83 @@ def enables(protocol, a, b):
         return True
 
 
-class Tangle:
-    "Graph representation of entanglements between actions"
+def block(a, b):
+    """
+    a blocks b if nogo(a,b) or nono(a,b)
+    """
+    protocol = a.parent
+    return protocol.conflicting(a, b) or protocol.prevents(a, b)
 
-    def __init__(self, protocol, **kwargs):
-        default_kwargs = {"debug": False}
-        kwargs = {**default_kwargs, **kwargs}
-        self.events = set(protocol.actions)
-        self.roles = set(protocol.roles)
 
-        # sources for parameters, for computing endowment
-        self.sources = {}
-        for R in self.roles:
-            self.sources[R] = {}
-            for e in self.events:
-                if protocol.can_see(R, e):
-                    for p in e.parameters:
-                        # role can bind parameter
-                        # and action is not dependent on another that
-                        #   can bind the parameter
-                        if "out" in e.possibilities(p):
-                            if p not in self.sources[R]:
-                                self.sources[R][p] = [e]
-                            else:
-                                self.sources[R][p].append(e)
+def dominates(path, a, b):
+    """
+    a dominates b on path if:
+      1. for some p in both
+      2. p is not in path
+      3. a's actor has priority (higher sayso) over b's actor
+    """
+    # for p in both a and b
+    for p in set(a.parameters).intersection(set(b.parameters)):
+        if p in known(path, a.keys):
+            # skip known parameters
+            continue
 
-        # initialize graph with direct enable and disablements, O(m^2)
-        self.enables = {
-            a: {b for b in self.events if a != b and enables(protocol, a, b)}
-            for a in self.events
-        }
-        self.disables = {
-            a: {b for b in self.events if a != b and disables(protocol, a, b)}
-            for a in self.events
-        }
+        # return true if a's actor has priority over b's
+        if a.parent.has_priority(a.actor, b.actor, p):
+            return True
 
-        if kwargs["debug"]:
-            print(f"disables: {pformat(self.disables)}")
-            print(f"enables: {pformat(self.enables)}")
 
-        # propagate enablements; a |- b & b |- c => a |- c
-        def enablees(a, seen=set()):
-            es = self.enables[a]
-            return es.union(*[enablees(b, seen.union(es)) for b in es if b not in seen])
+def hampers(path, actions):
+    """
+    Return a graph representation (dict) of entanglements between actions
+      actions: a set of actions that are feasible for the next step of path
+      path: a sequence of actions
+    """
+    enablers = {a: {b for b in actions if enables(path, a, b)} for a in actions}
 
-        for a, es in self.enables.items():
-            es.update(enablees(a))
+    # propagate enablements; a |- b & b |- c => a |- c
+    def enablees(a, seen=set()):
+        es = enablers[a]
+        return es.union(*[enablees(b, seen.union(es)) for b in es if b not in seen])
 
-        # compute entanglements:
-        # a tangles c if a disables c or a disables b and c enables b
-        self.tangles = {
-            a: self.disables[a].union(
-                {
-                    c
-                    for c in self.enables
-                    if self.enables[c].intersection(self.disables[a])
-                }
-            )
-            for a in self.events
-        }
+    # Rule: Chain
+    for a, es in enablers.items():
+        es.update(enablees(a))
+
+    # build graph of hampering relationships
+    graph = {a: set() for a in actions}
+
+    for a in actions:
+        for b in actions:
+            if a == b:
+                continue
+            # Rule: Block
+            if a.parent.conflicting(a, b) or a.parent.prevents(a, b):
+                graph[a].add(b)
+
+            # Rule: Delay
+            elif dominates(path, a, b):
+                graph[a].add(b)
+
+    # Rule: Future
+    for a in graph:
+        # exclude a and known hampered messages from consideration
+        for b in actions - graph[a] - set([a]):
+            for c in set(graph[a]):
+                if b == c:
+                    continue
+                # a hampers c and b enables c -> a hampers b
+                if enables(path, b, c):
+                    graph[a].add(b)
+
+    # ensure graph is symmetric
+    for a in graph:
+        # b is in a's hampered set
+        for b in graph[a]:
+            # ensure a is in b's hampered set
+            graph[b].add(a)
+
+    return graph
 
 
 class UoD:
@@ -167,13 +196,12 @@ class UoD:
         self.protocol = protocol
         self.actions = set(protocol.actions)
         self.roles = set(protocol.roles)
-        self.tangle = Tangle(protocol, **kwargs)
 
     def __add__(self, other):
         return UoD(self.actions.union(other.actions), self.roles.union(other.roles))
 
 
-def possibilities(U, path):
+def feasible(U, path):
     "The set of feasible actions"
     return {a for a in U.actions if attemptable(path, a) and not unsocial(path, a)}
 
@@ -183,27 +211,26 @@ class Color(set):
         return id(self)
 
 
-def partition(graph, ps):
+def partition(path, actions, fs):
     """
-    Partition a set of possibilities into tangled subsets.
-      graph: a dictionary from a vertex to its set of neighbors
-      ps: a list of possibilities"""
+    Partition a graph of feasible messages into colored sets.
+      graph: a dictionary from a vertex (action) to its set of neighbors (those it hampers)
+      fs: a list of feasible messages"""
 
     # alias graph to neighbors for readability
-    neighbors = graph
+    neighbors = hampers(path, actions)
 
     def degree(m):
         return len(neighbors[m])
 
     # Sort vertices by degree in descending order
-    vs = sorted(ps, key=degree, reverse=True)
+    vs = sorted(fs, key=degree, reverse=True)
 
     parts = set()
     coloring = {}
     for vertex in vs:
         # Assign a color to each vertex that isn’t assigned to its neighbors
         options = parts.difference({coloring.get(n) for n in neighbors[vertex]})
-        print(f"vertex: {vertex}, options: {options}, neighbors: {neighbors[vertex]}")
 
         # generate a new color if necessary
         if len(options) == 0:
@@ -238,6 +265,39 @@ def partition(graph, ps):
     return parts
 
 
+def concurrent(path, actions):
+    """
+    Return sets of feasible actions that can be enacted concurrently
+    """
+    conc_map = {}
+    for a in actions:
+        conc_a = set([a])
+        for b in actions:
+            # different actors, have conflict, neither dominates
+            if (
+                a.actor != b.actor
+                and a.parent.conflicting(a, b)
+                and not dominates(path, a, b)
+                and not dominates(path, b, a)
+            ):
+                conc_a.add(b)
+        if len(conc_a) > 1:
+            # only add nonempty sets
+            conc_map[a] = conc_a
+
+    # compact to viable sets
+    concs = []
+    for a in conc_map:
+        # copy set
+        conc = set(conc_map[a])
+        for b in conc_map[a]:
+            conc.intersection_update(conc_map[b])
+        # only keep unique sets
+        if conc not in concs:
+            concs.append(conc)
+    return concs
+
+
 def extensions(U, path, **kwargs):
     default_kwargs = {
         "by_degree": False,
@@ -245,17 +305,21 @@ def extensions(U, path, **kwargs):
         "debug": False,
     }
     kwargs = {**default_kwargs, **kwargs}
-    ps = possibilities(U, path)
+    fs = feasible(U, path)
     if kwargs["debug"]:
-        print(f"possibilities: {ps}")
+        print(f"feasible: {fs}")
     if not kwargs["reduction"]:
-        # all the possibilities
-        xs = {path + (p,) for p in ps}
+        # all feasible actions are extensions
+        xs = {path + (p,) for p in fs}
     else:
-        parts = partition(U.tangle.tangles, ps)
+        parts = partition(path, U.actions, fs)
+        concs = concurrent(path, fs)
         if kwargs["debug"]:
             print(f"parts: {parts}")
-        xs = {path + tuple(part) for part in parts}
+            print(f"concurrent: {concs}")
+        xs = {path + tuple(conc) for conc in concs}.union(
+            {path + tuple([p.pop()]) for p in parts}
+        )
     return xs
 
 
@@ -268,8 +332,6 @@ def max_paths(U, **kwargs):
     kwargs = {**default_kwargs, **kwargs}
     max_paths = []
     new_paths = [empty_path()]
-    if kwargs["debug"]:
-        print(f"tangled: {pformat(U.tangle.tangles)}")
     while len(new_paths):
         p = new_paths.pop()
         xs = extensions(U, p, **kwargs)
@@ -303,8 +365,6 @@ def liveness(protocol, **kwargs):
     t = Timer()
     t.start()
     U = UoD(protocol, **kwargs)
-    if kwargs["debug"]:
-        print(f"incompatibilities: {pformat(U.tangle.tangles)}")
     new_paths = [empty_path()]
     checked = 0
     max_paths = 0
@@ -343,8 +403,6 @@ def safety(protocol, **kwargs):
     t = Timer()
     t.start()
     U = UoD(protocol)
-    if kwargs["debug"]:
-        print(f"incompatibilities: {pformat(U.tangle.tangles)}")
     new_paths = [empty_path()]
     checked = 0
     max_paths = []
@@ -365,7 +423,6 @@ def safety(protocol, **kwargs):
     for p in max_paths:
         actions = {a.name for a in p}
         for c in protocol.conflicts:
-            print("conflict: ", set(c).intersection(actions))
             if len(set(c).intersection(actions)) > 1:
                 return {
                     "safe": False,
@@ -400,8 +457,6 @@ def all_paths(U, **kwargs):
     new_paths = [empty_path()]
     longest_path = 0
     max_paths = 0
-    if kwargs["debug"]:
-        print(f"tangled: {pformat(U.tangle.tangles)}")
     while new_paths:
         p = new_paths.pop()
         if kwargs["debug"]:

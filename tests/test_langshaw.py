@@ -57,7 +57,7 @@ def test_grammar():
     load("Test\n\ndo: A: Act(a,b,c)\n")
 
 
-def test_load_file():
+def test_load_langshaw_file():
     assert Langshaw.load_file("samples/tests/langshaw/purchase.lsh")
 
 
@@ -104,36 +104,15 @@ def test_langshaw_get_clause(Purchase):
 
 
 def test_langshaw_roles(Purchase):
-    assert Purchase.roles == ["B", "S", "Sh"]
+    assert Purchase.roles == ["Buyer", "Seller", "Shipper"]
 
 
 def test_langshaw_parameters(Purchase):
     assert Purchase.parameters == [
         "ID",
         "Reject",
-        "Deny",
         "Deliver",
     ]
-
-
-def test_langshaw_private(Purchase):
-    assert Purchase.private == set(
-        [
-            "item",
-            "price",
-            "RFQ",
-            "Accept",
-            "Quote",
-            "Instruct",
-            "fee",
-            "address",
-            "Reject",
-            "Deliver",
-            "Deny",
-            "item@S",
-            "price@B",
-        ]
-    )
 
 
 def test_langshaw_keys(Purchase):
@@ -141,14 +120,16 @@ def test_langshaw_keys(Purchase):
 
 
 def test_langshaw_actions(Purchase):
-    assert len(Purchase.actions) == 7
-    assert Purchase.actions[0].actor == "B"
+    assert len(Purchase.actions) == 6
+    assert Purchase.actions[0].actor == "Buyer"
     assert Purchase.actions[0].name == "RFQ"
     assert Purchase.actions[0].parameters == ["ID", "item"]
 
 
 def test_langshaw_conflicts(Purchase):
-    assert len(Purchase.conflicts) == 3
+    # there are two conflicts in purchase - Accept/Reject and Deliver/Reject
+    assert len(Purchase.conflicts) == 2
+    # a conflict contains two actions
     assert len(Purchase.conflicts[0]) == 2
     assert Purchase.conflicts[0] == ["Accept", "Reject"]
 
@@ -160,43 +141,42 @@ def test_langshaw_nogos(RfqQuote):
 
 
 def test_langshaw_can_bind(Purchase):
-    assert Purchase.can_bind("B", "item")
-    assert Purchase.can_bind("S", "item")
-    assert Purchase.can_bind("B", "RFQ")
-    assert not Purchase.can_bind("S", "RFQ")
-    assert not Purchase.can_bind("Sh", "item")
+    assert Purchase.can_bind("Buyer", "item")
+    assert Purchase.can_bind("Seller", "item")
+    assert Purchase.can_bind("Buyer", "RFQ")
+    assert not Purchase.can_bind("Seller", "RFQ")
+    assert not Purchase.can_bind("Shipper", "item")
 
 
 def test_langshaw_can_be_delegated(Purchase):
-    assert Purchase.can_be_delegated("S", "item")
-    assert not Purchase.can_be_delegated("B", "item")
-    assert not Purchase.can_be_delegated("B", "nonexistent-parameter")
+    assert Purchase.can_be_delegated("Seller", "item")
+    assert not Purchase.can_be_delegated("Buyer", "item")
+    assert not Purchase.can_be_delegated("Buyer", "nonexistent-parameter")
 
 
 def test_langshaw_delegates_to(Purchase):
-    assert Purchase.delegates_to("B", "item") == "S"
-    assert Purchase.delegates_to("S", "item") == None
-    assert Purchase.delegates_to("Sh", "item") == None
+    assert Purchase.delegates_to("Buyer", "item") == "Seller"
+    assert Purchase.delegates_to("Seller", "item") == None
+    assert Purchase.delegates_to("Shipper", "item") == None
 
 
 def test_action_delegations(Purchase):
-    assert list(Purchase.actions[0].delegations) == ["item@S"]
-    assert list(Purchase.actions[1].delegations) == ["item@S", "price@B"]
+    assert list(Purchase.actions[0].delegations) == ["item@Seller"]
+    assert list(Purchase.actions[1].delegations) == ["item@Seller", "price@Buyer"]
 
 
 def test_action_expanded_parameters(Purchase):
     assert list(Purchase.actions[0].expanded_parameters) == [
         "ID",
-        "item@S",
+        "item@Seller",
         "item",
         "RFQ",
     ]
     assert list(Purchase.actions[1].expanded_parameters) == [
         "ID",
-        "RFQ",
-        "item@S",
+        "item@Seller",
         "item",
-        "price@B",
+        "price@Buyer",
         "price",
         "Quote",
     ]
@@ -210,30 +190,32 @@ def test_action_possibilities(RFQ, Reject):
 
 
 def test_action_explicit_dependencies(Purchase):
-    assert list(Purchase.actions[0].explicit_dependencies) == []
-    assert list(Purchase.actions[1].explicit_dependencies) == [Purchase.actions[0]]
+    # Quote doesn't depend on anything
+    assert list(Purchase.actions[1].explicit_dependencies) == []
+    # Reject depends on Quote
+    assert list(Purchase.actions[3].explicit_dependencies) == [Purchase.actions[1]]
 
 
 def test_langshaw_observes(Purchase):
-    assert Purchase.observes("B", "item")
-    assert Purchase.observes("S", "item")
-    assert not Purchase.observes("Sh", "price")
+    assert Purchase.observes("Buyer", "item")
+    assert Purchase.observes("Seller", "item")
+    # assert not Purchase.observes("Shipper", "price")
 
 
 def test_langshaw_can_see(Purchase):
     a = Purchase.action
-    assert Purchase.can_see("B", a("RFQ"))
-    assert Purchase.can_see("B", a("Quote"))
-    assert Purchase.can_see("S", a("RFQ"))
-    assert not Purchase.can_see("Sh", a("Accept"))
-    assert Purchase.can_see("B", a("Deliver"))
+    assert Purchase.can_see("Buyer", a("RFQ"))
+    assert Purchase.can_see("Buyer", a("Quote"))
+    assert Purchase.can_see("Seller", a("RFQ"))
+    # assert not Purchase.can_see("Shipper", a("Accept"))
+    assert Purchase.can_see("Buyer", a("Deliver"))
 
 
 def test_langshaw_recipients(Purchase):
     a = Purchase.actions
-    assert Purchase.recipients(a[0]) == {"S"}  # RFQ
-    assert Purchase.recipients(a[1]) == {"B"}  # Quote
-    # assert Purchase.recipients(a[2]) == {"S", "Sh"}  # Accept
+    assert Purchase.recipients(a[0]) == {"Seller", "Shipper"}  # RFQ
+    assert Purchase.recipients(a[1]) == {"Buyer", "Shipper"}  # Quote
+    # assert Purchase.recipients(a[2]) == {"Seller", "Shipper"}  # Accept
 
 
 def test_action_columns(Purchase):
@@ -248,28 +230,29 @@ def test_action_all_schemas(Purchase):
     print(Purchase.actions[0])
     result = list(Purchase.actions[0].all_schemas())
     assert result == [
-        (("ID", "in"), ("item@S", "in"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "in"), ("item", "out"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "in"), ("item", "nil"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "out"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "out"), ("item", "out"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "out"), ("item", "nil"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "nil"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "nil"), ("item", "nil"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "in"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "in"), ("item", "out"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "in"), ("item", "nil"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "out"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "out"), ("item", "out"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "out"), ("item", "nil"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "nil"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "nil"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "in"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "in"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "in"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "out"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "out"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "out"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "nil"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "nil"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "nil"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "in"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "in"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "in"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "out"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "out"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "out"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "nil"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "nil"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "nil"), ("item", "nil"), ("RFQ", "out")),
     ]
 
 
 def test_ensure_priority(Redelegation):
+    # roles are A, B, C
     f = ensure_priority(Redelegation, "B")
 
     assert f(
@@ -306,7 +289,7 @@ def test_out_keys():
     assert f((("ID", "out"), ("item", "out")))
     assert not f((("ID", "out"), ("item", "in")))
     assert f((("ID", "in"), ("item", "in")))
-    assert f((("ID", "in"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")))
+    assert f((("ID", "in"), ("item@Seller", "nil"), ("item", "out"), ("RFQ", "out")))
 
 
 def test_RFQ_action_schemas(Purchase):
@@ -314,28 +297,28 @@ def test_RFQ_action_schemas(Purchase):
     print(result)
     assert result == [
         # can't have in for delegation to other role unless parameter is in
-        # (("ID", "in"), ("item@S", "in"), ("item", "out"), ("RFQ", "out")),
-        # (("ID", "in"), ("item@S", "in"), ("item", "nil"), ("RFQ", "out")),
+        # (("ID", "in"), ("item@Seller", "in"), ("item", "out"), ("RFQ", "out")),
+        # (("ID", "in"), ("item@Seller", "in"), ("item", "nil"), ("RFQ", "out")),
         # if delegation is out, parameter must be nil
-        # (("ID", "in"), ("item@S", "out"), ("item", "in"), ("RFQ", "out")),
-        # (("ID", "in"), ("item@S", "out"), ("item", "out"), ("RFQ", "out")),
-        # (("ID", "out"), ("item@S", "out"), ("item", "out"), ("RFQ", "out")),
+        # (("ID", "in"), ("item@Seller", "out"), ("item", "in"), ("RFQ", "out")),
+        # (("ID", "in"), ("item@Seller", "out"), ("item", "out"), ("RFQ", "out")),
+        # (("ID", "out"), ("item@Seller", "out"), ("item", "out"), ("RFQ", "out")),
         # parameter and delegations cannot all be nil
-        # (("ID", "in"), ("item@S", "nil"), ("item", "nil"), ("RFQ", "out")),
-        # (("ID", "out"), ("item@S", "nil"), ("item", "nil"), ("RFQ", "out")),
+        # (("ID", "in"), ("item@Seller", "nil"), ("item", "nil"), ("RFQ", "out")),
+        # (("ID", "out"), ("item@Seller", "nil"), ("item", "nil"), ("RFQ", "out")),
         # can't have out keys with in parameters
-        # (("ID", "out"), ("item@S", "in"), ("item", "in"), ("RFQ", "out")),
-        # (("ID", "out"), ("item@S", "in"), ("item", "out"), ("RFQ", "out")),
-        # (("ID", "out"), ("item@S", "in"), ("item", "nil"), ("RFQ", "out")),
-        # (("ID", "out"), ("item@S", "out"), ("item", "in"), ("RFQ", "out")),
-        # (("ID", "out"), ("item@S", "nil"), ("item", "in"), ("RFQ", "out")),
+        # (("ID", "out"), ("item@Seller", "in"), ("item", "in"), ("RFQ", "out")),
+        # (("ID", "out"), ("item@Seller", "in"), ("item", "out"), ("RFQ", "out")),
+        # (("ID", "out"), ("item@Seller", "in"), ("item", "nil"), ("RFQ", "out")),
+        # (("ID", "out"), ("item@Seller", "out"), ("item", "in"), ("RFQ", "out")),
+        # (("ID", "out"), ("item@Seller", "nil"), ("item", "in"), ("RFQ", "out")),
         # ok
-        (("ID", "in"), ("item@S", "in"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "out"), ("item", "nil"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "nil"), ("item", "in"), ("RFQ", "out")),
-        (("ID", "in"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "out"), ("item", "nil"), ("RFQ", "out")),
-        (("ID", "out"), ("item@S", "nil"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "in"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "out"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "nil"), ("item", "in"), ("RFQ", "out")),
+        (("ID", "in"), ("item@Seller", "nil"), ("item", "out"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "out"), ("item", "nil"), ("RFQ", "out")),
+        (("ID", "out"), ("item@Seller", "nil"), ("item", "out"), ("RFQ", "out")),
     ]
 
 
@@ -344,70 +327,63 @@ def test_Quote_action_schemas(Purchase):
     pprint.pprint(result)
     assert (  # can bind item if delegated, and delegate price
         ("ID", "in"),
-        ("RFQ", "in"),
-        ("item@S", "in"),
+        ("item@Seller", "in"),
         ("item", "out"),
-        ("price@B", "out"),
+        ("price@Buyer", "out"),
         ("price", "nil"),
         ("Quote", "out"),
     ) in result
 
     assert (  # can bind item if delegated, and price
         ("ID", "in"),
-        ("RFQ", "in"),
-        ("item@S", "in"),
+        ("item@Seller", "in"),
         ("item", "out"),
-        ("price@B", "nil"),
+        ("price@Buyer", "nil"),
         ("price", "out"),
         ("Quote", "out"),
     ) in result
 
     assert (  # ok; receives bound item, delegates price
         ("ID", "in"),
-        ("RFQ", "in"),
-        ("item@S", "nil"),
+        ("item@Seller", "nil"),
         ("item", "in"),
-        ("price@B", "out"),
+        ("price@Buyer", "out"),
         ("price", "nil"),
         ("Quote", "out"),
     ) in result
 
     assert (  # ok, receives item, binds price
         ("ID", "in"),
-        ("RFQ", "in"),
-        ("item@S", "nil"),
+        ("item@Seller", "nil"),
         ("item", "in"),
-        ("price@B", "nil"),
+        ("price@Buyer", "nil"),
         ("price", "out"),
         ("Quote", "out"),
     ) in result
 
     assert (  # not ok; can't bind item without receiving delegation
         ("ID", "in"),
-        ("RFQ", "in"),
-        ("item@S", "nil"),
+        ("item@Seller", "nil"),
         ("item", "out"),
-        ("price@B", "out"),
+        ("price@Buyer", "out"),
         ("price", "nil"),
         ("Quote", "out"),
     ) not in result
 
     assert (  # not ok, can't bind item without receiving delegation
         ("ID", "in"),
-        ("RFQ", "in"),
-        ("item@S", "nil"),
+        ("item@Seller", "nil"),
         ("item", "out"),
-        ("price@B", "nil"),
+        ("price@Buyer", "nil"),
         ("price", "in"),
         ("Quote", "out"),
     ) not in result
 
     assert (  # not ok, can't bind item without receiving delegation
         ("ID", "in"),
-        ("RFQ", "in"),
-        ("item@S", "nil"),
+        ("item@Seller", "nil"),
         ("item", "out"),
-        ("price@B", "nil"),
+        ("price@Buyer", "nil"),
         ("price", "out"),
         ("Quote", "out"),
     ) not in result
@@ -418,8 +394,11 @@ def test_Accept_schemas(Purchase):
     pprint.pprint(result)
 
 
-def test_redelegation(Redelegation):
-    result = list(Redelegation.actions[1].schemas())  # Pass
+def test_redelegation_schemas(Redelegation):
+    Pass = Redelegation.actions[1]
+    print("potato:", Pass.possibilities("potato"))
+    print("potato@C:", Pass.possibilities("potato@C"))
+    result = list(Pass.schemas())  # schemas for 'Pass' action
     assert (  # can't receive delegation without binding parameter or delegating
         ("ID", "in"),
         ("Start", "in"),
@@ -549,8 +528,8 @@ def test_langshaw_extend_schemas(Purchase):
             ("ID", "in"),  # from action
             ("Quote", "in"),  # from action
             ("Reject", "out"),  # autonomy parameter
-            ("Accept", "nil"),  # from conflict
-            ("Deliver", "nil"),  # from conflict
+            ("conflict0", "out"),  # from conflict with Accept
+            ("conflict1", "out"),  # from conflict with Deliver
         )
     ]
 
@@ -558,7 +537,43 @@ def test_langshaw_extend_schemas(Purchase):
 def test_langshaw_alt_parameters(Purchase):
     alts = Purchase.alt_parameters
     print(alts)
-    assert alts == {"Reject": "done0", "Deliver": "done0", "Deny": "done0"}
+    assert alts == {"Reject": "done0", "Deliver": "done0"}
+
+
+def test_langshaw_private(Purchase):
+    Purchase.to_bspl("Purchase")
+    privates = Purchase.private
+    print([str(p) for p in privates])
+    assert privates == {
+        "Accept",
+        "Accept2",
+        "Deliver",
+        "Deliver2",
+        "Instruct",
+        "Instruct2",
+        "Quote",
+        "Quote2",
+        "RFQ",
+        "RFQ2",
+        "Reject",
+        "Reject2",
+        "address",
+        "fee",
+        "item",
+        "item@Seller",
+        "price",
+        "price@Buyer",
+        # alt parameters (completion)
+        "done0",
+        # conflict parameters
+        "conflict0",
+        "conflict1",
+    }
+
+
+def test_langshaw_copies(Purchase):
+    rfq = Purchase.actions[0]
+    assert Purchase.copies(rfq) == ["RFQ2"]
 
 
 def test_langshaw_messages(Purchase, RFQ):
@@ -566,12 +581,12 @@ def test_langshaw_messages(Purchase, RFQ):
     result = list(m.format() for m in ms)
     pprint.pprint(result)
     assert result  #  == [
-    #     "B -> S: RFQ[in ID, in item@S, in item, out RFQ]",
-    #     "B -> S: RFQ[in ID, out item@S, nil item, out RFQ]",
-    #     "B -> S: RFQ[in ID, nil item@S, in item, out RFQ]",
-    #     "B -> S: RFQ[in ID, nil item@S, out item, out RFQ]",
-    #     "B -> S: RFQ[out ID, out item@S, nil item, out RFQ]",
-    #     "B -> S: RFQ[out ID, nil item@S, out item, out RFQ]",
+    #     "B -> S: RFQ[in ID, in item@Seller, in item, out RFQ]",
+    #     "B -> S: RFQ[in ID, out item@Seller, nil item, out RFQ]",
+    #     "B -> S: RFQ[in ID, nil item@Seller, in item, out RFQ]",
+    #     "B -> S: RFQ[in ID, nil item@Seller, out item, out RFQ]",
+    #     "B -> S: RFQ[out ID, out item@Seller, nil item, out RFQ]",
+    #     "B -> S: RFQ[out ID, nil item@Seller, out item, out RFQ]",
     # ]
 
 
@@ -580,12 +595,10 @@ def test_langshaw_completion_messages(Purchase):
     result = list(m.format() for m in ms)
     pprint.pprint(result)
     assert result == [
-        "B -> S: Reject#done0[in ID key, in Reject, out done0]",
-        "B -> Sh: Reject#done0[in ID key, in Reject, out done0]",
-        "S -> B: Deny#done0[in ID key, in Deny, out done0]",
-        "S -> Sh: Deny#done0[in ID key, in Deny, out done0]",
-        "Sh -> B: Deliver#done0[in ID key, in Deliver, out done0]",
-        "Sh -> S: Deliver#done0[in ID key, in Deliver, out done0]",
+        "Buyer -> Seller: Reject-done0[in ID key, in Reject, out done0]",
+        # "Buyer -> Shipper: Reject-done0[in ID key, in Reject, out done0]",
+        "Shipper -> Buyer: Deliver-done0[in ID key, in Deliver, out done0]",
+        # "Shipper -> Seller: Deliver-done0[in ID key, in Deliver, out done0]",
     ]
 
 
@@ -670,7 +683,7 @@ sayso
     assert liveness(p)["live"]
 
 
-def test_liveness(Purchase):
+def test_langshaw_bspl_liveness(Purchase):
     print("langshaw:\n", Purchase.source)
     p = Purchase.to_bspl("Purchase")
     print("bspl:\n", p.format())
@@ -721,7 +734,6 @@ def test_rfq_quote():
     result = lpaths.liveness(l, debug=True)
     pprint.pprint(result)
     assert result["live"]
-    assert False
 
 
 def test_minimal_rfq_quote():
@@ -754,24 +766,39 @@ def test_exclusivity_diff(Purchase):
             pprint.pprint(schemas.symmetric_difference(alt))
 
 
-def test_langshaw_protocols():
+def test_langshaw_bspl_translation():
+    # get list of langshaw protocol files
+    lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
+    for lsh_file in lsh_files:
+        l = Langshaw.load_file(lsh_file)
+        # use the filename as the protocol name
+        name = os.path.basename(lsh_file).split(".")[0]
+        p = l.to_bspl(name)
+        print(f"{name} bspl:\n", p.format())
+
+
+def test_langshaw_bspl_verification():
     # get list of langshaw protocol files
     lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
     # collect stats into list
     stats = []
     # foreach file, load it and convert to bspl
     for lsh_file in lsh_files:
+        # skip purchase protocols; slow
+        # if "purchase" in lsh_file:
+        #     continue
         l = Langshaw.load_file(lsh_file)
         # use the filename as the protocol name
         name = os.path.basename(lsh_file).split(".")[0]
         p = l.to_bspl(name)
+        # print(f"{name} bspl:\n", p.format())
         # collect results
         results = {
             "name": name,
             "messages": len(p.messages),
-            "live": liveness(p)["live"],
+            "safe": safety(p)["safe"],
         }
-        results.update(safety(p))
+        results.update(liveness(p))
         results["elapsed"] = round(results["elapsed"], 4)
         stats.append(results)
     # print stats
@@ -797,26 +824,22 @@ def format_table(data):
     return "\n".join(result)
 
 
-def test_lpaths():
+def test_langhsaw_verification():
     # get list of langshaw protocol files
     lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
     # collect stats into list
     stats = []
     # foreach file, load it and convert to bspl
     for lsh_file in lsh_files:
-        print(lsh_file)
         l = Langshaw.load_file(lsh_file)
-        print(l.name)
-        print(lpaths.all_paths(lpaths.UoD(l)))
 
         # collect results
         results = {
             "name": l.name,
-            "live": lpaths.liveness(l, debug=True)["live"],
+            "live": lpaths.liveness(l)["live"],
         }
-        results.update(lpaths.safety(l, debug=True))
+        results.update(lpaths.safety(l))
         results["elapsed"] = round(results["elapsed"], 4)
         stats.append(results)
     # print stats
     print(format_table(stats))
-    assert False

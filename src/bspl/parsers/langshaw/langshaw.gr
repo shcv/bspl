@@ -1,5 +1,5 @@
-@@eol_comments :: ?/‌‌#|(//).*?$/?
-@@whitespace :: //
+@@eol_comments :: /#[^\n]*$/
+@@whitespace :: None
 @@keyword :: who what do sayso nono nogo
 
 document = {'\n'} @:name {{/\s/} @:block {/\s/}}+ $;
@@ -30,8 +30,8 @@ params = ','.{word};
 conflicts = 'nono' [':'] S @:{conflict}+ S;
 conflict = {' '} @:{word}+ {'\n'};
 
-nogos = 'nogo' [':'] S @{nogo}+ S;
-nogo = {' '} @+:word '-/>' @+:word;
+nogos = 'nogo' [':'] S @:{nogo}+ S;
+nogo = {' '} @+:word '-/>' @+:word {'\n'};
 
 saysos = 'sayso' [':'] S @:{sayso}+;
 sayso = {' '} roles:priority ':' parameters:params S;

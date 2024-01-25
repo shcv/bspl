@@ -1,14 +1,13 @@
 Block-Contra v2
 
 who A, B
-what ID key, Block or Contra, End
+what ID key, Block or Contra
 
 do
-  A: Block(ID, result)
   A: Prepare(ID)
+  A: Block(ID, result)
 
   B: Contra(ID, Prepare, result)
-  B: End(ID, result)
 
 sayso
   A: ID

@@ -17,5 +17,8 @@ sayso
   Buyer: price
 
 nono
-  RescindRequest Ship
   ConfirmRescind Ship
+
+nogo
+  RescindRequest -/> Ship
+  Ship -/> RescindRequest

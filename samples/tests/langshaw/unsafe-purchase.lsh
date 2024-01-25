@@ -1,23 +1,20 @@
 Unsafe Purchase
+ who Buyer, Seller, Shipper
+ what ID key, Reject or Deliver
 
-who B, S, Sh
-what ID key, Reject or Deny or Deliver
-
-do
-  B: RFQ(ID, item)
-  S: Quote(ID, RFQ, item, price)
-  B: Accept(ID, Quote, item, price, address)
-  B: Reject(ID, Quote)
-  S: Deny(ID, Accept)
-  S: Instruct(ID, Accept, item, address, fee)
-  Sh: Deliver(ID, Instruct, item, address)
+ do
+  Buyer: RFQ(ID, item)
+  Seller: Quote(ID, item, price)
+  Buyer: Accept(ID, item, price, address)
+  Buyer: Reject(ID, Quote)
+  Seller: Instruct(ID, Accept, item, address, fee)
+  Shipper: Deliver(ID, Instruct, item, address)
 
 sayso
-  B > S: item
-  S > B: price
-  S: fee
-  B: address
+  Buyer > Seller: item
+  Seller > Buyer: price
+  Buyer: address
+  Seller: fee
 
 nono
-  Deny Deliver
-  Reject Deliver
+   Reject Deliver

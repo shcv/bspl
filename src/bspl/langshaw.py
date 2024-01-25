@@ -50,11 +50,14 @@ def delegates_to(parameter):
         return m.groups()[0]
 
 
-def some(f):
+def some(f, name):
     def wrap(v):
         # only call f on v if v is not None
         if v != None:
-            return f(v)
+            result = f(v)
+            # if not result:
+            #     print(f"{name} dropped {v}")
+            return result
 
     return wrap
 
@@ -101,7 +104,7 @@ def handle_delegation(protocol, role):
                     return  # can't delegate to self
         return s
 
-    return some(inner)
+    return some(inner, "handle_delegation")
 
 
 def ensure_priority(protocol, role):
@@ -124,7 +127,7 @@ def ensure_priority(protocol, role):
                         return
         return s
 
-    return some(inner)
+    return some(inner, "ensure_priority")
 
 
 def handle_exclusivity(protocol, role):
@@ -145,7 +148,7 @@ def handle_exclusivity(protocol, role):
                         return
         return s
 
-    return some(inner)
+    return some(inner, "handle_exclusivity")
 
 
 def out_keys(keys):
@@ -157,7 +160,7 @@ def out_keys(keys):
         if any(p[1] == "in" for p in s if p[0] in keys):
             return s
 
-    return some(inner)
+    return some(inner, "out_keys")
 
 
 class Action:
@@ -232,20 +235,27 @@ class Action:
             # incoming delegations may not be bound
             return ["in", "nil"]
         elif self.parent.can_bind(self.actor, parameter):
-            # if the parameter appears in an action this action depends on, it can't be nil
+            # collect possibilities for parameter in explicit dependencies
             pss = []
             for p in self.parameters:
                 a = self.parent.action(p)
                 if a and a != self:
                     pss.append(a.possibilities(parameter))
+            # if there are such possibilities, and role can't bind parameter
             if pss and [ps for ps in pss if ps]:
                 if delegates(parameter):
                     # after first appearance of the delegation, always in/nil
                     return ["in", "nil"]
                 pss = min(set(ps) for ps in pss if ps)
                 if "nil" in pss:
-                    return ["in", "out"]
+                    # if actor can delegate the parameter, doesn't have to bind
+                    if self.parent.delegates_to(self.actor, parameter):
+                        return ["in", "out", "nil"]
+                    # if this is the 'end of the line', have to receive or bind it
+                    else:
+                        return ["in", "out"]
                 else:
+                    # some dependency has in/out, so it must already be bound
                     return ["in"]
             # if the actor can bind the parameter, it can be anything
             return ["in", "out", "nil"]
@@ -291,7 +301,7 @@ def parameters(spec):
 def validate(spec):
     # ensure there aren't multiple sayso clauses involving the same parameters
     for p in parameters(spec):
-        clauses = [s for s in get_clause(spec, "sayso") if p in s["parameters"]]
+        clauses = [s for s in get_clause(spec, "saysos") if p in s["parameters"]]
         if len(clauses) > 1:
             clauses = "\n  ".join(map(str, clauses))
             raise Exception(
@@ -347,8 +357,10 @@ class Langshaw:
             .union(p for a in self.actions for p in a.parameters)
             .difference(self.parameters)
             .union(a.autonomy_parameter for a in self.actions)
-            .union(self.alt_parameters.keys())
+            .union(self.alt_parameters.values())
             .union(self.all_delegations)
+            .union({c for a in self.actions for c in self.copies(a)})
+            .union({"conflict" + str(i) for i in range(len(self.conflicts))})
         )
 
     @property
@@ -368,6 +380,8 @@ class Langshaw:
 
     def conflicting(self, a, b):
         "Check if actions a and b are in mutual conflict (nono)"
+        if a == b:
+            return False
         for c in self.conflicts:
             if a.name in c and b.name in c:
                 return True
@@ -388,6 +402,22 @@ class Langshaw:
             if parameter in c["parameters"]:
                 return c["roles"]
         return []
+
+    def has_priority(self, a, b, p):
+        "Return true if actor a has priority over b for parameter p"
+        priority = self.priorities(p)
+        if a in priority and b in priority:
+            # Both are in the list, check which one comes first
+            return priority.index(a) < priority.index(b)
+        elif a in priority:
+            # Only a is in the list; it has priority
+            return True
+        elif b in priority:
+            # Only b is in the list
+            return False
+        else:
+            # Neither is in the list
+            return None
 
     def can_bind(self, role, parameter):
         """Check if role can bind parameter in some message (ignoring priority)"""
@@ -453,16 +483,30 @@ class Langshaw:
         """
         Return true if role can see action:
           1. role can perform the action
-          2. one of its actions references it
-          3. it completes the protocol
+          2. one of the role's actions references it by name
+          3. (a) one of the role's actions (a) references an attribute p in the action
+             (b) the performer of action (role r1) has sayso on p but r1's sayso on attribute p1 is not dominated by role
+          4. it completes the protocol
         """
+        # 1. role can perform the action
         if action.actor == role:
             return True
 
+        # 2. one of the role's actions references it by name
         for a in self.actions:
             if a.actor == role and action.name in a.parameters:
                 return True
 
+        # 3. (a) one of the role's actions references an attribute p in some action a
+        for a in self.actions:
+            if a.actor == role:
+                for p in a.parameters:
+                    if p in action.parameters:
+                        # (b) the performer of action (role r1) has sayso on p but r1's sayso on attribute p1 is not dominated by role
+                        if not self.has_priority(action.actor, role, p):
+                            return True
+
+        # 4. it completes the protocol
         # include actions mentioned in the 'what' clauses
         for c in self.get_clause("what"):
             # there are multiple parameters in each clause
@@ -492,14 +536,28 @@ class Langshaw:
     def extend_schemas(self, action):
         # add nil parameters for conflicts
         conflicts = []
-        for c in self.conflicts:
+        for i, c in enumerate(self.conflicts):
             if action.name in c:
-                conflicts.extend(a for a in c if a != action.name)
-        if conflicts:
-            for s in action.schemas():
-                yield reduce(lambda s, c: s + ((c, "nil"),), conflicts, s)
-        else:
-            yield from action.schemas()
+                conflicts.append("conflict" + str(i))
+
+        # if action is second in a nogo, add nil for the other message
+        nogos = []
+        for c in self.nogos:
+            if action.name in c and c.index(action.name) == 1:
+                preventer = c[
+                    0
+                ]  # the first message in a nogo clause prevents the second
+                nogos.append(preventer)
+
+        for s in action.schemas():
+            extended = s
+            # add conflicts using 'out' parameters on each conflicting message
+            extended = reduce(lambda s, c: s + ((c, "out"),), conflicts, extended)
+            # add nogos using a nil parameter, which asymmetrically prevents the second message
+            extended = reduce(
+                lambda s, preventer: s + ((preventer, "nil"),), nogos, extended
+            )
+            yield extended
 
     @property
     def alt_parameters(self):
@@ -524,6 +582,16 @@ class Langshaw:
                 recipients.add(r)
         return recipients
 
+    def copies(self, action):
+        """
+        The copies of an action that must be sent to other roles
+        """
+        return [
+            action.autonomy_parameter + str(i + 1)
+            for i in range(len(self.recipients(action)))
+            if i != 0
+        ]
+
     def messages(self, action, protocol=None):
         for s in self.extend_schemas(action):
             n = 0
@@ -538,7 +606,6 @@ class Langshaw:
                             # increment index for copies to subsequent recipients
                             aps.append(Parameter(p[0], "in"))
                             aps.append(Parameter(p[0] + str(n + 1), "out"))
-                        self.autonomy_parameters.update(aps)
                         parameters.extend(aps)
                     elif n == 0 or p[1] != "nil":
                         # don't include nil parameters in copies
@@ -568,7 +635,7 @@ class Langshaw:
                     alt = self.alt_parameters[p]
                     r = next(o for o in self.observers(p) if o != s)
                     yield Message(
-                        name=f"{p}#{alt}",
+                        name=f"{p}-{alt}",
                         parent=protocol,
                         sender=s,
                         recipient=r,
@@ -587,9 +654,7 @@ class Langshaw:
                 if p not in self.alt_parameters
             ]
             + [Parameter(p, "out") for p in set(self.alt_parameters.values())],
-            private_parameters=chain(
-                [Parameter(p, None) for p in self.private], self.autonomy_parameters
-            ),
+            private_parameters=[Parameter(p, None) for p in self.private],
         )
         for r in chain(
             (m for a in self.actions for m in self.messages(a, p)),
