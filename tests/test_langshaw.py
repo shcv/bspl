@@ -824,7 +824,7 @@ def format_table(data):
     return "\n".join(result)
 
 
-def test_langhsaw_verification():
+def test_langshaw_verification():
     # get list of langshaw protocol files
     lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
     # collect stats into list
