@@ -19,3 +19,6 @@ sayso
 nono
   Accept Reject
   Reject Deliver
+
+nogo
+  Reject -/> Instruction

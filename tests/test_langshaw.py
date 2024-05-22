@@ -807,15 +807,54 @@ def test_langshaw_bspl_verification():
 
 def format_table(data):
     """Render list of dicts as a latex table"""
-    columns = list(data[0].keys())
-    sizes = {c: max(max(len(str(d[c])), len(c)) for d in data) for c in columns}
+    columns = ["name", "checked", "maximal paths", "liveness", "safety"]
+    rename = {
+        "name": "Name",
+        "messages": "Messages",
+        "live": "Live",
+        "safe": "Safe",
+        "liveness": "Liveness",
+        "safety": "Safety",
+        "elapsed": "Time (ms)",
+        "checked": "Nodes",
+        "maximal paths": "Branches",
+    }
+    sizes = {c: max(max(len(str(d[c])), len(rename[c])) for d in data) for c in columns}
 
     def justify(field, c):
         return str(field).ljust(sizes[c], " ")
 
     # create header
     # result is a list of strings
-    result = [" & ".join(justify(c, c) for c in columns) + " \\\\ \\hline"]
+    result = [" & ".join(justify(rename[c], c) for c in columns) + " \\\\ \\hline"]
+
+    for entry in data:
+        # create a row separated with & and terminated with \\
+        result.append(" & ".join(justify(entry[c], c) for c in columns) + " \\\\")
+
+    return "\n".join(result)
+
+
+def format_table2(data):
+    """Render latex table for lpaths verification"""
+    for entry in data:
+        entry["texname"] = "\\mname{" + entry["name"] + "}"
+    columns = ["texname", "nodes", "branches", "liveness", "safety"]
+    rename = {
+        "texname": "Name",
+        "liveness": "Liveness",
+        "safety": "Safety",
+        "nodes": "Nodes",
+        "branches": "Branches",
+    }
+    sizes = {c: max(max(len(str(d[c])), len(rename[c])) for d in data) for c in columns}
+
+    def justify(field, c):
+        return str(field).ljust(sizes[c], " ")
+
+    # create header
+    # result is a list of strings
+    result = [" & ".join(justify(rename[c], c) for c in columns) + " \\\\ \\midrule"]
 
     for entry in data:
         # create a row separated with & and terminated with \\
@@ -828,18 +867,46 @@ def test_langshaw_verification():
     # get list of langshaw protocol files
     lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
     # collect stats into list
-    stats = []
-    # foreach file, load it and convert to bspl
-    for lsh_file in lsh_files:
-        l = Langshaw.load_file(lsh_file)
+    stats = {}
+    # run multiple iterations
+    for i in range(10):
+        # foreach file, load it and convert to bspl
+        for lsh_file in lsh_files:
+            l = Langshaw.load_file(lsh_file)
+            if l.name not in stats:
+                stats[l.name] = []
 
-        # collect results
-        results = {
-            "name": l.name,
-            "live": lpaths.liveness(l)["live"],
-        }
-        results.update(lpaths.safety(l))
-        results["elapsed"] = round(results["elapsed"], 4)
-        stats.append(results)
+            liveness = lpaths.liveness(l)
+            safety = lpaths.safety(l)
+            # collect results
+            results = {
+                **liveness,
+                "name": l.name,
+                "live": liveness["live"],
+                "liveness": liveness["elapsed"],
+                "safe": safety["safe"],
+                "safety": safety["elapsed"],
+            }
+            stats[l.name].append(results)
+    # average safety and liveness results
+    averages = []
+    for name, results in stats.items():
+        nodes = round(sum(r["checked"] for r in results) / len(results), 1)
+        branches = round(sum(r["maximal paths"] for r in results) / len(results), 1)
+        liveness = round(sum(r["liveness"] for r in results) * 1000 / len(results), 1)
+        safety = round(sum(r["safety"] for r in results) * 1000 / len(results), 1)
+        averages.append(
+            {
+                "name": name,
+                "nodes": "%g" % nodes,
+                "branches": "%g" % branches,
+                "liveness": liveness,
+                "safety": safety,
+            }
+        )
     # print stats
-    print(format_table(stats))
+    print("\n" + format_table2(averages))
+
+
+def test_results():
+    test_langshaw_verification()

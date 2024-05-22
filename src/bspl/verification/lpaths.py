@@ -1,7 +1,6 @@
 from ..langshaw import Action, Langshaw
 from pprint import pformat
 from ttictoc import Timer
-from ..commands import register_commands
 
 
 def empty_path():
@@ -568,12 +567,3 @@ def handle_safety(
                 reduction=reduction,
             )
         )
-
-
-# register_commands(
-#     {
-#         "safety": handle_safety,
-#         "liveness": handle_liveness,
-#         "all-paths": handle_all_paths,
-#     }
-# )
