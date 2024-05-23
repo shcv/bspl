@@ -1,10 +1,11 @@
 import asyncio
 import logging
 import pytest
-import bspl.parser
+import bspl.parsers.bspl
 from bspl.adapter import Adapter
 from bspl.adapter.message import Message
 from bspl.adapter.emitter import Emitter
+from bspl.adapter.event import InitEvent
 
 logger = logging.getLogger("bspl")
 logger.setLevel(logging.DEBUG)
@@ -12,7 +13,7 @@ logger.setLevel(logging.DEBUG)
 
 @pytest.fixture(scope="module")
 def RFQ():
-    return bspl.parser.parse(
+    return bspl.parsers.bspl.parse(
         """
 RFQ {
   roles C, S // Customer, Seller
@@ -108,7 +109,7 @@ async def test_match(RFQ, systems, agents, req, quote, ship):
 @pytest.mark.asyncio
 async def test_enabled_initiators(systems, agents, req):
     a = Adapter("C", systems, agents)
-    a.compute_enabled({})
+    await a.process(InitEvent())
 
     print(list(a.enabled_messages.messages()))
     assert len(list(a.enabled_messages.messages())) == 1

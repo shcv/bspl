@@ -1,5 +1,5 @@
 import os
-from ..parser import load_file
+from ..parsers.bspl import load_file
 from ..verification import paths
 from ..verification.paths import max_paths, UoD
 from ..utils import abort, cap_first, camel_to_snake
@@ -150,7 +150,7 @@ def generate_goals(covers):
             [cap_first(param) for param in message.parameters if param in message.ins]
         )
         msg_goal = f"!send_{camel_to_snake(message.name)}({msg_params})"
-        msg_comment = f"// insert code to compute {message.name} out parameters {message.outs} here\n    "
+        msg_comment = f"// insert code to compute {message.name} out parameters {sorted(message.outs)} here\n    "
         for cover in cover_sets:
             if len(cover) == 0:
                 goals.append(

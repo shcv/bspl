@@ -2,12 +2,12 @@
 
 import asyncio
 import pytest
-import bspl.parser
+import bspl.parsers.bspl
 from bspl.adapter import Adapter
 from bspl.adapter.schema import *
 
 
-specification = bspl.parser.parse(
+specification = bspl.parsers.bspl.parse(
     """
 RFQ {
   roles C, S // Customer, Seller

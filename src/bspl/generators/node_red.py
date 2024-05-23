@@ -1,4 +1,4 @@
-from ..parser import load_file
+from ..parsers.bspl import load_file
 import os
 import simplejson as json
 import random

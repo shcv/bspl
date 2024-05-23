@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import pytest
-from bspl.parser import load_file, load
+from bspl.parsers.bspl import load_file, load
 from bspl.generators.asl import *
 
 
@@ -47,22 +47,18 @@ def test_generate_goals(Logistics, Packer):
         in goals
     )
     assert (
-        """!send_packed(OrderID, ItemID, Wrapping, Label)\n  <- .emit(packed(Packer, Merchant, OrderID, ItemID, Wrapping, Label, Status)).\n"""
+        """!send_packed(OrderID, ItemID, Wrapping, Label)\n  <- // insert code to compute Packed out parameters ['status'] here\n     .emit(packed(Packer, Merchant, OrderID, ItemID, Wrapping, Label, Status)).\n"""
         in goals
     )
 
     cs = generate_covers(Logistics, r["Merchant"])
     goals = generate_goals(cs)
     assert (
-        """!send_request_label\n  <- .emit(request_label(Merchant, Labeler, OrderID, Address)).\n"""
+        """!send_request_label\n  <- // insert code to compute RequestLabel out parameters ['address', 'orderID'] here\n     .emit(request_label(Merchant, Labeler, OrderID, Address)).\n"""
         in goals
     )
     assert (
-        """+request_label(Merchant, Labeler, OrderID, Address)\n  <- !send_request_wrapping(OrderID).\n"""
-        in goals
-    )
-    assert (
-        """!send_request_wrapping(OrderID)\n  <- .emit(request_wrapping(Merchant, Wrapper, OrderID, ItemID, Item)).\n"""
+        """+request_label(Merchant, Labeler, OrderID, Address)\n  <- // insert code to compute RequestWrapping out parameters ['item', 'itemID'] here\n     .emit(request_wrapping(Merchant, Wrapper, OrderID, ItemID, Item)).\n"""
         in goals
     )
 

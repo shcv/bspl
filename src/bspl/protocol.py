@@ -184,21 +184,28 @@ class Protocol(Base):
     def set_parameters(self, parameters):
         self.public_parameters = {p.name: p for p in parameters}
 
+    @property
+    def parameters(self):
+        return {**self.public_parameters, **self.private_parameters}
+
+    @property
+    def ins(self):
+        return self.adorned("in")
+
+    @property
+    def outs(self):
+        return self.adorned("out")
+
+    @property
+    def nils(self):
+        return self.adorned("nil")
+
+    @property
+    def keys(self):
+        return self.get_keys()
+
     def add_private(self, parameter):
         self.private_parameters[parameter.name] = parameter
-        self.update()
-
-    def update(self):
-        "Recompute some basic parameter information"
-        if hasattr(self, "private_parameters"):
-            self.parameters = self.public_parameters.copy()
-            self.parameters.update(self.private_parameters)
-        else:
-            self.parameters = self.public_parameters.copy()
-        self.ins = self.adorned("in")
-        self.outs = self.adorned("out")
-        self.nils = self.adorned("nil")
-        self.keys = self.get_keys()
 
     @property
     def all_parameters(self):
