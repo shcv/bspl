@@ -1,7 +1,8 @@
 from ..protocol import Message, Role, Parameter
 from pprint import pformat
 from ttictoc import Timer
-from ..parser import load_protocols
+from ..commands import register_commands
+from ..parsers.bspl import load_protocols
 
 
 def empty_path():
@@ -98,16 +99,14 @@ def disables(a, b):
     if isinstance(a, Emission) and isinstance(b, Emission) and a.sender == b.sender:
         for p in a.outs:
             # out disables out or nil
-            if p in b.parameters:
-                if b.parameters[p].adornment in ["out", "nil"]:
-                    return True
+            if p in b.parameters and b.parameters[p].adornment in ["out", "nil"]:
+                return True
 
     if isinstance(a, Reception) and isinstance(b, Emission) and a.recipient == b.sender:
         for p in a.outs.union(a.ins):
             # out or in disables out or nil
-            if p in b.parameters:
-                if b.parameters[p].adornment in ["out", "nil"]:
-                    return True
+            if p in b.parameters and b.parameters[p].adornment in ["out", "nil"]:
+                return True
 
 
 def enables(a, b):
@@ -118,10 +117,8 @@ def enables(a, b):
 
     if (
         not isinstance(b, Emission)
-        or isinstance(a, Emission)
-        and a.sender != b.sender
-        or isinstance(a, Reception)
-        and a.recipient != b.sender
+        or (isinstance(a, Emission) and a.sender != b.sender)
+        or (isinstance(a, Reception) and a.recipient != b.sender)
     ):
         # only emissions can be enabled by other messages, and only at the sender
         return False
@@ -129,9 +126,8 @@ def enables(a, b):
     if not disables(a, b):
         # out enables in
         for p in a.outs:
-            if p in b.parameters:
-                if b.parameters[p].adornment == "in":
-                    return True
+            if p in b.parameters and b.parameters[p].adornment == "in":
+                return True
 
 
 class Tangle:
@@ -183,10 +179,16 @@ class Tangle:
                     self.endows[a] = {b}
 
         # propagate endowment, since it is transitive
-        def propagate(a, b):
+        def propagate(a, b, visited=None):
+            # avoid loops by tracking visits
+            if visited == None:
+                visited = set()
+            if b in visited:
+                return
+            visited.add(b)
             self.endows[a].update(self.endows.get(b, []))
             for c in self.endows.get(b, []).copy():
-                propagate(a, c)
+                propagate(a, c, visited.copy())
 
         for a in self.endows:
             propagate(a, a)
@@ -394,13 +396,14 @@ def partition(graph, ps):
         options = parts.difference({coloring.get(n) for n in neighbors[vertex]})
 
         # generate a new color if necessary
-        if not len(options):
+        if len(options) == 0:
             color = Color()
             parts.add(color)
         elif len(options) > 1:
             # Choose a color that
             #  (1) has the highest cardinality (number of vertices)
-            max_cardinality = max(len(c) for c in parts)
+            max_cardinality = max(len(c) for c in options)
+            # print(f"max_cardinality: {max_cardinality}, {[len(o) for o in options]}")
             options = {o for o in options if len(o) == max_cardinality}
 
             #  (2) within such, the color whose vertex of highest degree has the smallest degree
@@ -409,10 +412,11 @@ def partition(graph, ps):
                 def max_degree(color):
                     return max(degree(v) for v in color)
 
-                min_max = min(max_degree(c) for c in parts)
+                min_max = min(max_degree(o) for o in options)
                 options = {o for o in options if max_degree(o) == min_max}
 
             # choose color from options (randomly?)
+            # print(f"options: {len(options)}")
             color = next(o for o in options)
         else:
             color = next(o for o in options)

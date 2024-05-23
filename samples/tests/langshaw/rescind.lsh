@@ -1,0 +1,24 @@
+Rescind
+
+who Buyer, Seller
+what ID key, Ship or ConfirmRescind
+
+do
+  Buyer: PO(ID, item, price)
+  Buyer: RescindRequest(ID, PO)
+  Buyer: Pay(ID, PO)
+
+  Seller: Ship(ID, PO)
+  Seller: ConfirmRescind(ID, RescindRequest)
+  Seller: Receive(Pay)
+
+sayso
+  Buyer: item
+  Buyer: price
+
+nono
+  ConfirmRescind Ship
+
+nogo
+  RescindRequest -/> Ship
+  Ship -/> RescindRequest

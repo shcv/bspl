@@ -1,0 +1,22 @@
+Refund
+
+who Buyer, Seller
+what ID key, Ship or Refund or CancelAck
+
+do
+  Buyer: PO(ID, item, price)
+  Buyer: Cancel(ID, PO)
+  Buyer: Pay(ID, PO)
+  Buyer: RequestRefund(ID, Pay)
+
+  Seller: Ship(ID, PO)
+  Seller: CancelAck(ID, Cancel)
+  Seller: Refund(ID, Pay, RequestRefund)
+
+sayso
+  Buyer: item
+  Buyer: price
+
+nono
+  Cancel Pay
+  Refund Ship

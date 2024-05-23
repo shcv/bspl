@@ -1,0 +1,20 @@
+# called GoodsPriority in the supplement
+RFQ-Quote
+
+who B, S
+what ID key, Goods or RescindAck
+
+do
+  B: PurchaseOrder(ID, item)
+  B: RescindRequest(ID, PurchaseOrder)
+  S: RescindAck(ID, RescindRequest)
+  S: Goods(ID, PurchaseOrder)
+
+sayso
+  B: item
+
+nogo
+  RescindRequest -/> Goods
+
+nono
+  RescindAck Goods

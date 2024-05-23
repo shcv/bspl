@@ -69,11 +69,14 @@ class Base:
             self.spec = parent
             self.parent_protocol = None
         elif type(parent) is Protocol:
-            self.spec = parent.spec
+            self.spec = getattr(parent, "spec", None)
             self.parent_protocol = parent
         elif parent:
-            self.spec = parent.spec
+            self.spec = getattr(parent, "spec", None)
             self.parent_protocol = parent.parent_protocol
+        else:
+            self.spec = None
+            self.parent_protocol = None
 
     @property
     def name(self):
@@ -132,12 +135,14 @@ class Protocol(Base):
         parent=None,
         private_parameters=None,
         type="protocol",
+        autoregister_privates=False,
     ):
         super().__init__(name, parent, type)
         self.public_parameters = {}
         self.private_parameters = {}
         self.roles = {}
         self.references = {}
+        self.autoregister_privates = autoregister_privates
         Protocol.configure(
             self, roles, public_parameters, private_parameters, references
         )
@@ -165,37 +170,35 @@ class Protocol(Base):
             self.private_parameters = {p.name: p for p in private_parameters}
         if references:
             self.references = {}
-            name_counts = {}
             for r in references:
-                if r.name in name_counts:
-                    name_counts[r.name] += 1
-                    r.idx = name_counts[r.name]
-                else:
-                    name_counts[r.name] = 1
-                self.references[r.name] = r
+                self.add_reference(r)
+
+    def add_reference(self, reference):
+        duplicates = 1
+        for r in self.references.values():
+            if r.raw_name == reference.raw_name:
+                duplicates += 1
+        reference.idx = duplicates
+        self.references[reference.name] = reference
 
     def set_parameters(self, parameters):
         self.public_parameters = {p.name: p for p in parameters}
 
-    @property
-    def parameters(self):
-        return {**self.public_parameters, **self.private_parameters}
+    def add_private(self, parameter):
+        self.private_parameters[parameter.name] = parameter
+        self.update()
 
-    @property
-    def ins(self):
-        return self.adorned("in")
-
-    @property
-    def outs(self):
-        return self.adorned("out")
-
-    @property
-    def nils(self):
-        return self.adorned("nil")
-
-    @property
-    def keys(self):
-        return self.get_keys()
+    def update(self):
+        "Recompute some basic parameter information"
+        if hasattr(self, "private_parameters"):
+            self.parameters = self.public_parameters.copy()
+            self.parameters.update(self.private_parameters)
+        else:
+            self.parameters = self.public_parameters.copy()
+        self.ins = self.adorned("in")
+        self.outs = self.adorned("out")
+        self.nils = self.adorned("nil")
+        self.keys = self.get_keys()
 
     @property
     def all_parameters(self):
@@ -337,6 +340,9 @@ class Protocol(Base):
         for i, par in enumerate(self.public_parameters.values()):
             ref_name = reference.parameters[i + len(p.roles)].name
             if ref_name not in parent.parameters:
+                if parent.autoregister_privates:
+                    self.add_private()
+
                 raise LookupError(
                     f"Parameter {ref_name} from reference {reference.name} not declared in parent {parent.name}"
                 )
@@ -379,9 +385,19 @@ class Protocol(Base):
 
 class Message(Protocol):
     def __init__(
-        self, name, sender=None, recipient=None, parameters=None, parent=None, idx=1
+        self,
+        name,
+        sender=None,
+        recipient=None,
+        parameters=None,
+        parent=None,
+        idx=1,
+        validate=True,
     ):
         self.idx = idx
+        self.validate = validate
+        self.msg = self
+
         if sender and recipient:
             super().__init__(
                 name, roles=[sender, recipient], parent=parent, type="message"
@@ -389,8 +405,6 @@ class Message(Protocol):
             self.configure(sender, recipient, parameters, parent)
         else:
             super().__init__(name, parent=parent, type="message")
-
-        self.msg = self
 
     def configure(self, sender=None, recipient=None, parameters=None, parent=None):
         parent = parent or getattr(self, "parent", None)
@@ -402,11 +416,11 @@ class Message(Protocol):
                 getattr(recipient, "name", None)
             )
             for p in parameters or []:
-                if p.name not in parent.parameters:
+                if self.validate and p.name not in parent.parameters:
                     raise LookupError(
                         f"Undeclared parameter {p.name} in {self.type} {self.name}"
                     )
-                elif parent.parameters[p.name].key:
+                elif p.name in parent.parameters and parent.parameters[p.name].key:
                     p.key = True
         else:
             self.sender = sender if isinstance(sender, Role) else Role(sender, self)
@@ -414,10 +428,11 @@ class Message(Protocol):
                 recipient if isinstance(recipient, Role) else Role(recipient, self)
             )
 
-        if not self.sender:
-            raise LookupError("Role not found", sender, self.name, parent)
-        if not self.recipient:
-            raise LookupError("Role not found", recipient, self.name, parent)
+        if self.validate:
+            if not self.sender:
+                raise LookupError("Role not found", sender, self.name, parent)
+            if not self.recipient:
+                raise LookupError("Role not found", recipient, self.name, parent)
 
         super().configure(
             roles=[self.sender, self.recipient],
@@ -470,7 +485,7 @@ class Message(Protocol):
         return "{} -> {}: {}[{}]".format(
             self.sender.name,
             self.recipient.name,
-            self.name,
+            self.raw_name,
             ", ".join([p.format() for p in self.parameters.values()]),
         )
 

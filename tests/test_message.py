@@ -3,10 +3,10 @@
 import asyncio
 import logging
 import pytest
-import bspl.parser
+from bspl.parsers.bspl import parse
 from bspl.adapter.message import Message
 
-specification = bspl.parser.parse(
+specification = parse(
     """
 RFQ {
   roles C, S // Customer, Seller

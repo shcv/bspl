@@ -1,0 +1,12 @@
+Redelegation
+
+who A, B, C
+what ID key, Finish
+
+do
+  A: Start(ID, potato)
+  B: Pass(ID, Start, potato)
+  C: Finish(ID, Pass, potato)
+
+sayso
+  A > B > C: potato

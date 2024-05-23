@@ -1,2 +1,2 @@
 __version__ = "0.1.0"
-from .parser import load_file
+from .parsers.bspl import load_file

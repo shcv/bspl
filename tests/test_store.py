@@ -2,11 +2,11 @@ import asyncio
 import logging
 import pytest
 import bspl
-import bspl.parser
+from bspl.parsers.bspl import parse
 from bspl.adapter import Adapter
 from bspl.adapter.store import Store
 
-specification = bspl.parser.parse(
+specification = parse(
     """
 Logistics {
   roles Merchant, Wrapper, Labeler, Packer

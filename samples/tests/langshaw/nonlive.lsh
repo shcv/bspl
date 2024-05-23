@@ -1,0 +1,12 @@
+Nonlive
+
+who Buyer, Seller
+what ID key, RFQ, Quote
+
+do
+  Buyer: RFQ(ID, item, price)
+  Seller: Quote(ID, item, price)
+
+sayso
+  Buyer: item
+  Seller: price

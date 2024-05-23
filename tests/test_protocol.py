@@ -1,5 +1,5 @@
 import pytest
-from bspl.parser import load_file
+from bspl.parsers.bspl import load_file
 from bspl.protocol import *
 
 

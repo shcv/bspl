@@ -1,9 +1,9 @@
-import bspl.parser
+from bspl.parsers.bspl import parse
 from bspl.adapter.emitter import Bundle
 from collections import deque
 import pytest
 
-specification = bspl.parser.parse(
+specification = parse(
     """
 Order {
   roles C, S // Customer, Seller

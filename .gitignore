@@ -8,8 +8,6 @@ Thumbs.db
 .cache
 .eggs
 .tox/
-bspl_parser.py
-spl_parser.py
 flows.json
 .flows.json.backup
 __pycache__/
@@ -19,3 +17,7 @@ dist/
 pip-wheel-metadata/
 .*env/
 *env/
+
+bspl_parser.py
+spl_parser.py
+langshaw_parser.py

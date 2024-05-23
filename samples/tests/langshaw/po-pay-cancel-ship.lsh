@@ -1,0 +1,24 @@
+PO Pay Cancel Ship
+
+who Buyer, Seller
+what ID key, PayAck or CancelAck
+
+do
+  Buyer: PO(ID, item, price)
+  Buyer: Pay(ID, PO)
+  Buyer: Cancel(ID, PO)
+  Buyer: Receive(ID, Ship)
+
+  Seller: Ship(ID, PO)
+  Seller: CancelAck(ID, Cancel)
+  Seller: PayAck(ID, Pay)
+
+sayso
+  Buyer: item
+  Buyer: price
+
+nono
+  CancelAck Ship
+
+nogo
+  Cancel -/> Ship
