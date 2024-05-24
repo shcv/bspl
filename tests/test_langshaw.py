@@ -12,32 +12,32 @@ import pprint, glob, os
 
 @pytest.fixture(scope="module")
 def Purchase():
-    return Langshaw.load_file("samples/tests/langshaw/purchase.lsh")
+    return Langshaw.load_file("samples/langshaw/purchase.lsh")
 
 
 @pytest.fixture(scope="module")
 def Nonlive():
-    return Langshaw.load_file("samples/tests/langshaw/nonlive.lsh")
+    return Langshaw.load_file("samples/langshaw/nonlive.lsh")
 
 
 @pytest.fixture(scope="module")
 def BlockContra():
-    return Langshaw.load_file("samples/tests/langshaw/block-contra.lsh")
+    return Langshaw.load_file("samples/langshaw/block-contra.lsh")
 
 
 @pytest.fixture(scope="module")
 def EitherOffer():
-    return Langshaw.load_file("samples/tests/langshaw/either-offer.lsh")
+    return Langshaw.load_file("samples/langshaw/either-offer.lsh")
 
 
 @pytest.fixture(scope="module")
 def Redelegation():
-    return Langshaw.load_file("samples/tests/langshaw/redelegation.lsh")
+    return Langshaw.load_file("samples/langshaw/redelegation.lsh")
 
 
 @pytest.fixture(scope="module")
 def RfqQuote():
-    return Langshaw.load_file("samples/tests/langshaw/rfq-quote.lsh")
+    return Langshaw.load_file("samples/langshaw/rfq-quote.lsh")
 
 
 @pytest.fixture(scope="module")
@@ -58,7 +58,7 @@ def test_grammar():
 
 
 def test_load_langshaw_file():
-    assert Langshaw.load_file("samples/tests/langshaw/purchase.lsh")
+    assert Langshaw.load_file("samples/langshaw/purchase.lsh")
 
 
 def test_delegates():
@@ -718,7 +718,7 @@ def test_lpath_liveness(Purchase):
 
 
 def test_po_pay_cancel_ship():
-    l = Langshaw.load_file("samples/tests/langshaw/po-pay-cancel-ship.lsh")
+    l = Langshaw.load_file("samples/langshaw/po-pay-cancel-ship.lsh")
     print("langshaw:\n", l.source)
     p = l.to_bspl("PoPayCancelShip")
     print("bspl:\n", p.format())
@@ -730,7 +730,7 @@ def test_po_pay_cancel_ship():
 
 
 def test_rfq_quote():
-    l = Langshaw.load_file("samples/tests/langshaw/rfq-quote.lsh")
+    l = Langshaw.load_file("samples/langshaw/rfq-quote.lsh")
     print("langshaw:\n", l.source)
     pprint.pprint(l.spec)
     pprint.pprint(lpaths.max_paths(lpaths.UoD(l), debug=True))
@@ -771,7 +771,7 @@ def test_exclusivity_diff(Purchase):
 
 def test_langshaw_bspl_translation():
     # get list of langshaw protocol files
-    lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
+    lsh_files = glob.glob("samples/langshaw/*.lsh")
     for lsh_file in lsh_files:
         l = Langshaw.load_file(lsh_file)
         # use the filename as the protocol name
@@ -783,7 +783,7 @@ def test_langshaw_bspl_translation():
 @pytest.mark.skip(reason="slow")
 def test_langshaw_bspl_verification():
     # get list of langshaw protocol files
-    lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
+    lsh_files = glob.glob("samples/langshaw/*.lsh")
     # collect stats into list
     stats = []
     # foreach file, load it and convert to bspl
@@ -870,7 +870,7 @@ def format_table2(data):
 @pytest.mark.skip(reason="slow")
 def test_langshaw_verification():
     # get list of langshaw protocol files
-    lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
+    lsh_files = glob.glob("samples/langshaw/*.lsh")
     # collect stats into list
     stats = {}
     # run multiple iterations
