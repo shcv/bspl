@@ -21,7 +21,6 @@ from . import logic
 from .logic import merge, onehot0
 from functools import lru_cache, partial
 from ..protocol import Message
-from ..commands import register_commands
 from ..parsers.bspl import load_protocols
 
 
@@ -469,6 +468,3 @@ class SATCommands:
                     formula, default=str, sort_keys=True, indent=indent
                 )
                 print(f"\nFormula: {formula}\n")
-
-
-register_commands({"sat": SATCommands})

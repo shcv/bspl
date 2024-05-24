@@ -9,7 +9,6 @@ from .paths import (
     known,
 )
 import sys
-from ..commands import register_commands
 
 
 def handle_refinement(path, Q, P, verbose=False):
@@ -33,9 +32,6 @@ def handle_refinement(path, Q, P, verbose=False):
     else:
         print(result)
         return False
-
-
-register_commands({"refinement": handle_refinement})
 
 
 def subsumes(U, params, a, b, verbose=False):

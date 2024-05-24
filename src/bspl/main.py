@@ -1,9 +1,8 @@
 from .parsers.bspl import load_file, model, strip_latex, load_protocols
-from .verification import paths, refinement
 import fire
 import json
-from .commands import Commands, register_commands
-from . import generators
+from .generators import Generate
+from .verification import Verify
 
 
 def handle_projection(role_name, *files, filter=".*", verbose=False):
@@ -96,18 +95,18 @@ def check_syntax(*files, quiet=False, debug=False):
                 print("  Syntax: correct")
 
 
-register_commands(
-    {
-        "ast": handle_ast,
-        "json": handle_json,
-        "check-syntax": check_syntax,
-        "load-file": load_file,
-    }
-)
-
-
 def main():
-    fire.Fire(Commands, name="bspl")
+    fire.Fire(
+        {
+            "ast": handle_ast,
+            "json": handle_json,
+            "check-syntax": check_syntax,
+            "load-file": load_file,
+            "generate": Generate(),
+            "verify": Verify(),
+        },
+        name="bspl",
+    )
 
 
 if __name__ == "__main__":

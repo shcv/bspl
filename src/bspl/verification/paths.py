@@ -1,7 +1,6 @@
 from ..protocol import Message, Role, Parameter
 from pprint import pformat
 from ttictoc import Timer
-from ..commands import register_commands
 from ..parsers.bspl import load_protocols
 
 
