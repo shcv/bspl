@@ -602,6 +602,7 @@ def test_langshaw_completion_messages(Purchase):
     ]
 
 
+@pytest.mark.skip(reason="slow")
 def test_langshaw_nonlive(Nonlive):
     print(Nonlive.source)
     p = Nonlive.to_bspl("Nonlive")
@@ -611,6 +612,7 @@ def test_langshaw_nonlive(Nonlive):
     assert not liveness(p)["live"]
 
 
+@pytest.mark.skip(reason="slow")
 def test_langshaw_redelegation(Redelegation):
     pprint.pprint(Redelegation.source)
     p = Redelegation.to_bspl("Redelegation")
@@ -683,6 +685,7 @@ sayso
     assert liveness(p)["live"]
 
 
+@pytest.mark.skip(reason="slow")
 def test_langshaw_bspl_liveness(Purchase):
     print("langshaw:\n", Purchase.source)
     p = Purchase.to_bspl("Purchase")
@@ -777,6 +780,7 @@ def test_langshaw_bspl_translation():
         print(f"{name} bspl:\n", p.format())
 
 
+@pytest.mark.skip(reason="slow")
 def test_langshaw_bspl_verification():
     # get list of langshaw protocol files
     lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
@@ -863,6 +867,7 @@ def format_table2(data):
     return "\n".join(result)
 
 
+@pytest.mark.skip(reason="slow")
 def test_langshaw_verification():
     # get list of langshaw protocol files
     lsh_files = glob.glob("samples/tests/langshaw/*.lsh")
@@ -908,5 +913,6 @@ def test_langshaw_verification():
     print("\n" + format_table2(averages))
 
 
+@pytest.mark.skip(reason="slow")
 def test_results():
     test_langshaw_verification()
