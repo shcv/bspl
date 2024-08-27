@@ -1,12 +1,7 @@
-import asyncio
-import logging
 from bspl.adapter import Adapter
-from configuration import config, grading, Student
+from configuration import systems, agents
 
-Galahad = ("0.0.0.0", 8011)
-config[Student] = Galahad
-
-adapter = Adapter(Student, grading, config)
+adapter = Adapter("Galahad", systems, agents)
 adapter.load_asl("galahad.asl")
 
 if __name__ == "__main__":

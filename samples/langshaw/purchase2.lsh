@@ -1,0 +1,27 @@
+Purchase
+ who Buyer, Seller, Shipper
+ what ID key, Reject or Deliver
+
+ do
+  Buyer: RFQ(ID, item)
+  Seller: Quote(ID, item, price)
+  Buyer: Accept(ID, item, price, address)
+  Buyer: Reject(ID, Quote)
+  Seller: Instruct(ID, Accept, item, address, fee)
+  Shipper: Deliver(ID, Instruct, item, address)
+
+sayso
+  Buyer > Seller: item
+  Seller > Buyer: price
+  Buyer: address
+  Seller: fee
+
+nono
+  Accept Reject
+  Reject Deliver
+
+nogo
+  Reject -/> Instruction
+  Accept -/> Quote
+  Accept -/> RFQ
+  Quote -/> RFQ

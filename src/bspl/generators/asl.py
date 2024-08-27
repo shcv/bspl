@@ -1,8 +1,8 @@
 import os
 from ..parsers.bspl import load_file
 from ..verification import paths
-from ..verification.paths import max_paths, UoD
-from ..utils import abort, cap_first, camel_to_snake
+from ..verification.paths import max_paths, UoD, all_paths
+from ..utils import abort, camel_to_snake, camel, upcamel
 
 
 def generate_asl(
@@ -100,17 +100,19 @@ def generate_covers(protocol, role):
     covers = {}
     for e in role.emissions(protocol):
         covers[e] = []
+        # the list of paths that include the target emission e
         inclusive_ps = [p for p in ps if e in paths.emissions(p)]
         for p in inclusive_ps:
             cover = set()
             ins = set(e.ins)  # need to track ins for current cover
             for ev in p:
                 m = ev.msg
-                intersection = ins.intersection(m.parameters.keys())
-                if m != e and m in role.observations(protocol) and intersection:
-                    cover.add(m)
-                    for i in ins.intersection(m.parameters.keys()):
-                        ins.discard(i)
+                if m != e:
+                    intersection = ins.intersection(m.ins.union(m.outs))
+                    if intersection and m in role.observations(protocol):
+                        cover.add(m)
+                        for i in ins.intersection(m.parameters.keys()):
+                            ins.discard(i)
                 if not ins and cover not in covers[e]:
                     covers[e].append(cover)
                     break
@@ -132,29 +134,40 @@ def prune(emission, cover):
     return pruned
 
 
+def msg_prefix(message):
+    return [
+        "MasID",
+        message.sender.name.capitalize(),
+        message.recipient.name.capitalize(),
+    ]
+
+
 def msg_term(message):
     msg_params = ", ".join(
-        [
-            cap_first(message.sender.name),
-            cap_first(message.recipient.name),
+        msg_prefix(message)
+        + [
+            upcamel(param)
+            for param in message.parameters
+            if message.public_parameters[param].adornment in ("in", "out")
         ]
-        + [cap_first(param) for param in message.parameters]
     )
     return f"{camel_to_snake(message.name)}({msg_params})"
 
 
 def generate_goals(covers):
     goals = []
+    print(covers)
     for message, cover_sets in covers.items():
         msg_params = ", ".join(
-            [cap_first(param) for param in message.parameters if param in message.ins]
+            msg_prefix(message)
+            + [upcamel(param) for param in message.parameters if param in message.ins]
         )
         msg_goal = f"!send_{camel_to_snake(message.name)}({msg_params})"
         msg_comment = f"// insert code to compute {message.name} out parameters {sorted(message.outs)} here\n    "
         for cover in cover_sets:
             if len(cover) == 0:
                 goals.append(
-                    f"!send_{camel_to_snake(message.name)}\n  <- {msg_comment} .emit({msg_term(message)}).\n"
+                    f"+!send_{camel_to_snake(message.name)}\n  <- {msg_comment} .emit({msg_term(message)}).\n"
                 )
             elif len(cover) == 1:
                 dep_message = list(cover)[0]
@@ -170,7 +183,7 @@ def generate_goals(covers):
                     )
                 # Add the plan for the message goal
                 goals.append(
-                    f"{msg_goal}\n  <- {msg_comment} .emit({msg_term(message)}).\n"
+                    f"+{msg_goal}\n  <- {msg_comment} .emit({msg_term(message)}).\n"
                 )
 
     return goals

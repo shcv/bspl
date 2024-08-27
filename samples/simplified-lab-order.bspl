@@ -1,55 +1,26 @@
-ProviderCollection {
-  roles P, L
-  parameters in order key, out collection, out specimen
-
-  P -> L: Ship[in order key, out collection, out specimen]
-}
-
-LabCollection {
-  roles S, P, L
-  parameters in order key, out collection, out specimen
-  private instructions, appointment
-
-  P -> S: Instructions[in order key, out instructions, out collection]
-  S -> L: Visit[in order key, in instructions, out specimen, nil appointment]
-}
-
-ThirdPartyCollection {
-  roles S, P, C, L
-  parameters in order key, out collection, out specimen
-  private instructions, appointment
-
-  P -> S: Instructions[in order key, out instructions, out collection]
-  S -> C: SetupAppointment[in order key, in instructions, out appointment, nil specimen]
-  C -> L: Specimen[in order key, in appointment, out specimen]
-}
-
-QueryResults {
-  roles P, L
-  parameters in order key, in results-id, out results
-
-  P -> L: Query[in order key, in results-id]
-  L -> P: Results[in order key, in results-id, out results]
-}
-
 CreateOrder {
-  roles S, P, C, L
-  parameters out complaint key, out results
-  private order, collection, specimen, unsuitable, received, result-id, request, subject
+  roles Subject, Provider, Collector, Laboratory
+  parameters out complaint key, out report
+  private order, collection, specimen, unsuitable, received, results, results-id, co-location, contact, query, request
 
-  S -> P: Complain[out complaint]
-  P -> L: EnterRequest[in complaint, out order]
+  Subject -> Provider: Complain[out complaint]
+  Provider -> Laboratory: EnterRequest[in complaint, out order]
 
-  ProviderCollection(P, L, order, collection, specimen)
-  LabCollection(S, P, L, order, collection, specimen)
-  ThirdPartyCollection(S, P, C, L, order, collection, specimen)
+  Provider -> Laboratory: Ship[in order key, out collection, out specimen]
+  Provider -> Collector: NonProviderCollect[in order key, out collection, out co-location]
+  Provider -> Subject: NeedAppointment[in order key, out collection, out contact]
 
-  L -> C: NotifyUnsuitable[in order key, in specimen, out unsuitable]
-  L -> C: NotifyReceived[in order key, in specimen, out received]
+  Subject -> Collector: Schedule[in order key, in contact, out co-location, nil specimen]
+  Collector -> Laboratory: CollectSpecimen[in order key, in co-location, out specimen]
 
-  L -> P: Results[in order key, out results]
-  L -> P: ResultsAvailable[in order key, out result-id]
-  QueryResults(P, L, order, result-id, results)
+  Laboratory -> Collector: NotifyUnsuitable[in order key, in specimen, out unsuitable]
+  Laboratory -> Collector: NotifyReceived[in order key, in specimen, out received]
 
-  P -> S: AllReceived[in request, out results]
+  Laboratory -> Provider: Results[in order key, out results]
+  Laboratory -> Provider: ResultsAvailable[in order key, out results-id]
+
+  Provider -> Laboratory: Query[in order key, in results-id, out query]
+  Laboratory -> Provider: Results[in order key, in results-id, in query, out results]
+
+  Provider -> Subject: AllReceived[in complaint, in results, out report]
 }

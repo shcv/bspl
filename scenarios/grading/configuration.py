@@ -1,30 +1,30 @@
 import bspl
 
 grading = bspl.load_file("grading.bspl").export("Grading")
+from Grading import Prof, Student, TA
 
-with open("/proc/self/cgroup", "r") as cgroups:
-    from Grading import (
-        Prof,
-        Student,
-        TA,
-        begin_test,
-        challenge,
-        rubric,
-        response,
-        result,
-    )
+agents = {
+    "Galahad": [("127.0.0.1", 8010)],
+    "Lancelot": [("127.0.0.1", 8011)],
+    "Pnin": [("127.0.0.1", 8001)],
+    "Timofey": [("127.0.0.1", 8002)],
+}
 
-    in_docker = "docker" in cgroups.read()
-
-if in_docker:
-    config = {
-        Prof: ("prof", 8000),
-        Student: ("student", 8000),
-        TA: ("ta", 8000),
-    }
-else:
-    config = {
-        Prof: ("0.0.0.0", 8000),
-        Student: ("0.0.0.0", 8001),
-        TA: ("0.0.0.0", 8002),
-    }
+systems = {
+    "galahad": {
+        "protocol": grading,
+        "roles": {
+            Student: "Galahad",
+            Prof: "Pnin",
+            TA: "Timofey",
+        },
+    },
+    "lancelot": {
+        "protocol": grading,
+        "roles": {
+            Student: "Lancelot",
+            Prof: "Pnin",
+            TA: "Timofey",
+        },
+    },
+}

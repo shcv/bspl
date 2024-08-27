@@ -2,7 +2,7 @@
 
 import agentspeak
 import agentspeak.runtime
-import agentspeak.stdlib
+import agentspeak.ext_stdlib
 import asyncio
 import uuid
 import collections
@@ -12,6 +12,7 @@ from agentspeak import Actions
 from agentspeak.runtime import Agent
 
 from .message import Message
+from ..utils import upcamel
 
 logger = logging.getLogger("bspl")
 
@@ -65,7 +66,7 @@ class Agent(agentspeak.runtime.Agent):
         self.believe(term)
 
 
-actions = Actions(agentspeak.stdlib.actions)
+actions = Actions(agentspeak.ext_stdlib.actions)
 
 actions.add_function(".uuid", (), lambda: str(uuid.uuid4()))
 
@@ -78,22 +79,23 @@ def emit(agent, term, intention):
     message = agentspeak.evaluate(term.args[0], intention.scope)
     args = [agentspeak.evaluate(p, intention.scope) for p in message.args]
     name = message.functor
-    sender = args[0]
-    recipient = args[1]
-    parameters = args[2:]
+    system = args[0]
+    sender = args[1]
+    recipient = args[2]
+    parameters = args[3:]
 
     # resolve literals to be serializeable
     params = [
         p if not isinstance(p, agentspeak.Literal) else p.asl_repr() for p in parameters
     ]
     # Find schema using name
-    schema = agent.adapter.protocol.find_schema(name=name)
+    schema = agent.adapter.systems[system]["protocol"].find_schema(name=upcamel(name))
     # Construct payload using parameter list
     payload = schema.zip_params(*params)
 
-    m = Message(schema, payload)
+    m = Message(schema, payload, system=system)
 
-    if isinstance(recipient, str):
+    if isinstance(recipient, str) and ":" in recipient:
         addr, port = recipient.split(":")
         m.dest = (addr, int(port))
 
@@ -102,7 +104,7 @@ def emit(agent, term, intention):
 
 
 def find_plan(agent, term, memo):
-    logger.debug(f"Finding plan for {term}")
+    agent.adapter.debug(f"Finding plan for {term}")
     frozen = agentspeak.freeze(term, {}, memo)
     intention = agentspeak.runtime.Intention()
 
@@ -134,6 +136,9 @@ def add_intention(agent, intention):
 
 def bdi_handler(agent, enabled, event):
     memo = {}
+    if not isinstance(event, dict):
+        logger.debug(event)
+        return
     for m in event.get("added", []):
         term = m.term()
         agent.believe(m.enabled_term())

@@ -3,11 +3,11 @@ Grading {
   parameters out sID key, out qID key, out grade
   private question, solution, answer
 
-  Prof -> Student: begin_test[out sID key]
-  Prof -> Student: challenge[in sID key, out qID key, out question]
-  Prof -> TA: rubric[in sID key, in qID key, out solution]
-  Student -> TA: response[in sID key, in qID key, in question, out answer]
-  TA -> Prof: result[in sID key, in qID key, in answer, in solution, out grade]
+  Prof -> Student: BeginTest[out sID key]
+  Prof -> Student: Challenge[in sID key, out qID key, out question]
+  Prof -> TA: Rubric[in sID key, in qID key, out solution]
+  Student -> TA: Response[in sID key, in qID key, in question, out answer]
+  TA -> Prof: Result[in sID key, in qID key, in answer, in solution, out grade]
 }
 // A simple grading protocol.
 // The professor asks a student a question, and gives the corresponding solution to the TA.

@@ -1,6 +1,6 @@
-+challenge(Prof, Student, SID, QID, Question) <-
-  !answer(Question, Answer);
-  .emit(response(Student, TA, SID, QID, Question, Answer)).
++challenge(MasID, Prof, Student, SID, QID, Question)
+  <- !answer(Question, Answer);
+     .emit(response(MasID, Student, Ta, SID, QID, Question, Answer)).
 
 +!answer("What is your name?", "Sir Galahad of Camelot").
 +!answer("What is your quest?", "To seek the Grail").

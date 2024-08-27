@@ -39,21 +39,12 @@ SUPERCRITICAL = logging.CRITICAL + 10  # don't want any logs
 logging.getLogger("aiorun").setLevel(SUPERCRITICAL)
 
 COLORS = [
-    (colorama.Back.GREEN, colorama.Fore.WHITE),
-    (colorama.Back.MAGENTA, colorama.Fore.WHITE),
+    (colorama.Back.GREEN, colorama.Fore.BLACK),
+    (colorama.Back.MAGENTA, colorama.Fore.BLACK),
     (colorama.Back.YELLOW, colorama.Fore.BLACK),
-    (colorama.Back.BLUE, colorama.Fore.WHITE),
+    (colorama.Back.BLUE, colorama.Fore.BLACK),
     (colorama.Back.CYAN, colorama.Fore.BLACK),
-    (colorama.Back.RED, colorama.Fore.WHITE),
-]
-
-COLORS = [
-    (colorama.Back.GREEN, colorama.Fore.WHITE),
-    (colorama.Back.MAGENTA, colorama.Fore.WHITE),
-    (colorama.Back.YELLOW, colorama.Fore.BLACK),
-    (colorama.Back.BLUE, colorama.Fore.WHITE),
-    (colorama.Back.CYAN, colorama.Fore.BLACK),
-    (colorama.Back.RED, colorama.Fore.WHITE),
+    (colorama.Back.RED, colorama.Fore.BLACK),
 ]
 
 
@@ -68,6 +59,7 @@ class Adapter:
         color=None,
         in_place=False,
         address=None,
+        **kwargs,
     ):
         """
         Initialize the agent adapter.
@@ -80,7 +72,7 @@ class Adapter:
         self.logger = logging.getLogger(f"bspl.adapter.{name}")
         self.logger.propagate = False
         color = color or (
-            COLORS[int(name, 36) % len(COLORS)]
+            COLORS[hash(name) % len(COLORS)]
             if name
             else COLORS[random.randint(0, len(COLORS) - 1)]
         )
@@ -125,6 +117,7 @@ class Adapter:
         self.enabled_messages = Store(systems)
         self.decision_handlers = {}
         self._in_place = in_place
+        self.kwargs = kwargs
 
     def debug(self, msg):
         self.logger.debug(msg)
@@ -449,15 +442,21 @@ class Adapter:
         if isinstance(event, ObservationEvent):
             # Update the enabled messages if there was an emission or reception
             observations = event.messages
-            event = self.compute_enabled(observations)
             for m in observations:
                 self.debug(f"observing: {m}")
+                if "trace" in self.kwargs:
+                    # if tracing is enabled, log the observation
+                    if event.type == "reception":
+                        self.info(f"Received: {m}")
+                    elif event.type == "emission":
+                        self.info(f"Sent: {m}")
                 if hasattr(self, "bdi"):
                     self.bdi.observe(m)
                     # wake up bdi logic
                     self.environment.wake_signal.set()
                 await self.react(m)
                 await self.handle_enabled(m)
+            event = self.compute_enabled(observations)
         elif isinstance(event, InitEvent):
             self.construct_initiators()
 

@@ -1,9 +1,9 @@
 from bspl.adapter import Adapter
 from configuration import systems, agents
 
-adapter = Adapter("Lancelot", systems, agents)
-adapter.load_asl("lancelot.asl")
+adapter = Adapter("Timofey", systems, agents)
+adapter.load_asl("prioritizing-timofey.asl")
 
 if __name__ == "__main__":
-    print("Starting Lancelot...")
+    print("Starting Timofey...")
     adapter.start()

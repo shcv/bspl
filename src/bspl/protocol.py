@@ -1,4 +1,4 @@
-from .utils import merge
+from .utils import merge, upcamel
 import inspect
 import sys
 import re
@@ -11,13 +11,6 @@ class ProtoMod(ModuleType):
 
     def __getitem__(self, name):
         return self.__getattribute__(name)
-
-
-def camelize(name):
-    if re.match(r"[ -]", name):
-        return "".join(map(lambda s: s.capitalize(), re.split(r"[ -]", name)))
-    else:
-        return name
 
 
 class Specification:
@@ -37,15 +30,14 @@ class Specification:
 
     def export(self, protocol):
         p = self.protocols[protocol]
-        pname = camelize(p.name)
         frm = inspect.stack()[1]
-        module = ProtoMod(pname)
+        module = ProtoMod(p.name)
         for name, message in p.messages.items():
-            module[camelize(name)] = message
+            module[name] = message
         for name, role in p.roles.items():
-            module[camelize(name)] = role
+            module[name] = role
         module.protocol = p
-        sys.modules[pname] = module
+        sys.modules[p.name] = module
         p.module = module
         return p
 

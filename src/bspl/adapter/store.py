@@ -137,10 +137,6 @@ class Store:
         for c in self.contexts.values():
             yield from c.all_messages(*args, **kwargs)
 
-    @property
-    def all_bindings(self):
-        return self.contexts.all_bindings
-
     def matching_contexts(self, message):
         """Find contexts that either have the same bindings, or don't have the parameter"""
 
@@ -204,11 +200,9 @@ class Store:
                     return True
                 else:
                     c = c.parent
-            print(
-                f"message: {message}, parameters: {message.schema.parameters}, ins: {message.schema.ins}"
-            )
+            print(f"message: {message}, ins: {message.schema.ins}")
+            print(f"context: {context}")
             logger.info(f"{p} is not found in {context.all_bindings}")
-            logger.info(f"{context.parent.all_bindings}")
             exit(1)
             return False
         return True

@@ -1,9 +1,9 @@
 from bspl.adapter import Adapter
 from configuration import systems, agents
 
-adapter = Adapter("Lancelot", systems, agents)
-adapter.load_asl("lancelot.asl")
+adapter = Adapter("Pnin", systems, agents)
+adapter.load_asl("pnin.asl")
 
 if __name__ == "__main__":
-    print("Starting Lancelot...")
+    print("Starting Pnin...")
     adapter.start()

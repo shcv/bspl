@@ -3,6 +3,7 @@
 import agentspeak
 from agentspeak import Literal, Var
 import re
+from ..utils import camel_to_snake
 
 
 def get_key(schema, payload):
@@ -114,24 +115,36 @@ class Message:
         return self.adapter.history.context(self, schema)
 
     def term(self):
-        functor = self.schema.name
+        functor = camel_to_snake(self.schema.name)
         parameters = self.schema.order_params(self.payload, default=agentspeak.Var)
         return Literal(
-            functor, (self.schema.sender.name, self.schema.recipient.name, *parameters)
+            functor,
+            (
+                self.system,
+                self.schema.sender.name,
+                self.schema.recipient.name,
+                *parameters,
+            ),
         )
 
     def enabled_term(self):
         parameters = self.schema.order_params(self.payload, default=None)
         msg = Literal(
-            self.schema.name,
-            (self.schema.sender.name, self.schema.recipient.name, *parameters),
+            camel_to_snake(self.schema.name),
+            (
+                self.system,
+                self.schema.sender.name,
+                self.schema.recipient.name,
+                *parameters,
+            ),
         )
         return Literal("enabled", (msg,))
 
     def resolve(self, term, scope, memo={}):
-        sender = term.args[0]
-        recipient = term.args[1]
-        payload = self.schema.zip_params(*term.args[2:])
+        system = term.args[0]
+        sender = term.args[1]
+        recipient = term.args[2]
+        payload = self.schema.zip_params(*term.args[3:])
         for p, v in payload.items():
             if isinstance(v, agentspeak.Var):
                 val = agentspeak.deref(memo.get(v, v), scope)
@@ -141,7 +154,7 @@ class Message:
                 ):
                     return False
                 payload[p] = val
-        return Message(self.schema, payload)
+        return Message(self.schema, payload, system=system)
 
     @property
     def complete(self):

@@ -717,6 +717,23 @@ def test_lpath_liveness(Purchase):
     assert result["safe"]
 
 
+def test_langshaw_purchase(Purchase):
+    print("langshaw:\n", Purchase.source)
+    pprint.pprint(lpaths.max_paths(lpaths.UoD(Purchase)))
+    result = lpaths.liveness(Purchase)
+    pprint.pprint(result)
+    assert result["live"]
+
+
+def test_langshaw_purchase2(Purchase):
+    l = Langshaw.load_file("samples/langshaw/purchase2.lsh")
+    print("langshaw:\n", l.source)
+    pprint.pprint(lpaths.max_paths(lpaths.UoD(l)))
+    result = lpaths.liveness(l, debug=True)
+    pprint.pprint(result)
+    assert result["live"]
+
+
 def test_po_pay_cancel_ship():
     l = Langshaw.load_file("samples/langshaw/po-pay-cancel-ship.lsh")
     print("langshaw:\n", l.source)
@@ -772,12 +789,20 @@ def test_exclusivity_diff(Purchase):
 def test_langshaw_bspl_translation():
     # get list of langshaw protocol files
     lsh_files = glob.glob("samples/langshaw/*.lsh")
+    protocols = []
     for lsh_file in lsh_files:
         l = Langshaw.load_file(lsh_file)
         # use the filename as the protocol name
         name = os.path.basename(lsh_file).split(".")[0]
         p = l.to_bspl(name)
-        print(f"{name} bspl:\n", p.format())
+        # count words in protocol
+        bspl_words = len(re.findall(r"\w+", p.format()))
+        langshaw_words = len(re.findall(r"\w+", l.source))
+        protocols.append({"name": name, "bspl": bspl_words, "langshaw": langshaw_words})
+    [
+        print(f"{p['name'].capitalize()}, {p['langshaw']}, {p['bspl']}")
+        for p in protocols
+    ]
 
 
 @pytest.mark.skip(reason="slow")
