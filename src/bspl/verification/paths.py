@@ -242,28 +242,11 @@ class Tangle:
             self.incompatible[e] = set()
 
         # a and b are incompatible if
-        #  1. one is an emission
-        #  2. one tangles with the other
+        # one tangles with the other
         for a in self.tangles:
             for b in self.tangles[a]:
-                if isinstance(a, Emission):
-                    if (
-                        isinstance(b, Emission)
-                        and a.sender == b.sender
-                        or isinstance(b, Reception)
-                        and a.sender == b.recipient
-                    ):
-                        self.incompatible[a].add(b)
-                        self.incompatible[b].add(a)
-                elif isinstance(a, Reception):
-                    if (
-                        isinstance(b, Emission)
-                        and a.recipient == b.sender
-                        or isinstance(b, Reception)
-                        and a.recipient == b.recipient
-                    ):
-                        self.incompatible[a].add(b)
-                        self.incompatible[b].add(a)
+                self.incompatible[a].add(b)
+                self.incompatible[b].add(a)
 
     def safe(self, possibilities, path):
         ps = possibilities.copy()
