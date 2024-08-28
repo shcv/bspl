@@ -129,6 +129,30 @@ def enables(a, b):
                 return True
 
 
+def transitive_closure(graph):
+    # Initialize the closure dictionary
+    closure = {node: set() for node in graph}
+
+    # Helper function for depth-first search
+    def dfs(current_node, start_node, visited):
+        # Iterate over all neighbors of the current node
+        for neighbor in graph.get(current_node, []):
+            if neighbor not in visited:
+                # Mark the neighbor as reachable from the start node
+                closure[start_node].add(neighbor)
+                # Mark the neighbor as visited
+                visited.add(neighbor)
+                # Recur to find all reachable nodes from this neighbor
+                dfs(neighbor, start_node, visited)
+
+    # Loop through each node in the graph and compute the closure
+    for node in graph:
+        visited = set([node])
+        dfs(node, node, visited)
+
+    return closure
+
+
 class Tangle:
     "Graph representation of entanglements between messages"
 
@@ -177,20 +201,8 @@ class Tangle:
                 else:
                     self.endows[a] = {b}
 
-        # propagate endowment, since it is transitive
-        def propagate(a, b, visited=None):
-            # avoid loops by tracking visits
-            if visited == None:
-                visited = set()
-            if b in visited:
-                return
-            visited.add(b)
-            self.endows[a].update(self.endows.get(b, []))
-            for c in self.endows.get(b, []).copy():
-                propagate(a, c, visited.copy())
-
-        for a in self.endows:
-            propagate(a, a)
+        # propagate endowments; a endows b & b endows c => a endows c
+        self.endows = transitive_closure(self.endows)
 
         if kwargs["debug"]:
             print(f"endows: {pformat(self.endows)}")
@@ -213,12 +225,7 @@ class Tangle:
             print(f"enables: {pformat(self.enables)}")
 
         # propagate enablements; a |- b & b |- c => a |- c
-        def enablees(m):
-            es = self.enables[m]
-            return es.union(*[enablees(b) for b in es])
-
-        for m, es in self.enables.items():
-            es.update(enablees(m))
+        self.enables = transitive_closure(self.enables)
 
         # compute entanglements:
         # a -|| c if:
