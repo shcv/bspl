@@ -6,7 +6,7 @@ from bspl import langshaw
 from bspl.langshaw import *
 from bspl.verification import lpaths
 import inspect
-from bspl.verification.paths import liveness, safety, UoD, max_paths
+from bspl.verification.paths import live, safe, UoD, max_paths
 import pprint, glob, os
 
 
@@ -609,7 +609,7 @@ def test_langshaw_nonlive(Nonlive):
     print(p.format())
     assert list(Nonlive.messages(Nonlive.action("RFQ")))
     assert list(Nonlive.messages(Nonlive.action("Quote")))
-    assert not liveness(p)["live"]
+    assert not verify(p, max_paths, liveness)["live"]
 
 
 @pytest.mark.skip(reason="slow")
@@ -617,7 +617,7 @@ def test_langshaw_redelegation(Redelegation):
     pprint.pprint(Redelegation.source)
     p = Redelegation.to_bspl("Redelegation")
     print(p.format())
-    result = liveness(p)
+    result = verify(p, max_paths, liveness)
     pprint.pprint(result)
     assert result["live"]
 
@@ -642,7 +642,7 @@ nono
     print(repeat)
     p = Langshaw(repeat).to_bspl("Repeat")
     print(p.format())
-    result = liveness(p)
+    result = live(p)
     pprint.pprint(result)
     assert result["live"]
 
@@ -651,7 +651,7 @@ def test_langshaw_block_contra(BlockContra):
     print(BlockContra.source)
     p = BlockContra.to_bspl("BlockContra")
     print(p.format())
-    result = liveness(p)
+    result = live(p)
     pprint.pprint(result)
     assert result["live"]
 
@@ -660,7 +660,7 @@ def test_langshaw_either_offer(EitherOffer):
     print(EitherOffer.source)
     p = EitherOffer.to_bspl("EitherOffer")
     print(p.format())
-    result = liveness(p)
+    result = live(p)
     pprint.pprint(result)
     assert result["live"]
 
@@ -682,7 +682,7 @@ sayso
 
     p = Langshaw(multikey).to_bspl("MultiKey")
     print(p.format())
-    assert liveness(p)["live"]
+    assert live(p)["live"]
 
 
 @pytest.mark.skip(reason="slow")
@@ -691,14 +691,14 @@ def test_langshaw_bspl_liveness(Purchase):
     p = Purchase.to_bspl("Purchase")
     print("bspl:\n", p.format())
     print("messages:", len(p.messages))
-    result = liveness(p)
+    result = live(p)
     pprint.pprint(result)
     if "path" in result:
         pprint.pprint(list(m.format() for m in result["path"]))
 
     assert result["live"]
 
-    result = safety(p)
+    result = safe(p)
     pprint.pprint(result)
     assert result["safe"]
 
@@ -741,7 +741,7 @@ def test_po_pay_cancel_ship():
     print("bspl:\n", p.format())
     print("messages:", len(p.messages))
     pprint.pprint(max_paths(UoD.from_protocol(p)))
-    result = liveness(p)
+    result = live(p)
     pprint.pprint(result)
     assert result["live"]
 
@@ -827,7 +827,7 @@ def test_langshaw_bspl_verification():
             "messages": len(p.messages),
             "safe": safety(p)["safe"],
         }
-        results.update(liveness(p))
+        results.update(live(p))
         results["elapsed"] = round(results["elapsed"], 4)
         stats.append(results)
     # print stats

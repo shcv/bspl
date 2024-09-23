@@ -111,8 +111,8 @@ def test_refines(Q, P):
 
 
 def test_concurrency_elimination(Flexible, ShipFirst):
-    print(all_paths(UoD.from_protocol(Flexible)))
-    print(all_paths(UoD.from_protocol(ShipFirst)))
+    print(p for p in every_path(UoD.from_protocol(Flexible)))
+    print(p for p in every_path(UoD.from_protocol(ShipFirst)))
     assert refines(UoD(), Flexible.public_parameters.keys(), ShipFirst, Flexible) == {
         "ok": True
     }
@@ -209,7 +209,7 @@ def test_add_intermediary(AddIntermediary):
     P = AddIntermediary.protocols["Simple-Payment"]
     Q = AddIntermediary.protocols["Escrowed-Payment"]
 
-    print(all_paths(UoD.from_protocol(P)))
+    print(list(every_path(UoD.from_protocol(P))))
     assert refines(UoD(), P.public_parameters, Q, P) == {"ok": True}
 
     assert refines(UoD(), Q.public_parameters, P, Q) != {"ok": True}

@@ -1,7 +1,7 @@
 import os
 from ..parsers.bspl import load_file
 from ..verification import paths
-from ..verification.paths import max_paths, UoD, all_paths
+from ..verification.paths import max_paths, UoD
 from ..utils import abort, camel_to_snake, camel, upcamel
 
 
@@ -96,7 +96,7 @@ def generate_covers(protocol, role):
     """For each emission by ROLE in PROTOCOL, generate a list of covers for that emission.
     Each cover is a set of messages that must be received before the emission can be sent."""
     u = UoD.from_protocol(protocol, external=True)
-    ps = max_paths(u)
+    ps = list(max_paths(u))
     covers = {}
     for e in role.emissions(protocol):
         covers[e] = []

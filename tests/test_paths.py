@@ -67,17 +67,17 @@ def test_max_paths(P):
     U = UoD.from_protocol(P)
 
     e = Emission(P.messages["test"])
-    assert max_paths(U) == [(e, Reception(e))]
+    assert list(max_paths(U)) == [(e, Reception(e))]
 
 
 def test_all_paths(P, Flexible):
     e = Emission(P.messages["test"])
-    assert all_paths(UoD.from_protocol(P)) == {
+    assert set(every_path(UoD.from_protocol(P))) == {
         empty_path(),
         (e,),
         (e, Reception(e)),
     }
-    assert len(all_paths(UoD.from_protocol(Flexible))) > 2
+    assert len(set(every_path(UoD.from_protocol(Flexible)))) > 2
 
 
 def test_possibilities(P):
