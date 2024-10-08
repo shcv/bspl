@@ -1,0 +1,33 @@
+@@grammar::Precedence
+
+start = expression $ ;
+
+expression =
+  | And
+  | clause
+  ;
+
+And = left:clause op:('&' | 'and') right:clause ;
+
+clause =
+  | Or
+  | term
+  ;
+
+Or = left:term op:('|' | 'or') right:term ;
+
+term =
+  | Before
+  | event
+  ;
+
+Before = left:event op:('.' | '<' | 'before') ~ right:event ;
+
+event =
+  | '(' @:expression ')'
+  | Not
+  | parameter
+  ;
+
+Not = op:('-' | 'no' | 'not') ~ right:event ;
+parameter = /\w[\w-]*/ ;
