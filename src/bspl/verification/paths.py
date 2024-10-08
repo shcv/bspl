@@ -472,7 +472,7 @@ def every_path(U, yield_xs=False, **kwargs):
         yield (path, xs) if yield_xs else path
 
 
-def verify(protocol, generator, fn, **kwargs):
+def verify(protocol, fn, generator=max_paths, **kwargs):
     default_kwargs = {"debug": False, "verbose": False}
     kwargs = {**default_kwargs, **kwargs}
     t = Timer()
@@ -503,6 +503,14 @@ def verify(protocol, generator, fn, **kwargs):
     }
 
 
+def total_knowledge(U, path):
+    k = set()
+    for r in U.roles:
+        for keys in key_sets(path):
+            k.update(known(path, keys, r))
+    return k
+
+
 def liveness(U=None, protocol=None, path=None, done=None, **kwargs):
     if done:
         return {"live": True}
@@ -523,19 +531,11 @@ def safety(protocol=None, path=None, done=None, **kwargs):
 
 
 def live(p):
-    return verify(p, max_paths, liveness)
+    return verify(p, liveness)
 
 
 def safe(p):
-    return verify(p, every_path, safety)
-
-
-def total_knowledge(U, path):
-    k = set()
-    for r in U.roles:
-        for keys in key_sets(path):
-            k.update(known(path, keys, r))
-    return k
+    return verify(p, safety)
 
 
 def handle_all_paths(
