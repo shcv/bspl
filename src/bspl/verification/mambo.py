@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+"""
+Mambo - path queries for verifying arbitrary properties of information protocols
+
+ideas for improvement:
+ - precompute event timings from paths, instead of scanning for each parameter
+ - share parameter timings between uses within a query
+ - split 'or' queries and process separately; should allow more reduction
+"""
 
 from math import inf
 from .paths import Emission, Reception
@@ -6,14 +13,16 @@ from .paths import Emission, Reception
 
 def find(path, p):
     """Find the index of the first message in path that contains parameter p"""
+    role = None
+    if ":" in p:
+        role, p = p.split(":")
     for i, e in enumerate(path):
-        if ":" in p:
-            role, p = p.split(":")
+        if role:
             if isinstance(e, Emission) and role != e.sender:
                 continue
             if isinstance(e, Reception) and role != e.receiver:
                 continue
-        if p in e.ins.union(e.outs):
+        if p in e.ins or p in e.outs:
             # nils don't count
             return i
 
@@ -33,9 +42,9 @@ def Or(a, b):
     def inner(path=None, **kwargs):
         val_a = a(path, **kwargs)
         val_b = b(path, **kwargs)
-        if val_a == None:
+        if not val_a:
             return val_b
-        if val_b == None:
+        if not val_b:
             return val_a
         return min(val_a, val_b)
 
@@ -47,10 +56,10 @@ def And(a, b):
 
     def inner(path=None, **kwargs):
         val_a = a(path, **kwargs)
-        if val_a == None:
+        if not val_a:
             return None
         val_b = b(path, **kwargs)
-        if val_b == None:
+        if not val_b:
             return None
         return max(val_a, val_b)
 
@@ -62,7 +71,7 @@ def Not(a):
 
     def inner(path=None, **kwargs):
         val_a = a(path, **kwargs)
-        if val_a == None:
+        if not val_a:
             return inf
         return None
 
@@ -74,12 +83,13 @@ def before(a, b):
 
     def inner(path=None, **kwargs):
         val_a = a(path, **kwargs)
-        if val_a == None:
+        if not val_a:
             return None
         val_b = b(path, **kwargs)
-        if val_b == None:
+        if not val_b:
             return None
-        return val_a < val_b
+        if val_a < val_b:
+            return val_b
 
     return inner
 
@@ -88,14 +98,24 @@ class Query:
     def __init__(self, fn, *children):
         if isinstance(children[0], str):
             # leaf node = parameter
-            self.fn = fn(children[0])
-            self.parameters = set(children)
-            self.conflicts = set()
+            p = children[0]
+            self.fn = fn(p)
+            if ":" in p:
+                role, p = p.split(":")
+            self.parameters = set([p])
+            self.conflicts = {}
         else:
             # internal node = expression; propagate parameters and conflicts
             self.fn = fn(*children)
             self.parameters = set.union(*[c.parameters for c in children])
-            self.conflicts = set.union(*[c.conflicts for c in children])
+            # merge conflict sets from children
+            self.conflicts = {}
+            for c in children:
+                for k, v in c.conflicts.items():
+                    if k in self.conflicts:
+                        self.conflicts[k].update(v)
+                    else:
+                        self.conflicts[k] = v
 
     def __call__(self, path=None, **kwargs):
         return self.fn(path, **kwargs)
@@ -113,9 +133,11 @@ class QuerySemantics:
 
     def Before(self, ast):
         q = Query(before, ast.left, ast.right)
-        q.conflicts.update(
-            set((lp, rp) for lp in ast.left.parameters for rp in ast.right.parameters)
-        )
+        for lp in ast.left.parameters:
+            if lp in q.conflicts:
+                q.conflicts[lp].update(ast.right.parameters)
+            else:
+                q.conflicts[lp] = set(ast.right.parameters)
         return q
 
     def Not(self, ast):

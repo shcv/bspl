@@ -160,6 +160,26 @@ class Tangle:
         self.receptions = {Reception(e) for e in self.emissions}
         self.events = self.emissions.union(self.receptions)
 
+        # setup extra conflicts between parameters
+        self.conflicts = {}
+        if "conflicts" in kwargs:
+            for a in kwargs["conflicts"]:
+                for b in kwargs["conflicts"][a]:
+                    As = set()
+                    Bs = set()
+                    for e in self.events:
+                        ps = e.ins.union(e.outs)
+                        if a in ps and b not in ps:
+                            As.add(e)
+                        if b in ps and a not in ps:
+                            Bs.add(e)
+                    for e in As:
+                        if e in self.conflicts:
+                            self.conflicts[e].update(Bs)
+                        else:
+                            self.conflicts[e] = Bs
+        print(self.conflicts)
+
         # sources for parameters, for computing endowment
         self.sources = {}
         for R in roles:
@@ -228,13 +248,26 @@ class Tangle:
         # a -|| c if:
         #  1. a does not endow c
         #  2. a -| c or a -| b and c |- b
+        # or a conflicts c or a conflicts b and c enables b
         self.tangles = {
-            a: self.disables[a].union(
+            a: self.disables[a]  # a -| c
+            .union(  # or
+                {
+                    c
+                    for c in self.enables
+                    if c not in self.endows.get(a, [])  # a does not endow c
+                    and self.enables[c].intersection(
+                        self.disables[a]
+                    )  # a -| b and c |- b
+                }
+            )
+            .union(self.conflicts.get(a, set()))  # merge in conflicts
+            .union(
                 {
                     c
                     for c in self.enables
                     if c not in self.endows.get(a, [])
-                    and self.enables[c].intersection(self.disables[a])
+                    and self.enables[c].intersection(self.conflicts.get(a, set()))
                 }
             )
             for a in self.events
@@ -418,7 +451,7 @@ def extensions(U, path, **kwargs):
     default_kwargs = {
         "by_degree": False,
         "reduction": True,
-        "safe": True,
+        "safe": False,
         "debug": False,
     }
     kwargs = {**default_kwargs, **kwargs}
@@ -436,7 +469,7 @@ def extensions(U, path, **kwargs):
     if not kwargs["reduction"]:
         # all the possibilities
         xs = {path + (p,) for p in ps}
-    elif not kwargs["safe"] and safe_events:
+    elif kwargs["safe"] and safe_events:
         # expand all non-disabling events first
         xs = {path + (min(safe_events, key=sort),)}
     else:
@@ -453,6 +486,8 @@ def max_paths(U, yield_xs=False, **kwargs):
     new_paths = [empty_path()]
     while len(new_paths):
         p = new_paths.pop()
+        if "query" in kwargs and kwargs["query"](p) == False:
+            continue
         xs = extensions(U, p, **kwargs)
         if xs:
             new_paths.extend(xs)
@@ -481,9 +516,11 @@ def verify(protocol, fn, generator=max_paths, **kwargs):
     if kwargs["debug"]:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     state = {}
+    count = 0
     for path, xs in generator(U, yield_xs=True, **kwargs):
+        count += 1
         if kwargs["verbose"] and not kwargs["debug"]:
-            print(p)
+            print(path)
 
         result = fn(U=U, protocol=protocol, path=path, xs=xs, **kwargs)
         # True/False ends with a result, None continues
@@ -493,12 +530,14 @@ def verify(protocol, fn, generator=max_paths, **kwargs):
             return {
                 "elapsed": t.stop(),
                 "path": path,
+                "paths": count,
                 **result,
             }
 
     final = fn(U=U, protocol=protocol, done=True, **kwargs)
     return {
         "elapsed": t.stop(),
+        "paths": count,
         **final,
     }
 
@@ -610,7 +649,6 @@ def handle_liveness(
         print(
             verify(
                 protocol,
-                max_paths,
                 liveness,
                 verbose=verbose,
                 debug=debug,

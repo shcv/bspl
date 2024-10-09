@@ -7,21 +7,21 @@ expression =
   | clause
   ;
 
-And = left:clause op:('&' | 'and') right:clause ;
+And = left:clause op:('&' | 'and') right:expression ;
 
 clause =
   | Or
   | term
   ;
 
-Or = left:term op:('|' | 'or') right:term ;
+Or = left:term op:('|' | 'or') right:clause ;
 
 term =
   | Before
   | event
   ;
 
-Before = left:event op:('.' | '<' | 'before') ~ right:event ;
+Before = left:event op:('.' | '<' | 'before') ~ right:term ;
 
 event =
   | '(' @:expression ')'
@@ -30,4 +30,4 @@ event =
   ;
 
 Not = op:('-' | 'no' | 'not') ~ right:event ;
-parameter = /\w[\w-]*/ ;
+parameter = /\w[:\w-]*/ ;
