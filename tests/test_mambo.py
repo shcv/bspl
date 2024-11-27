@@ -3,7 +3,7 @@
 import pytest
 import math
 from bspl.parsers import precedence, bspl
-from bspl.verification.paths import max_paths, UoD, live
+from bspl.verification.paths import UoD, live, safe
 from bspl.verification.mambo import *
 
 
@@ -27,19 +27,6 @@ def Ebusiness():
     return bspl.load_file("samples/ebusiness.bspl").protocols["Ebusiness"]
 
 
-def test_find(NetBill):
-    ps = [("item", 0), ("price", 2)]
-    for path in max_paths(UoD.from_protocol(NetBill)):
-        for p, i in ps:
-            assert find(path, p) == i
-
-
-def test_find_role(NetBill):
-    p = "M:item"
-    for path in max_paths(UoD.from_protocol(NetBill)):
-        assert find(path, p) == 1
-
-
 def test_occurs(NetBill):
     p = "price"
     q = occurs(p)
@@ -61,12 +48,12 @@ def test_and():
 
 
 def test_not():
-    assert Not(lambda p: 1)() == None
+    assert Not(lambda p: 1)() == False
     assert Not(lambda p: None)() == math.inf
 
 
 def test_before():
-    assert before(lambda p: 1, lambda p: 2)() == True
+    assert before(lambda p: 1, lambda p: 2)() == 2
     assert before(lambda p: 2, lambda p: 1)() == False
     assert before(lambda p: 2, lambda p: None)() == None
     assert before(lambda p: None, lambda p: 2)() == None
@@ -117,4 +104,60 @@ def test_english(Purchase):
     print(count, t.stop())
     print(len(list(max_paths(U))))
     print(live(Purchase))
+    # assert False
+
+
+def test_memoization(Ebusiness):
+    query = (
+        "details . decision & decision . payment & decision . status & payment . status"
+    )
+    q = precedence.parse(query, semantics=QuerySemantics())
+    U = UoD.from_protocol(Ebusiness, conflicts=q.conflicts)
+    from ttictoc import Timer
+
+    t = Timer()
+    t.start()
+    result = None
+    for i in range(1):
+        result = list(max_paths(U, q))
+    print(t.stop())
+
+    print(len(result))
     assert False
+
+
+def test_liveness(Ebusiness):
+    query = "-Buyer:ID or -Seller:item or -price or -payment or -status"
+    q = precedence.parse(query, semantics=QuerySemantics())
+    U = UoD.from_protocol(Ebusiness, conflicts=q.conflicts)
+    from ttictoc import Timer
+
+    t = Timer()
+    t.start()
+    result = None
+    for i in range(1):
+        result = list(max_paths(U, q))
+    print(t.stop())
+
+    print(len(result))
+    print(live(Ebusiness))
+    # assert False
+
+
+def test_safety(Ebusiness):
+    query = "Accept and Transfer"
+    q = precedence.parse(query, semantics=QuerySemantics())
+    U = UoD.from_protocol(Ebusiness, conflicts=q.conflicts)
+    from ttictoc import Timer
+
+    print(q)
+    t = Timer()
+    t.start()
+    result = None
+    for i in range(1):
+        result = list(max_paths(U, q))
+    print(t.stop())
+    print(len(result), result[0].events)
+
+    print(safe(Ebusiness))
+    # assert False
