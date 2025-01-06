@@ -10,14 +10,16 @@ from Logistics import Wrapped, RequestWrapping
 adapter = Adapter("Wrapper", systems, agents)
 
 logger = logging.getLogger("wrapper")
-# logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 @adapter.reaction(RequestWrapping)
 async def wrap(msg):
     """Handles wrapping requests by selecting appropriate material (bubblewrap for fragile items)."""
+    wrapping = "bubblewrap" if msg["item"] in ["plate", "glass"] else "paper"
+    logger.info(f"Order {msg['orderID']} item {msg['itemID']} ({msg['item']}) wrapped with {wrapping}")
     await adapter.send(
         Wrapped(
-            wrapping="bubblewrap" if msg["item"] in ["plate", "glass"] else "paper",
+            wrapping=wrapping,
             **msg.payload
         )
     )

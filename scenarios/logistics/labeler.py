@@ -11,12 +11,14 @@ from Logistics import Labeled, RequestLabel
 adapter = Adapter("Labeler", systems, agents)
 
 logger = logging.getLogger("labeler")
-# logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 @adapter.reaction(RequestLabel)
 async def label(msg):
     """Handles label requests by generating a unique UUID-based label."""
-    await adapter.send(Labeled(label=str(uuid.uuid4()), **msg.payload))
+    label = str(uuid.uuid4())
+    logger.info(f"Generated label {label} for order {msg['orderID']}")
+    await adapter.send(Labeled(label=label, **msg.payload))
     return msg
 
 if __name__ == "__main__":
