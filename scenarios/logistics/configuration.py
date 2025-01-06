@@ -3,17 +3,21 @@ import bspl
 logistics = bspl.load_file("logistics.bspl").export("Logistics")
 from Logistics import Merchant, Wrapper, Labeler, Packer
 
-from Logistics import (
-    RequestLabel,
-    RequestWrapping,
-    Labeled,
-    Wrapped,
-    Packed,
-)
+agents = {
+    "Merchant": [("127.0.0.1", 8000)],
+    "Wrapper": [("127.0.0.1", 8001)],
+    "Labeler": [("127.0.0.1", 8002)],
+    "Packer": [("127.0.0.1", 8003)],
+}
 
-config = {
-    Merchant: ("0.0.0.0", 8000),
-    Wrapper: ("0.0.0.0", 8001),
-    Labeler: ("0.0.0.0", 8002),
-    Packer: ("0.0.0.0", 8003),
+systems = {
+    "logistics": {
+        "protocol": logistics,
+        "roles": {
+            Merchant: "Merchant",
+            Wrapper: "Wrapper",
+            Labeler: "Labeler",
+            Packer: "Packer",
+        },
+    },
 }

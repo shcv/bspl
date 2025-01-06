@@ -1,12 +1,12 @@
-from bspl.adapter import Adapter
-from configuration import config, logistics, Wrapped, RequestWrapping
 import logging
+from bspl.adapter import Adapter
+from configuration import systems, agents
+from Logistics import Wrapped, RequestWrapping
+
+adapter = Adapter("Wrapper", systems, agents)
 
 logger = logging.getLogger("wrapper")
-# logging.getLogger("bspl").setLevel(logging.DEBUG)
-
-adapter = Adapter(logistics.roles["Wrapper"], logistics, config)
-
+# logger.setLevel(logging.DEBUG)
 
 @adapter.reaction(RequestWrapping)
 async def wrap(msg):
@@ -17,7 +17,6 @@ async def wrap(msg):
         )
     )
     return msg
-
 
 if __name__ == "__main__":
     logger.info("Starting Wrapper...")
