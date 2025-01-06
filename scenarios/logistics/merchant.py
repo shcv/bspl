@@ -1,3 +1,7 @@
+"""
+This agent initiates the logistics protocol by generating orders and handling packed responses.
+"""
+
 import logging
 import random
 import asyncio
@@ -11,6 +15,7 @@ logger = logging.getLogger("merchant")
 # logger.setLevel(logging.DEBUG)
 
 async def order_generator():
+    """Generates sample orders with random items and addresses."""
     for orderID in range(10):
         await adapter.send(
             RequestLabel(
@@ -30,6 +35,7 @@ async def order_generator():
 
 @adapter.reaction(Packed)
 async def packed(msg):
+    """Handles packed items by logging their status."""
     logger.info(f"Order {msg['orderID']} item {msg['itemID']} packed with status: {msg['status']}")
     return msg
 

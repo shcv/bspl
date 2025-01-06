@@ -1,3 +1,7 @@
+"""
+This agent generates unique labels for orders upon request.
+"""
+
 import logging
 import uuid
 from bspl.adapter import Adapter
@@ -11,6 +15,7 @@ logger = logging.getLogger("labeler")
 
 @adapter.reaction(RequestLabel)
 async def label(msg):
+    """Handles label requests by generating a unique UUID-based label."""
     await adapter.send(Labeled(label=str(uuid.uuid4()), **msg.payload))
     return msg
 

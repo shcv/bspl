@@ -1,3 +1,7 @@
+"""
+This agent combines wrapped items with their labels to create the final package.
+"""
+
 import logging
 from bspl.adapter import Adapter
 from configuration import systems, agents
@@ -10,6 +14,7 @@ logger = logging.getLogger("packer")
 
 @adapter.enabled(Packed)
 async def pack(msg):
+    """Handles enabled Packed messages by setting their status."""
     msg["status"] = "packed"
     return msg
 
