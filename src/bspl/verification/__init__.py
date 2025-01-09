@@ -1,5 +1,10 @@
+from importlib.util import find_spec
 from .paths import handle_safety, handle_liveness, handle_all_paths
-from .sat import SATCommands
+
+HAS_SAT = find_spec("boolexpr") is not None
+
+if HAS_SAT:
+    from .sat import SATCommands
 
 
 class Verify:
@@ -7,4 +12,5 @@ class Verify:
         self.safety = handle_safety
         self.liveness = handle_liveness
         self.all_paths = handle_all_paths
-        self.sat = SATCommands()
+        if HAS_SAT:
+            self.sat = SATCommands()
