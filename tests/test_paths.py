@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import pytest
+import glob
+import os
 from bspl.parsers.bspl import load_file
 from bspl.verification.paths import *
 
@@ -101,3 +103,15 @@ def test_extensions(P):
 def test_sources(P):
     assert sources(empty_path(), P.parameters["id"]) == set()
     assert sources([Emission(P.messages["test"])], "id") == {"A"}
+
+
+def test_liveness():
+    files = [f for f in glob.glob("samples/*.bspl") if os.path.isfile(f)]
+    for f in files:
+        print(f)
+        spec = load_file(f)
+        for name, P in spec.protocols.items():
+            result = live(P)
+            result["file"] = os.path.basename(f)
+            result["protocol"] = name
+            print(result)
