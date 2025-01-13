@@ -1,7 +1,7 @@
 IndirectNonlive {
   roles A, B
   parameters out id key, out result
-  private a, b, result
+  private a, b
   
   A →  B: test[out id, out a, nil b]
   A →  B: test2[out id, nil a, out b]

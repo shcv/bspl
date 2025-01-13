@@ -1,6 +1,6 @@
 Cancer_diagnosis {
- $\msf{roles}$ Pat, Phy, Rad
- $\msf{parameters}$ out pat_id key, out outcome
+ roles Pat, Phy, Rad
+ parameters out pat_id key, out outcome
 
  Pat $\mapsto$ Phy: Visit [out pat_id]
  Phy $\mapsto$ Pat: AllGood [in pat_id, out outcome]
