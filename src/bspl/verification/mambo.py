@@ -1,10 +1,5 @@
 """
 Mambo - path queries for verifying arbitrary properties of information protocols
-
-ideas for improvement:
- - precompute event timings from paths, instead of scanning for each parameter
- - share parameter timings between uses within a query
- - split 'or' queries and process separately; should allow more reduction
 """
 
 from math import inf
@@ -13,40 +8,65 @@ from typing import Dict, Set, Tuple, Optional, Any, Callable
 from .paths import Emission, Reception, empty_path, possibilities, partition
 
 
-def find(path, p):
-    """Find the index of the first message in path that contains parameter p"""
-    role = None
-    if ":" in p:
-        role, p = p.split(":")
-    for i, e in enumerate(path):
-        if role:
-            if isinstance(e, Emission) and role != e.sender:
-                continue
-            if isinstance(e, Reception) and role != e.recipient:
-                continue
-        if p in e.ins or p in e.outs:
-            # nils don't count
-            return i
+class Query:
+    def __init__(self, *children):
+        self.children = children
+        if len(children) >= 1:
+            self.a = children[0]
+        if len(children) >= 2:
+            self.b = children[1]
 
+        self.conflicts = {}
+        for c in children:
+            if not isinstance(c, Query):
+                continue
+            for k, v in c.conflicts.items():
+                if k in self.conflicts:
+                    self.conflicts[k].update(v)
+                else:
+                    self.conflicts[k] = v
 
-def check_last(path, p):
-    """Check if a parameter is present in the most recent event"""
-    role = None
-    if ":" in p:
-        role, p = p.split(":")
-    # only need to look at most recent event
-    i = len(path.events) - 1
-    if i < 0:
-        return
-    e = path.events[i]
-    if role:
-        if isinstance(e, Emission) and role != e.sender:
-            return
-        if isinstance(e, Reception) and role != e.recipient:
-            return
-    if p in e.ins or p in e.outs:
-        # nils don't count
-        return i
+    @property
+    def parameters(self):
+        return set.union(*[c.parameters for c in self.children])
+
+    def __call__(self, path: "Path", **kwargs):
+        if kwargs.get("residuate", False):
+            # Check if we have a memoized result
+            if self in path.query_results:
+                return path.query_results[self]
+
+            value = self._call(path, **kwargs)
+            if kwargs.get("verbose"):
+                print(f"{self} = {value}")
+            if isinstance(value, int):  # only save definite results (includes False)
+                path.query_results[self] = value
+            return value
+        value = self._call(path, **kwargs)
+        if kwargs.get("verbose"):
+            print(f"{self} = {value}")
+        return value
+
+    def _call(self, path, **kwargs):
+        raise NotImplementedError("Query subclasses must implement _call")
+
+    def __repr__(self):
+        return f"{type(self).__name__}({', '.join(str(c) for c in self.children)})"
+
+    def __or__(self, other):
+        return Or(self, other)
+
+    def __and__(self, other):
+        return And(self, other)
+
+    def __invert__(self):
+        return Not(self)
+
+    def __neg__(self):
+        return Not(self)
+
+    def __lt__(self, other):
+        return Before(self, other)
 
 
 @dataclass
@@ -73,134 +93,144 @@ class Path:
         return iter(self.events)
 
     def __hash__(self):
-        # return hash((self.events, self.parameter_state))
         return hash(self.events)
 
 
-def occurs(p: str) -> Callable:
-    """A clause for path queries that checks if a parameter occurs, returning its first occurrence index as a timestamp"""
-
-    def inner(path: Path, **kwargs) -> Optional[int]:
-        return find(path, p)
-        # return check_last(path, p)
-
-    inner.__name__ = p
-    return inner
-
-
-def Or(a, b):
-    """A clause for path queries that checks if either expression a or b is satisfied"""
-
-    def inner(path=None, **kwargs):
-        val_a = a(path, **kwargs)
-        val_b = b(path, **kwargs)
-        if not val_a:
-            return val_b
-        if not val_b:
-            return val_a
-        return min(val_a, val_b)
-
-    inner.__name__ = "or"
-    return inner
+def match_role(role, event):
+    if not role:
+        return True
+    if isinstance(event, Emission):
+        return role == event.sender
+    if isinstance(event, Reception):
+        return role == event.recipient
+    return False
 
 
-def And(a, b):
-    """A clause for path queries that checks if both expressions a and b are satisfied"""
+class Occurs(Query):
+    _instances = {}
 
-    def inner(path=None, **kwargs):
-        val_a = a(path, **kwargs)
-        val_b = b(path, **kwargs)
-        if not isinstance(val_a, int):
-            return val_a
-        if not isinstance(val_b, int):
-            return val_b
-        return max(val_a, val_b)
+    # register unique instances of the same parameter
+    def __new__(cls, key):
+        if key not in cls._instances:
+            instance = super().__new__(cls)
+            cls._instances[key] = instance
+        return cls._instances[key]
 
-    inner.__name__ = "and"
-    return inner
+    def __init__(self, p):
+        super().__init__(p)
+        self.p = p
+        self.role = None
+        if ":" in p:
+            self.role, self.p = p.split(":")
+
+    @property
+    def parameters(self):
+        return {self.p}
+
+    def __str__(self):
+        return self.p if not self.role else f"{self.role}:{self.p}"
+
+    def _call(self, path, **kwargs):
+        # assume non-incremental by default to avoid surprises
+        if kwargs.get("incremental", False):
+            # only need to check the last event for new information
+            if len(path.events) < 1:
+                return
+            e = path.events[-1]  # last
+            if not match_role(self.role, e):
+                return
+            # match on name or ins/outs
+            if self.p == e.name or self.p in e.ins or self.p in e.outs:
+                return len(path) - 1
+        else:
+            for i, e in enumerate(path):
+                if not match_role(self.role, e):
+                    continue
+                if self.p == e.name or self.p in e.ins or self.p in e.outs:
+                    # nils don't count
+                    return i
 
 
-def Not(a):
-    """A clause for path queries that checks if expression a is not satisfied"""
+class Or(Query):
+    def __str__(self):
+        return f"({self.a} | {self.b})"
 
-    def inner(path=None, **kwargs):
-        val_a = a(path, **kwargs)
-
-        # leave None cases unresolved
-        if val_a == None:
-            return None
-        if val_a == False:
+    def _call(self, path, **kwargs):
+        val_a = self.a(path, **kwargs)
+        val_b = self.b(path, **kwargs)
+        types = [type(val_a), type(val_b)]
+        if int in types:
+            # int + int, inf, false, or none
+            # even if the other resolves later, we know the minimum
+            ints = [i for i in [val_a, val_b] if type(i) == int]
+            return min(ints)
+        if float in types:
+            # inf + false or none
             return inf
+        if type(None) in types:
+            # none + false or none
+            # indeterminate, could still become true
+            return None
+        # both are false; can't change
         return False
 
-    inner.__name__ = "not"
-    return inner
+
+class And(Query):
+    def __str__(self):
+        return f"({self.a} & {self.b})"
+
+    def _call(self, path, **kwargs):
+        val_a = self.a(path, **kwargs)
+        val_b = self.b(path, **kwargs)
+        types = [type(val_a), type(val_b)]
+        if bool in types:
+            return False
+        if type(None) in types:
+            return None
+        # assert type(val_a) == int and type(val_b) == int
+        return max(val_a, val_b)
 
 
-def before(a, b):
-    """A clause for path queries that checks if a is satisfied before b"""
+class Not(Query):
+    def __str__(self):
+        return f"no {self.a}"
 
-    def inner(path=None, **kwargs):
-        val_a = a(path, **kwargs)
-        val_b = b(path, **kwargs)
-        if not isinstance(val_a, int):
+    def _call(self, path, **kwargs):
+        val_a = self.a(path, **kwargs)
+        if val_a == None or type(val_a) == bool:
+            # False or None -> inf
+            return inf
+        if type(val_a) == int:
+            # int -> False
+            return False
+
+
+class Before(Query):
+    def __str__(self):
+        return f"({self.a} . {self.b})"
+
+    def __init__(self, a, b):
+        super().__init__(a, b)
+        if not isinstance(a, Query) or not isinstance(b, Query):
+            return
+        for p in a.parameters:
+            if p in self.conflicts:
+                self.conflicts[p].update(b.parameters)
+            else:
+                self.conflicts[p] = set(b.parameters)
+
+    def _call(self, path, **kwargs):
+        val_a = self.a(path, **kwargs)
+        val_b = self.b(path, **kwargs)
+        if not type(val_a) == int:
             return val_a
-        if not isinstance(val_b, int):
+        if not type(val_b) == int:
             return val_b
 
         if val_a < val_b:
             return val_b
         else:
             return False
-
-    inner.__name__ = "before"
-    return inner
-
-
-class Query:
-    """A query that remembers its results for each path"""
-
-    def __init__(self, fn, *children):
-        self.children = children
-        self.fn_type = fn
-        if isinstance(children[0], str):
-            # Leaf node = parameter
-            p = children[0]
-            self.fn = fn(p)
-            if ":" in p:
-                role, p = p.split(":")
-            self.parameters = set([p])
-            self.conflicts = {}
-        else:
-            # Internal node = expression; propagate parameters and conflicts
-            self.fn = fn(*children)
-            self.parameters = set.union(*[c.parameters for c in children])
-            self.conflicts = {}
-            for c in children:
-                for k, v in c.conflicts.items():
-                    if k in self.conflicts:
-                        self.conflicts[k].update(v)
-                    else:
-                        self.conflicts[k] = v
-
-    def __call__(self, path: Path, **kwargs) -> Optional[int]:
-        # Check if we have a memoized result
-        if self in path.query_results:
-            return path.query_results[self]
-
-        # Calculate and store the result
-        result = self.fn(path, **kwargs)
-        if result != None:
-            path.query_results[self] = result
-        return result
-
-    def __repr__(self):
-        return str(self)
-
-    def __str__(self):
-        if self.fn_type == occurs:
-            return str(self.fn.__name__)
-        return f"{self.fn.__name__}({', '.join(str(c) for c in self.children)})"
 
 
 class QuerySemantics:
@@ -210,26 +240,20 @@ class QuerySemantics:
     def parameter(self, ast):
         p = ast
         if p not in self.parameters:
-            self.parameters[p] = Query(occurs, ast)
+            self.parameters[p] = Occurs(p)
         return self.parameters[p]
 
     def And(self, ast):
-        return Query(And, ast.left, ast.right)
+        return ast.left & ast.right
 
     def Or(self, ast):
-        return Query(Or, ast.left, ast.right)
+        return ast.left | ast.right
 
     def Before(self, ast):
-        q = Query(before, ast.left, ast.right)
-        for lp in ast.left.parameters:
-            if lp in q.conflicts:
-                q.conflicts[lp].update(ast.right.parameters)
-            else:
-                q.conflicts[lp] = set(ast.right.parameters)
-        return q
+        return ast.left < ast.right
 
     def Not(self, ast):
-        return Query(Not, ast.right)
+        return ~ast.right
 
 
 def extensions(U, path: Path, **kwargs):
@@ -260,20 +284,31 @@ def extensions(U, path: Path, **kwargs):
         return {path.extend(b) for b in branches}
 
 
-def max_paths(U, query: Optional[Query] = None, yield_xs=False, **kwargs):
-    """Yield each maximal path"""
+def match_paths(U, query, yield_xs=False, **kwargs):
+    """Yield paths that match query"""
     new_paths = [Path.create_empty()]
+    default_kwargs = {"prune": False}
+    kwargs = {**default_kwargs, **kwargs}
 
     while new_paths:
         path = new_paths.pop()
 
-        # Don't extend paths that resolve query
-        if query and query(path, **kwargs) != None:
-            yield (path, xs) if yield_xs else path
-            continue
+        if kwargs.get("verbose"):
+            print(path.events)
+        result = query(path, **kwargs)
+        print(result)
+        if result != None:
+            # only yield paths matching the query, not those that return False
+            if type(result) == int:
+                yield (path, result) if yield_xs else path
+            if kwargs["prune"] and result != inf:
+                # Don't extend paths that resolve query; infs are indefinite
+                continue
 
         xs = extensions(U, path, **kwargs)
         if xs:
             new_paths.extend(xs)
         else:
-            yield (path, xs) if yield_xs else path
+            print("finished path")
+            if result == inf:
+                yield (path, inf) if yield_xs else path
