@@ -7,14 +7,14 @@ expression =
   | clause
   ;
 
-And = left:clause op:('&' | 'and') right:expression ;
+And = left:clause op:('&' | 'and' | '∧') right:expression ;
 
 clause =
   | Or
   | term
   ;
 
-Or = left:term op:('|' | 'or') right:clause ;
+Or = left:term op:('|' | 'or' | '∨') right:clause ;
 
 term =
   | Before
