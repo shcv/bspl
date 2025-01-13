@@ -1,4 +1,4 @@
-from ..protocol import Message, Role, Parameter
+from ..protocol import Message, Role, Parameter, Protocol
 from pprint import pformat
 from ttictoc import Timer
 from ..parsers.bspl import load_protocols
@@ -178,7 +178,6 @@ class Tangle:
                             self.conflicts[e].update(Bs)
                         else:
                             self.conflicts[e] = Bs
-        print(self.conflicts)
 
         # sources for parameters, for computing endowment
         self.sources = {}
@@ -483,6 +482,9 @@ def extensions(U, path, **kwargs):
 
 def max_paths(U, yield_xs=False, **kwargs):
     """Yield each path in UoD U that is maximal, i.e., has no extensions."""
+    if isinstance(U, Protocol):
+        U = UoD.from_protocol(U, **kwargs)
+
     new_paths = [empty_path()]
     while len(new_paths):
         p = new_paths.pop()
@@ -497,6 +499,9 @@ def max_paths(U, yield_xs=False, **kwargs):
 
 def every_path(U, yield_xs=False, **kwargs):
     """Yield each path in UoD U."""
+    if isinstance(U, Protocol):
+        U = UoD.from_protocol(U, **kwargs)
+
     new_paths = [empty_path()]
     while len(new_paths):
         path = new_paths.pop()
@@ -577,8 +582,15 @@ def safe(p):
     return verify(p, safety)
 
 
-def handle_all_paths(
-    *files, debug=False, verbose=False, external=False, safe=True, reduction=False
+def handle_paths(
+    *files,
+    maximal=False,
+    debug=False,
+    verbose=False,
+    external=False,
+    safe=True,
+    reduction=False,
+    quiet=False,
 ):
     """Compute all paths for each protocol
 
@@ -592,32 +604,31 @@ def handle_all_paths(
       external: Enable external source information
       reduction: Enable reduction
       safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
-
+      maximal: Only compute maximal paths; enable with --maximal
     """
 
     longest_path = []
     paths = []
-    max_paths = []
+    maxed = []
 
     def step(done=None, path=None, xs=None, **kwargs):
-        if done and not kwargs["quiet"]:
-            print(
-                f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}"
-            )
+        nonlocal longest_path
+        if done:
+            return {"longest": longest_path, "paths": len(maxed)}
         else:
             paths.append(path)
             if len(path) > len(longest_path):
                 longest_path = path
             if not xs:
-                max_paths.append(path)
+                maxed.append(path)
 
     for protocol in load_protocols(files):
         print(f"{protocol.name} ({protocol.path}): ")
         print(
             verify(
                 protocol,
-                every_path,
                 step,
+                every_path if not maximal else max_paths,
                 verbose=verbose,
                 debug=debug,
                 external=external,
@@ -681,8 +692,8 @@ def handle_safety(
         print(
             verify(
                 protocol,
-                every_path,
                 safety,
+                every_path,
                 verbose=verbose,
                 debug=debug,
                 external=external,
