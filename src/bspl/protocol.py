@@ -381,6 +381,9 @@ class Protocol(Base):
     def initiators(self):
         return {m for m in self.messages.values() if len(m.ins) == 0}
 
+    def __repr__(self):
+        return self.name
+
 
 class Message(Protocol):
     def __init__(
