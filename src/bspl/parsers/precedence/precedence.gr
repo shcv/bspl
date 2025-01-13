@@ -21,7 +21,7 @@ term =
   | event
   ;
 
-Before = left:event op:('.' | '<' | 'before') ~ right:term ;
+Before = left:term op:('.' | '<' | 'before') ~ right:event ;
 
 event =
   | '(' @:expression ')'
