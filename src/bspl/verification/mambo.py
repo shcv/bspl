@@ -142,7 +142,7 @@ class Occurs(Query):
 
     def _call(self, path, **kwargs):
         # assume non-incremental by default to avoid surprises
-        if kwargs.get("incremental", False):
+        if kwargs.get("incremental", False) and kwargs.get("residuate", False):
             # only need to check the last event for new information
             if len(path.events) < 1:
                 return
