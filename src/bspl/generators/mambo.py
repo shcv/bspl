@@ -10,7 +10,7 @@ def unsafe(protocol):
         p: {m.name for m in protocol.messages.values() if p in m.outs}
         for p in protocol.parameters
     }
-    conflicts = [sources[p] for p in sources if len(sources[p]) > 1]
+    conflicts = set(tuple(sources[p]) for p in sources if len(sources[p]) > 1)
     if not conflicts:
         return None
     # safety = not ((m1 and m2) or (m3 and m4) ...) for all pairs of conflicting messages
