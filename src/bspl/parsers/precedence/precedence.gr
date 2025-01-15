@@ -3,25 +3,25 @@
 start = expression $ ;
 
 expression =
-  | And
+  | Or
   | clause
   ;
 
-And = left:clause op:('&' | 'and' | '∧') right:expression ;
+Or = left:expression op:('|' | 'or' | '∨') right:clause ;
 
 clause =
-  | Or
+  | And
   | term
   ;
 
-Or = left:term op:('|' | 'or' | '∨') right:clause ;
+And = left:clause op:('&' | 'and' | '∧') right:term ;
 
 term =
   | Before
   | event
   ;
 
-Before = left:term op:('.' | '<' | 'before') ~ right:event ;
+Before = left:term op:('.' | '·' | '<' | 'before') ~ right:event ;
 
 event =
   | '(' @:expression ')'
