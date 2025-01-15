@@ -32,6 +32,7 @@ class MamboCommands:
     def safety(self, *files):
         """Check safety properties for each protocol in FILES"""
         for protocol in load_protocols(files):
+            print(f"{protocol.name} ({protocol.path}):")
             t = Timer()
             t.start()
             q = unsafe(protocol)
@@ -44,6 +45,20 @@ class MamboCommands:
                 print({"elapsed": elapsed, "safe": False, "path": result})
             else:
                 print({"elapsed": elapsed, "safe": True})
+
+    def query(self, path, query):
+        for protocol in load_protocols([path]):
+            print(f"{protocol.name} ({protocol.path}):")
+            paths = [
+                str(p.events)
+                for p in match_paths(
+                    protocol, query, residuate=True, incremental=True, prune=True
+                )
+            ]
+            if paths:
+                print("\n".join(paths))
+            else:
+                print("No matching enactments")
 
 
 class Verify:
@@ -86,3 +101,16 @@ class Verify:
                     unused.difference_update(e.msg.ins)
                     unused.difference_update(e.msg.nils)
             print(unused)
+
+    def solitary(self, *files):
+        """Find any parameters which only appear once."""
+        for protocol in load_protocols(files):
+            print(f"{protocol.name} ({protocol.path}): ")
+            uses = {p: set() for p in protocol.parameters}
+            for p in uses:
+                for m in protocol.messages.values():
+                    if p in m.parameters:
+                        uses[p].add(m)
+
+            solo = set(p for p in uses if len(uses[p]) == 1)
+            print(solo)
