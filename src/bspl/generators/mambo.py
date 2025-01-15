@@ -7,7 +7,7 @@ from itertools import combinations, chain
 
 def unsafe(protocol):
     sources = {
-        p: {m.name for m in protocol.messages.values() if p in m.outs}
+        p: {m for m in protocol.messages.values() if p in m.outs}
         for p in protocol.parameters
     }
     conflicts = set(tuple(sources[p]) for p in sources if len(sources[p]) > 1)
@@ -15,13 +15,20 @@ def unsafe(protocol):
         return None
     # safety = not ((m1 and m2) or (m3 and m4) ...) for all pairs of conflicting messages
     # compute And(m1, m2) for all pairs of conflicting messages
-    pairs = list(
-        chain.from_iterable(combinations([Occurs(m) for m in c], 2) for c in conflicts)
-    )
+
+    pairs = set(chain.from_iterable(combinations(c, 2) for c in conflicts))
+    pairs = [
+        (Occurs(p[0].name) & Occurs(p[1].name))
+        for p in pairs
+        if p[0].sender != p[1].sender
+    ]
+    if not pairs:
+        return None
+
     # compute disjunction of all pairs
-    clause = pairs[0][0] & pairs[0][1]
+    clause = pairs[0]
     for p in pairs[1:]:
-        clause = clause | (p[0] & p[1])
+        clause = clause | p
     return clause
 
 
