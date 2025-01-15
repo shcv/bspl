@@ -203,24 +203,73 @@ def test_safety(Ebusiness, Purchase):
     # assert False
 
 
-def test_happy_path(Sale):
+def test_desired_end(Sale):
     q = precedence.parse(
-        "offer.accept.pay.transfer.ship.deliver", semantics=QuerySemantics()
+        "rescindAck ∨ reject ∨ transfer ∧ (refund ∨ deliver)",
+        semantics=QuerySemantics(),
     )
     print(q)
     U = UoD.from_protocol(Sale, conflicts=q.conflicts)
     result = list(match_paths(U, q, verbose=True))
     print(result)
-    assert result
+    nresult = list(match_paths(U, -q, verbose=True))
+    assert not nresult
+    assert False
 
 
-def test_unhappy_path(Sale):
+def test_happy(Sale):
+    q = precedence.parse(
+        "offer · accept · transfer · deliver", semantics=QuerySemantics()
+    )
+    print(q)
+    U = UoD.from_protocol(Sale, conflicts=q.conflicts)
+    result = list(match_paths(U, q, verbose=True))
+    print(result)
+
+    q2 = precedence.parse(
+        "offer · accept · deliver · transfer", semantics=QuerySemantics()
+    )
+    print(q2)
+    U = UoD.from_protocol(Sale, conflicts=q2.conflicts)
+    result2 = list(match_paths(U, q2, verbose=True))
+    print(result2)
+
+    print("\nresults:")
+    print(f"{q}: {len(result)}")
+    print(f"{q2}: {len(result2)}")
+    assert False
+
+
+def test_unhappy(Sale):
     q = precedence.parse("offer.accept.rescind.rescindAck", semantics=QuerySemantics())
     print(q)
     U = UoD.from_protocol(Sale, conflicts=q.conflicts)
     result = list(match_paths(U, q, verbose=True))
     print(result)
-    assert result
+
+    q2 = precedence.parse("offer . reject", semantics=QuerySemantics())
+    print(q2)
+    U = UoD.from_protocol(Sale, conflicts=q2.conflicts)
+    result2 = list(match_paths(U, q2, verbose=True))
+    print(result2)
+
+    print("\nresults:")
+    print(f"{q}: {len(result)}")
+    print(f"{q2}: {len(result2)}")
+    assert False
+
+
+def test_late_action(Sale):
+    q = precedence.parse("no accept ∨ accept · rescind", semantics=QuerySemantics())
+    print(q)
+    U = UoD.from_protocol(Sale, conflicts=q.conflicts)
+
+    # note, negated: all should pass, none should not
+    result = list(match_paths(U, -q, verbose=True))
+
+    print(result)
+    assert not result
+    assert False
 
 
 def test_disables(Sale):
@@ -244,6 +293,25 @@ def test_alternatives(Sale):
     assert False
 
 
+def test_priority(Sale):
+    q = precedence.parse(
+        """no Buyer:rescind ∨ Buyer:pay ∨ rescindAck""",
+        semantics=QuerySemantics(),
+    )
+    print(q)
+    U = UoD.from_protocol(Sale, conflicts=q.conflicts)
+    result = list(match_paths(U, q, prune=True, residuate=True, verbose=True))
+    print(result)
+    nresult = list(match_paths(U, -q, prune=True, residuate=True, verbose=True))
+    print(nresult)
+    total = list(match_paths(U, Any(), max_only=True))
+    print(f"{q}: {len(result)}")
+    print(f"{-q}: {len(nresult)}")
+    print(f"all: {len(total)}")
+
+    assert False
+
+
 def test_compensation(Sale):
     q = precedence.parse(
         """ (no transfer ∨ deliver ∨ refund)
@@ -261,121 +329,27 @@ def test_compensation(Sale):
     assert False
 
 
-def test_priority(Sale):
+def test_complementary(Sale):
+    q = precedence.parse("reject ∧ deliver", semantics=QuerySemantics())
+    print(q)
+    U = UoD.from_protocol(Sale, conflicts=q.conflicts)
+    result = list(match_paths(U, q, prune=True, verbose=True))
+    nresult = list(match_paths(U, -q, prune=True, verbose=True))
+    print(f"{len(result)} + {len(nresult)} = {len(list(max_paths(U)))}")
+    print(result)
+    print(nresult)
+    assert not result and nresult
+
+
+def test_delegation_guarantee(Sale):
     q = precedence.parse(
-        """no rescind ∨ pay ∨ rescindAck""",
-        semantics=QuerySemantics(),
+        "(pay ∨ transfer) ∧ no pay · transfer", semantics=QuerySemantics()
     )
     print(q)
     U = UoD.from_protocol(Sale, conflicts=q.conflicts)
-    result = list(match_paths(U, q, prune=True, residuate=True, verbose=True))
+    result = list(match_paths(U, q, prune=True, verbose=True))
+    nresult = list(match_paths(U, -q, prune=True, verbose=True))
+    print(f"{len(result)} + {len(nresult)} = {len(list(max_paths(U)))}")
     print(result)
-    nresult = list(match_paths(U, -q, prune=True, residuate=True, verbose=True))
     print(nresult)
-    total = len(list(max_paths(U)))
-    print(f"{len(result)} + {len(nresult)} = {total}")
-    assert len(result) + len(nresult) == total
-    assert False
-
-
-def format_table(columns, data):
-    # calculate max size of each column for padding
-    sizes = {c: max(len(c), max(len(str(row[c])) for row in data)) for c in columns}
-
-    def justify(column, value):
-        return str(value).ljust(sizes[column], " ")
-
-    # header
-    result = [" & ".join(justify(c, c) for c in columns) + " \\\\ " + "\\hline"]
-
-    for entry in data:
-        result.append(
-            " & ".join(justify(c, entry.get(c, "")) for c in columns) + " \\\\"
-        )
-
-    return "\n".join(result)
-
-
-def test_safety_performance():
-    files = glob.glob("samples/*.bspl")
-    columns = [
-        "File",
-        "Protocol",
-        "Formula",
-        "Result",
-        "Time",
-    ]
-
-    stats = []
-    for f in files:
-        spec = bspl.load_file(f)
-        for name, P in spec.protocols.items():
-            t = Timer()
-            t.start()
-            q = unsafe(P)
-            if q:
-                U = UoD.from_protocol(P, conflicts=q.conflicts)
-                result = next(match_paths(U, q), None)
-            else:
-                result = []
-            elapsed = t.stop()
-            stats.append(
-                {
-                    "File": os.path.basename(f),
-                    "Protocol": name,
-                    "Formula": str(q),
-                    "Result": not result,
-                    "Time": elapsed,
-                }
-            )
-    print(format_table(columns, stats))
-
-
-def test_liveness_performance():
-    files = glob.glob("samples/*.bspl")
-    columns = [
-        "Protocol",
-        "Result",
-        "Live",
-        "Time",
-        "Opt"
-        # "Base",
-        # "Prune",
-        # "Residuate",
-        # "Both",
-    ]
-
-    configurations = {
-        "Base": {"residuate": False, "prune": False},
-        "Prune": {"residuate": False, "prune": True},
-        "Residuate": {"residuate": True, "prune": False},
-        "Both": {"residuate": True, "prune": True},
-    }
-
-    stats = []
-    for f in files:
-        spec = bspl.load_file(f)
-        for name, P in spec.protocols.items():
-            for label, config in configurations.items():
-                t = Timer()
-                t.start()
-                q = nonlive(P)
-                if q:
-                    U = UoD.from_protocol(P, conflicts=q.conflicts)
-                    result = next(match_paths(U, q, **config), None)
-                else:
-                    result = []
-                elapsed = t.stop()
-                print(name, label, 1000 * elapsed, 1000 * live(P)["elapsed"])
-                # stats.append(
-                #     {
-                #         "File": os.path.basename(f),
-                #         "Protocol": name,
-                #         "Formula": str(q),
-                #         "Result": result,
-                #         "Opt": label,
-                #         "Live": live(P),
-                #         "Time": elapsed,
-                #     }
-                # )
-    # print(format_table(columns, stats))
+    assert not result and nresult

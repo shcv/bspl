@@ -69,6 +69,16 @@ class Query:
         return Before(self, other)
 
 
+class Any(Query):
+    """A query that always returns 0 (true at the beginning), regardless of the path"""
+
+    def __str__(self):
+        return "*"
+
+    def _call(self, path, **kwargs):
+        return 0
+
+
 @dataclass
 class Path:
     """A path that remembers query results"""
@@ -284,7 +294,7 @@ def extensions(U, path: Path, **kwargs):
         return {path.extend(b) for b in branches}
 
 
-def match_paths(U, query, yield_xs=False, **kwargs):
+def match_paths(U, query, yield_xs=False, max_only=False, **kwargs):
     """Yield paths that match query"""
     new_paths = [Path.create_empty()]
     default_kwargs = {"prune": False}
@@ -296,8 +306,9 @@ def match_paths(U, query, yield_xs=False, **kwargs):
         if kwargs.get("verbose"):
             print(path.events)
         result = query(path, **kwargs)
-        print(result)
-        if result != None:
+        if kwargs.get("verbose"):
+            print(result)
+        if result != None and not max_only:
             # only yield paths matching the query, not those that return False
             if type(result) == int:
                 yield (path, result) if yield_xs else path
@@ -312,3 +323,5 @@ def match_paths(U, query, yield_xs=False, **kwargs):
             print("finished path")
             if result == inf:
                 yield (path, inf) if yield_xs else path
+            elif max_only and type(result) == int:
+                yield (path, result) if yield_xs else path
