@@ -5,7 +5,10 @@ Mambo - path queries for verifying arbitrary properties of information protocols
 from math import inf
 from dataclasses import dataclass
 from typing import Dict, Set, Tuple, Optional, Any, Callable
-from .paths import Emission, Reception, empty_path, possibilities, partition
+from .paths import Emission, Reception, empty_path, possibilities, partition, UoD
+from ..protocol import Protocol
+from ..parsers.bspl import load_protocols
+from ..parsers import precedence
 
 
 class Query:
@@ -300,6 +303,12 @@ def match_paths(U, query, yield_xs=False, max_only=False, **kwargs):
     default_kwargs = {"prune": False}
     kwargs = {**default_kwargs, **kwargs}
 
+    if isinstance(query, str):
+        query = precedence.parse(query, semantics=QuerySemantics())
+
+    if isinstance(U, Protocol):
+        U = UoD.from_protocol(U, conflicts=query.conflicts)
+
     while new_paths:
         path = new_paths.pop()
 
@@ -320,7 +329,6 @@ def match_paths(U, query, yield_xs=False, max_only=False, **kwargs):
         if xs:
             new_paths.extend(xs)
         else:
-            print("finished path")
             if result == inf:
                 yield (path, inf) if yield_xs else path
             elif max_only and type(result) == int:
