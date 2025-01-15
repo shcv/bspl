@@ -82,12 +82,12 @@ def check_mambo(iteration=None, protocol=None, query=None, **kwargs):
 def postprocess(results):
     results["duration"] = results["duration"] * 1000
     stats = (
-        results.groupby(["protocol", "query", "method"])
+        results.groupby(["protocol", "query", "method", "result"])
         .agg({"duration": ["mean", "std", "min", "max", "count"]})
         .round(3)
     )
     print(stats)
-    # return stats
+    return stats
 
 
 if __name__ == "__main__":
