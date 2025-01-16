@@ -1,4 +1,4 @@
-@@eol_comments :: ?/‌‌#|(//).*?$/?
+@@eol_comments :: ?/(#|//)[^\n]*\n/?
 
 document = {protocol ~ }+ $;
 
