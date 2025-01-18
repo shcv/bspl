@@ -36,15 +36,18 @@ class MamboCommands:
             t = Timer()
             t.start()
             q = unsafe(protocol)
+            if not q:
+                print({"elapsed": t.stop(), "safe": True, "query": q})
+                continue
             result = next(
                 match_paths(protocol, q, residuate=True, incremental=True, prune=True),
                 [],
             )
             elapsed = t.stop()
             if result:
-                print({"elapsed": elapsed, "safe": False, "path": result})
+                print({"elapsed": elapsed, "safe": False, "query": q, "path": result})
             else:
-                print({"elapsed": elapsed, "safe": True})
+                print({"elapsed": elapsed, "safe": True, "query": q})
 
     def query(self, path, query):
         for protocol in load_protocols([path]):
