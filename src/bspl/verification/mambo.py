@@ -113,9 +113,9 @@ def match_role(role, event):
     if not role:
         return True
     if isinstance(event, Emission):
-        return role == event.sender
+        return role == event.sender or role == event.sender.name
     if isinstance(event, Reception):
-        return role == event.recipient
+        return role == event.recipient or role == event.recipient.name
     return False
 
 
