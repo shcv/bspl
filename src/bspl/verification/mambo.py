@@ -283,6 +283,8 @@ def extensions(U, path: Path, **kwargs):
         return p.name if not kwargs["by_degree"] else len(U.tangle.incompatible[p])
 
     ps = possibilities(U, path.events)
+    if kwargs["debug"]:
+        print(f"possibilities: {ps}")
 
     if kwargs["safe"]:
         safe_events = U.tangle.safe(ps, path.events)
@@ -293,7 +295,11 @@ def extensions(U, path: Path, **kwargs):
         return {path.extend(p) for p in ps}
     else:
         parts = partition(U.tangle.incompatible, ps)
+        if kwargs["debug"]:
+            print(f"parts: {parts}")
         branches = {min(p, key=sort) for p in parts}
+        if kwargs["debug"]:
+            print(f"branches: {branches}")
         return {path.extend(b) for b in branches}
 
 
@@ -308,6 +314,9 @@ def match_paths(U, query, yield_xs=False, max_only=False, **kwargs):
 
     if isinstance(U, Protocol):
         U = UoD.from_protocol(U, conflicts=query.conflicts)
+
+    if kwargs.get("debug"):
+        print(f"incompatible: {U.tangle.incompatible}")
 
     while new_paths:
         path = new_paths.pop()
