@@ -1,14 +1,12 @@
 """
-This scenario demonstrates implementing BSPL agents using Python decorators.
-For an alternative approach using AgentSpeak (ASL), see the grading scenario.
-Both approaches are valid and used throughout the project:
-- ASL files (like in grading/) are better for complex rule-based behavior
-- Python decorators (used here) are simpler for straightforward request-response patterns
+This scenario demonstrates implementing BSPL agents using AgentSpeak (ASL).
+This is the ASL version of the logistics scenario, showing how to implement
+the same behavior using a more declarative approach.
 """
 
 import bspl
 
-logistics = bspl.load_file("logistics.bspl").export("Logistics")
+logistics = bspl.load_file("../logistics/logistics.bspl").export("Logistics")
 from Logistics import Merchant, Wrapper, Labeler, Packer
 
 agents = {
@@ -28,4 +26,4 @@ systems = {
             Packer: "Packer",
         },
     },
-}
+} 

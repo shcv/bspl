@@ -128,24 +128,15 @@ Logistics {
 }
 #+end_src
 
-This protocol describes roles for four agents, each of which are implemented in separate python files.
-We will here be focusing on the Merchant, Labeler, and Packer roles.
+This protocol describes roles for four agents, each of which can be implemented either using Python decorators or AgentSpeak (ASL).
 
-We need to load the protocol as follows:
+*** Loading and Configuring the Protocol
+First, load the protocol and export it as a module:
 #+begin_src python
-from bspl import parser
-logistics = parser.load_file("logistics.bspl").export("Logistics")
-#+end_src
-
-The "export" function converts the bspl protocol into a module, making it easier to access the roles and messages provided.
-For example, the merchant could import its role and messages as follows:
-#+begin_src python
+import bspl
+logistics = bspl.load_file("logistics.bspl").export("Logistics")
 from Logistics import Merchant, Wrapper, Labeler, Packer
-from Logistics import (
-    RequestLabel,
-    RequestWrapping,
-    Packed,
-)
+from Logistics import RequestLabel, RequestWrapping, Packed
 #+end_src
 
 *** Configuring the Agent
@@ -154,62 +145,69 @@ After loading its protocol, role, and possibly messages, each agent will need to
 In the logistics scenario, all of this is done in a common configuration.py file that can be loaded by all four of the agents, but they could be configured separately.
 
 #+begin_src python
-config = {
-    Merchant: ("0.0.0.0", 8000),
-    Wrapper: ("0.0.0.0", 8001),
-    Labeler: ("0.0.0.0", 8002),
-    Packer: ("0.0.0.0", 8003),
+agents = {
+    "Merchant": [("127.0.0.1", 8000)],
+    "Wrapper": [("127.0.0.1", 8001)],
+    "Labeler": [("127.0.0.1", 8002)],
+    "Packer": [("127.0.0.1", 8003)],
+}
+
+systems = {
+    "logistics": {
+        "protocol": logistics,
+        "roles": {
+            Merchant: "Merchant",
+            Wrapper: "Wrapper",
+            Labeler: "Labeler",
+            Packer: "Packer",
+        },
+    },
 }
 #+end_src
-
 The role binding configuration is a single dictionary mapping roles to tuples containing (IP, port) pairs.
-They don't all have to be on the same machine, but in this example we are running them all on localhost (0.0.0.0)
-The configuration that each agent sees for itself identifies what IP address and port it should listen on; 0.0.0.0 is chosen here so that they listen on all IPs known to the host networking system.
+They don't all have to be on the same machine, but in this example we are running them all on localhost (127.0.0.1)
+The configuration that each agent sees for itself identifies what IP address and port it should listen on; 127.0.0.1 is chosen here so that they listen on all IPs known to the host networking system.
 
-*** Setting up the adapter
-Now we need to create python files for each of the agents, and begin to initialize them.
+*** Implementing Agent Behavior
+There are two approaches to implementing agent behavior in BSPL:
 
-The main component needed in each agent is its /adapter/, which listens for messages and checks them for compliance to the protocol before handling them.
+**** Approach 1: Using Python Decorators
+This approach is straightforward for request-response patterns and is used in the logistics scenario.
 
-For the merchant:
+***** Setting up the Agent
+First, create the basic agent structure:
+
 #+begin_src python
 from bspl.adapter import Adapter
-adapter = Adapter(Merchant, Logistics.protocol, config)
-#+end_src
+from configuration import systems, agents
+from Logistics import RequestLabel, RequestWrapping, Packed
 
-The adapter is configured with three parameters: role, protocol, and configuration as declared in the previous section.
-
-*** Running the agent
-With an adapter, we have enough to run the agent (though it won't do much yet.)
-#+begin_src python
+adapter = Adapter("Merchant", systems, agents)
+logger = logging.getLogger("merchant")
 if __name__ == "__main__":
     print("Starting Merchant...")
     adapter.start()
 #+end_src
-That's it. Now, if you run merchant.py, it will print "Starting Merchant..." and then just sit there.
-Let's make it do something.
 
-*** Acting proactively
-To start an enactment of a protocol, some agent will have to make the first move.
-In Logistics, that's the Merchant, who requests the wrapping and labeling of the items in an order.
-This can be seen from the first message in the protocol, RequestLabel, which has all its parameters labeled ~out~, which means it has no dependencies and can be sent at will.
+***** Acting Proactively
+To start an enactment of a protocol, some agent will have to make the first move. In Logistics, that's the Merchant, who requests the wrapping and labeling of the items in an order. This can be seen from the first message in the protocol, RequestLabel, which has all its parameters labeled ~out~, which means it has no dependencies and can be sent at will.
 
-So, we'll make an order generator that simulates the submission of orders so that the merchant can label them:
 #+begin_src python
 async def order_generator():
+    """Generates sample orders."""
     for orderID in range(10):
-        adapter.send(
+        await adapter.send(
             RequestLabel(
                 orderID=orderID,
-                address=random.sample(["Lancaster University", "NCSU"], 1)[0],
+                address=random.choice(["Lancaster University", "NCSU"]),
             )
         )
         for i in range(2):
-            adapter.send(
+            await adapter.send(
                 RequestWrapping(
                     orderID=orderID,
                     itemID=i,
-                    item=random.sample(["ball", "bat", "plate", "glass"], 1)[0],
+                    item=random.choice(["ball", "bat", "plate", "glass"]),
                 )
             )
         await asyncio.sleep(0)
@@ -219,59 +217,129 @@ A lot of new things here:
 - The function is asynchronous, to work with the adapter
 - Messages are constructed by passing in their parameters as keyword arguments
 - The resulting message instances are sent with ~adapter.send(message)~
-- There's an ~asyncio.sleep(0)~ step near the end to make sure it doesn't all happen instantly, possibly breaking something. Remember to import asyncio
+- There's an ~asyncio.sleep(0)~ step near the end to make sure it doesn't all happen instantly
 
-Once we have this order generator, we can tell the agent to run it by including it as a parameter to agent.start:
+***** Adding a Reactor
+In most protocols, not all messages are sent independently. Instead, many have dependencies and may follow a simple request/response pattern. We can handle these using a reactor:
+
 #+begin_src python
+@adapter.reaction(Packed)
+async def packed(msg):
+    """Handle packed items."""
+    logger.info(f"Order {msg['orderID']} item {msg['itemID']} packed with status: {msg['status']}")
+    return msg
+
 if __name__ == "__main__":
-    print("Starting Merchant...")
     adapter.start(order_generator())
 #+end_src
 
-The adapter takes any provided asynchronous tasks, and adds them to its event loop.
-This way you can add any number of proactive tasks to your agent.
+The reactor is registered using the ~@adapter.reaction~ decorator and is called whenever a matching message is received. The message instance is passed as a parameter, containing all the message's data.
 
-*** Adding a reactor
-In most protocols, not all messages are sent independently like RequestLabel.
-Instead, many have dependencies, and may follow a simple request/response pattern.
-That's what we see in the Labeler, which sends Label in response to RequestLabel.
+**** Approach 2: Using AgentSpeak (ASL)
+For more complex behaviors with interdependent states, you can use ASL files. The BSPL compiler can generate ASL templates for your protocol:
 
-The simplest way to handle reactive patterns like this is via a /reactor/, or function registered as a reaction to the reception of a message:
-
-#+begin_src python
-@adapter.reaction(RequestLabel)
-async def labeled(msg):
-    adapter.send(
-        Labeled(
-            label=str(uuid.uuid4()),
-            ,**msg.payload
-        )
-    )
+#+begin_src bash
+python -m bspl generate asl logistics.bspl --all_roles
 #+end_src
 
-This snippet from the Labeler agent (labeler.py) declares the labeled function as an asynchronous reaction to the RequestLabel message.
-It is passed the received RequestLabel instance as its only parameter, and derives from it the new Labeled message.
-Computing the new message is pretty easy, simply bind the out parameters, and copy any in parameters from the previous message.
+This generates basic ASL files that need to be enhanced with business logic. Here's an example of the generated vs. working code for the Wrapper role:
 
-But some messages require inputs from multiple other messages.
-This can be done with reaction handlers, by storing the information until all prerequisites have been received.
-However, Bungie also offers another option.
-
-*** Using an enablement handler
-The Packer sends the Packed message only once it has received both Wrapped and Labeled, since it needs a label for the order, and wrapping for each item.
-
-The adapter knows from the protocol which information it needs, however, and can invoke a handler when the message becomes /enabled/, called an enablement handler.
-
-#+begin_src python
-@adapter.enabled(Packed)
-async def pack(msg):
-    msg["status"] = "packed"
-    return msg
+Generated template:
+#+begin_src asl
++request_wrapping(MasID, Merchant, Wrapper, OrderID, ItemID, Item)
+  <- // insert code to compute Wrapped out parameters ['wrapping'] here
+     .emit(wrapped(MasID, Wrapper, Packer, OrderID, ItemID, Item, Wrapping)).
 #+end_src
 
-This is source from the Packer agent (packer.py), which shows how simple the enablement handler can be.
-Here, the ~pack~ function is registered as a handler for an enabled instance of the Packed message, which is passed in as the only parameter.
-The instance is passed in with all of its ~in~ parameters pre-filled from its prerequisites, with only the ~out~ parameters needing to be set in the body.
-So, we set status to "packed", and return the message for sending.
+Working implementation:
+#+begin_src asl
++request_wrapping(System, Merchant, Wrapper, OrderID, ItemID, Item)
+  <- // Generate wrapping based on item
+     if (Item == "ball") {
+       Wrapping = "box"
+     } else {
+       if (Item == "bat") {
+         Wrapping = "tube"
+       } else {
+         if (Item == "plate") {
+           Wrapping = "bubble wrap"
+         } else {
+           Wrapping = "foam"
+         }
+       }
+     };
+     .print("Wrapper: Using ", Wrapping, " for item ", Item, " (Order ", OrderID, ")");
+     .emit(wrapped(System, Wrapper, "Packer", OrderID, ItemID, Item, Wrapping)).
+#+end_src
 
-Deceptively simple compared to the code it saves for remembering the intermediate values from both the Wrapped and Labeled messages.
+Key changes needed to make generated ASL files work:
+1. Replace ~MasID~ with ~System~ for protocol identification
+2. Add concrete business logic to compute output parameters
+3. Use string literals for known role names (e.g., ~"Packer"~)
+4. Add logging for better visibility of the protocol execution
+
+***** Setting up an ASL Agent
+The Python code for an ASL agent is much simpler than the decorator approach:
+
+#+begin_src python
+from bspl.adapter import Adapter
+from configuration import systems, agents
+
+adapter = Adapter("Wrapper", systems, agents)
+adapter.load_asl("wrapper.asl")
+
+if __name__ == "__main__":
+    print("Starting Wrapper...")
+    adapter.start()
+#+end_src
+
+***** Complex Coordination Example
+The Packer role demonstrates how ASL handles complex coordination between multiple messages:
+
+#+begin_src asl
+// Handle wrapped item
++wrapped(System, Wrapper, Packer, OrderID, ItemID, Item, Wrapping)
+  : labeled(System, Labeler, Packer, OrderID, Address, Label)
+  <- !send_packed(System, Packer, "Merchant", OrderID, ItemID, Item, Wrapping, Label).
+
+// Handle labeled item
++labeled(System, Labeler, Packer, OrderID, Address, Label)
+  : wrapped(System, Wrapper, Packer, OrderID, ItemID, Item, Wrapping)
+  <- !send_packed(System, Packer, "Merchant", OrderID, ItemID, Item, Wrapping, Label).
+
+// Send packed item
++!send_packed(System, Packer, Merchant, OrderID, ItemID, Item, Wrapping, Label)
+  <- // Generate status based on wrapping and label
+     if (Wrapping == "box" & Label == "UK-LANCS-001") {
+       Status = "ready for UK shipping"
+     } else {
+       if (Wrapping == "box" & Label == "US-NCSU-001") {
+         Status = "ready for US shipping"
+       } else {
+         Status = "ready for shipping"
+       }
+     };
+     .print("Packer: Item ", Item, " from order ", OrderID, " is ", Status);
+     .emit(packed(System, Packer, Merchant, OrderID, ItemID, Item, Wrapping, Label, Status)).
+#+end_src
+
+The Packer waits for both ~wrapped~ and ~labeled~ messages before sending the ~packed~ message, using ASL's context conditions (~:~) to ensure proper synchronization.
+
+*** Choosing an Approach
+- Use Python decorators (like in logistics/) when:
+  - You have simple request-response patterns
+  - You want straightforward, procedural code
+  - You need to integrate with Python libraries
+
+- Use ASL files (like in grading/) when:
+  - You need complex rule-based behavior
+  - Your agent has many interdependent states
+  - You want a more declarative programming style
+
+*** Running the Scenario
+The ~start.sh~ script launches all agents:
+#+begin_src bash
+./start.sh
+#+end_src
+
+This will start all agents and begin processing orders. Press any key to stop the scenario.

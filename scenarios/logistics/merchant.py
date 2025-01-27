@@ -1,28 +1,26 @@
-from bspl.adapter import Adapter, Remind
-from bspl.adapter.statistics import stats_logger
-from configuration import config
-import random
-import time
-import datetime
-import asyncio
+"""
+This agent initiates the logistics protocol by generating orders and handling packed responses.
+"""
+
 import logging
+import random
+import asyncio
+from bspl.adapter import Adapter
+from configuration import systems, agents
+from Logistics import RequestLabel, RequestWrapping, Packed
 
-import Logistics
-from Logistics import Merchant, RequestLabel, RequestWrapping, Packed
+adapter = Adapter("Merchant", systems, agents)
 
-adapter = Adapter(Merchant, Logistics.protocol, config)
 logger = logging.getLogger("merchant")
-# logging.getLogger('bspl').setLevel(logging.DEBUG)
-
-stats = {"init_keys": set(), "finished_keys": set(), "information": [0], "done": False}
-
+# logger.setLevel(logging.DEBUG)
 
 async def order_generator():
+    """Generates sample orders with random items and addresses."""
     for orderID in range(10):
         await adapter.send(
             RequestLabel(
                 orderID=orderID,
-                address=random.sample(["Lancaster University", "NCSU"], 1)[0],
+                address=random.choice(["Lancaster University", "NCSU"]),
             )
         )
         for i in range(2):
@@ -30,40 +28,17 @@ async def order_generator():
                 RequestWrapping(
                     orderID=orderID,
                     itemID=i,
-                    item=random.sample(["ball", "bat", "plate", "glass"], 1)[0],
+                    item=random.choice(["ball", "bat", "plate", "glass"]),
                 )
             )
         await asyncio.sleep(0)
-    stats["done"] = True
-
-
-@adapter.reaction(RequestWrapping)
-async def requested(message):
-    stats["init_keys"].add(message.key)
-
 
 @adapter.reaction(Packed)
-async def packed(message):
-    stats["finished_keys"].add(message.key)
-    print(message)
-
-
-async def status_logger():
-    start = datetime.datetime.now()
-    while True:
-        initiated = len(stats["init_keys"])
-        completed = len(stats["finished_keys"])
-        if not stats["done"]:
-            duration = datetime.datetime.now() - start
-            rate = completed / duration.total_seconds()
-        logger.info(
-            f"initiated: {initiated}, completed: {completed}, duration: {duration}, rate: {rate}"
-        )
-        logger.info(f"TX: {adapter.emitter.stats}")
-        await asyncio.sleep(3)
-
+async def packed(msg):
+    """Handles packed items by logging their status."""
+    logger.info(f"Order {msg['orderID']} item {msg['itemID']} packed with status: {msg['status']}")
+    return msg
 
 if __name__ == "__main__":
-    print("Starting Merchant...")
-
-    adapter.start(order_generator(), stats_logger(3), status_logger())
+    logger.info("Starting Merchant...")
+    adapter.start(order_generator())
