@@ -110,4 +110,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except LookupError as e:
+        print(e)
+    except Exception as e:
+        raise

@@ -417,7 +417,7 @@ class Message(Protocol):
             for p in parameters or []:
                 if self.validate and p.name not in parent.parameters:
                     raise LookupError(
-                        f"Undeclared parameter {p.name} in {self.type} {self.name}"
+                        f"Undeclared parameter '{p.name}' in {self.type} '{self.name}'"
                     )
                 elif p.name in parent.parameters and parent.parameters[p.name].key:
                     p.key = True
