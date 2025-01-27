@@ -32,6 +32,13 @@ def AllIn():
     return load_file("samples/refinement/all-in.bspl")
 
 
+@pytest.fixture(scope="module")
+def BlockContra():
+    return load_file("samples/partial-order/block-contra.bspl").protocols[
+        "Block-Contra"
+    ]
+
+
 def test_known_empty(P):
     assert known(empty_path(), {}, P.roles["A"]) == set()
 
@@ -115,3 +122,17 @@ def test_liveness():
             result["file"] = os.path.basename(f)
             result["protocol"] = name
             print(result)
+
+
+def test_prioritize_safe(BlockContra):
+    u = UoD.from_protocol(BlockContra)
+    p = (Emission(BlockContra.messages["start"]),)
+    ps = possibilities(u, p)
+    ms = BlockContra.messages
+
+    assert ps == {
+        Reception(ms["start"]),
+        Emission(ms["prepare"]),
+        Emission(ms["block"]),
+    }
+    assert u.tangle.safe(ps, p) == {Reception(ms["start"]), Emission(ms["prepare"])}
