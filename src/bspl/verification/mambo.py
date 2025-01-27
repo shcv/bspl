@@ -5,7 +5,15 @@ Mambo - path queries for verifying arbitrary properties of information protocols
 from math import inf
 from dataclasses import dataclass
 from typing import Dict, Set, Tuple, Optional, Any, Callable
-from .paths import Emission, Reception, empty_path, possibilities, partition, UoD
+from .paths import (
+    Emission,
+    Reception,
+    empty_path,
+    possibilities,
+    partition,
+    UoD,
+    max_paths,
+)
 from ..protocol import Protocol
 from ..parsers.bspl import load_protocols
 from ..parsers import precedence
@@ -342,3 +350,11 @@ def match_paths(U, query, yield_xs=False, max_only=False, **kwargs):
                 yield (path, inf) if yield_xs else path
             elif max_only and type(result) == int:
                 yield (path, result) if yield_xs else path
+
+
+def deadwood(protocol):
+    """Find any messages which are never sent."""
+    deadwood = set(protocol.messages.values())
+    for p in max_paths(protocol):
+        deadwood = deadwood.difference(e.msg for e in p)
+    return deadwood

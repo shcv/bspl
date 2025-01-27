@@ -1,7 +1,7 @@
 from importlib.util import find_spec
 from ttictoc import Timer
 from .paths import handle_safety, handle_liveness, handle_paths, max_paths
-from .mambo import match_paths
+from .mambo import match_paths, deadwood
 from ..generators.mambo import nonlive, unsafe
 from ..parsers.bspl import load_protocols
 
@@ -63,6 +63,15 @@ class MamboCommands:
             else:
                 print("No matching enactments")
 
+    def deadwood(self, *files):
+        for protocol in load_protocols(files):
+            t = Timer()
+            t.start()
+            print(f"{protocol.name} ({protocol.path}):")
+            dead = deadwood(protocol)
+            elapsed = t.stop()
+            print({"deadwood": dead, "elapsed": elapsed})
+
 
 class Verify:
     def __init__(self):
@@ -72,15 +81,6 @@ class Verify:
         self.mambo = MamboCommands()
         if HAS_SAT:
             self.sat = SATCommands()
-
-    def deadwood(self, *files):
-        """Find any messages which are never sent."""
-        for protocol in load_protocols(files):
-            print(f"{protocol.name} ({protocol.path}): ")
-            deadwood = set(protocol.messages.values())
-            for p in max_paths(protocol):
-                deadwood = deadwood.difference(e.msg for e in p)
-            print(deadwood)
 
     def unbound(self, *files):
         """Find any parameters which are never bound."""
