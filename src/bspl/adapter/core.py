@@ -59,6 +59,7 @@ class Adapter:
         color=None,
         in_place=False,
         address=None,
+        debug=False,
         **kwargs,
     ):
         """
@@ -85,6 +86,8 @@ class Adapter:
         handler.setFormatter(formatter)
         self.logger.handlers.clear()
         self.logger.addHandler(handler)
+        if debug:
+            logging.getLogger("bspl").setLevel(logging.DEBUG)
 
         self.roles = {
             r for s in systems.values() for r in s["roles"] if s["roles"][r] == name
@@ -164,7 +167,7 @@ class Adapter:
             if not message.dest:
                 system = self.systems[message.system]
                 r = self.agents[system["roles"][message.schema.recipient]]
-                # rexipient could have more than one endpoint
+                # recipient could have more than one endpoint
                 if isinstance(r, list):
                     # randomly select from available endpoints
                     message.dest = random.choice(r)
