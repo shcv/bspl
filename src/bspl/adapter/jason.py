@@ -53,6 +53,7 @@ class Agent(agentspeak.runtime.Agent):
         self.adapter = adapter
 
     def believe(self, term):
+        logger.debug(f"({self.name}) believing: {term}")
         self.call(
             agentspeak.Trigger.addition,
             agentspeak.GoalType.belief,
@@ -62,7 +63,6 @@ class Agent(agentspeak.runtime.Agent):
 
     def observe(self, message):
         term = message.term()
-        logger.debug(f"({self.name}) observing: {term}")
         self.believe(term)
 
 
