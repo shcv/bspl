@@ -1,0 +1,18 @@
+Grading {
+  roles Prof, Student, TA
+  parameters out TID key, out QID key, out grade
+  private question, solution, answer, done, numChallenges, numResponses, finished
+
+  Prof -> Student: BeginTest[out TID key]
+  Prof -> Student: Challenge[in TID key, out QID key, out question, nil done, nil finished]
+  Prof -> Student: EndTest[in TID key, out numChallenges, out done]
+
+  Prof -> TA: Rubric[in TID key, in QID key, out solution]
+  Student -> TA: Response[in TID key, in QID key, in question, out answer, nil finished]
+  Student -> Prof: Resign[in TID key, out numResponses, out finished]
+  TA -> Prof: Result[in TID key, in QID key, in answer, in solution, out grade]
+}
+// A simple grading protocol.
+// The professor asks a student a question, and gives the corresponding solution to the TA.
+// The student then answers the question, and the TA checks it against the solution to assign a grade.
+// This protocol demonstrates correlation, because the TA must match each answer to the corresponding question.
