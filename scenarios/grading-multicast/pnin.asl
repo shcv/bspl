@@ -34,17 +34,13 @@ student("galahad", "Galahad").
 +result(MasID, TA, Prof, TID, QID, Ans, Sol, Grade) <-
   .print("Received result for", MasID, QID, "with grade", Grade);
   .count(result(MasID,_,_,TID,_,_,_,_), C);
-  .count(resign(MasID,_,_,TID,NumResponses), ResignCount);
-  if (ResignCount > 0 & C >= NumResponses) {
+  .count(challenge(MasID,_,_,TID,_,_), Challenges);
+  if (C >= Challenges | (resign(MasID,Student,Prof,TID,NumResponses,Finished) & C >= NumResponses)) {
     !report(MasID, TID);
-  } else {
-    .count(question(_, _), TotalQuestions);
-    if (C >= TotalQuestions) {
-      !report(MasID, TID);
-    }
   }.
 
-+resign(MasID, Student, Prof, TID, NumResponses) <-
+
++resign(MasID, Student, Prof, TID, NumResponses, Finished) <-
   .print("Student ", Student, " has resigned after ", NumResponses, " responses");
   .count(result(MasID,_,_,TID,_,_,_,_), C);
   if (C >= NumResponses) {
@@ -54,7 +50,7 @@ student("galahad", "Galahad").
 +!report(MasID, TID) : not reported(MasID, TID) <-
   .findall(Grade, result(MasID,_,_,TID,_,_,_,Grade), L);
   !sum(L, Total);
-  .length(L, C);
+  .count(challenge(MasID,_,_,TID,_,_), C);
   .print("Total grade for student", MasID, "is", Total, "/", C);
   +reported(MasID, TID).
 +!report(MasID, TID) <- true.
