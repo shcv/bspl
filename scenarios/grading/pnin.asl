@@ -1,44 +1,59 @@
 question(q1, "What is your name?").
-solution(s1, q1, "Sir Lancelot of Camelot").
-solution(s2, q1, "Sir Galahad of Camelot").
+solution("lancelot", q1, "Sir Lancelot of Camelot").
+solution("galahad", q1, "Sir Galahad of Camelot").
 question(q2, "What is your quest?").
-solution(s1, q2, "To seek the Holy Grail").
-solution(s2, q2, "To seek the Grail").
+solution("lancelot", q2, "To seek the Holy Grail").
+solution("galahad", q2, "To seek the Grail").
 question(q3, "What is your favorite color?").
-solution(s1, q3, "Blue").
-solution(s2, q3, "Yellow").
+solution("lancelot", q3, "Blue").
+solution("galahad", q3, "Yellow").
 
-student(s1, "lancelot", "Lancelot").
-student(s2, "galahad", "Galahad").
+student("lancelot", "Lancelot").
+student("galahad", "Galahad").
 
 !start.
 
 +!start <-
-  for (student(SID, MasID, Student)) {
-    .emit(begin_test(MasID, Prof, Student, SID));
-    for (question(QID, Question)) {
-      .emit(challenge(MasID, Prof, Student, SID, QID, Question));
-      .print("Challenging", Student, SID, QID, Question);
+  TID = "midterm";
+  .print("Starting test ", TID);
+  .emitAll(begin_test(MasID, Prof, Student, TID));
 
-      solution(SID, QID, Solution);
-      .emit(rubric(MasID, Prof, Ta, SID, QID, Solution));
-      .print("Solution for",SID,QID,"is",Solution);
+  for (question(QID, Question)) {
+    .print("Challenge ", QID, ": ", Question);
+    .emitAll(challenge(MasID, Prof, Student, TID, QID, Question));
+    for (student(MasID, Student)) {
+      solution(MasID, QID, Solution);
+      .emit(rubric(MasID, Prof, TA, TID, QID, Solution));
+      .print("Solution for", MasID, QID, "is", Solution);
     };
+  };
+  .count(question(_, _), NumChallenges);
+  .emitAll(end_test(MasID, Prof, Student, TID, NumChallenges, "done"));
+  .print("Sent end marker with ", NumChallenges, " questions").
+
++result(MasID, TA, Prof, TID, QID, Ans, Sol, Grade) <-
+  .print("Received result for", MasID, QID, "with grade", Grade);
+  .count(result(MasID,_,_,TID,_,_,_,_), C);
+  .count(challenge(MasID,_,_,TID,_,_), Challenges);
+  if (C >= Challenges | (resign(MasID,Student,Prof,TID,NumResponses,Finished) & C >= NumResponses)) {
+    !report(MasID, TID);
   }.
 
-+result(MasID, TA, Prof, SID, QID, Ans, Sol, _) <-
-  .count(result(_,_,_,SID,_,_,_,Grade), C);
-  if (C = 3) {
-    !report(SID);
+
++resign(MasID, Student, Prof, TID, NumResponses, Finished) <-
+  .print("Student ", Student, " has resigned after ", NumResponses, " responses");
+  .count(result(MasID,_,_,TID,_,_,_,_), C);
+  if (C >= NumResponses) {
+    !report(MasID, TID);
   }.
 
-+!report(SID) : not reported(SID) <-
-  .findall(Grade, result(_,_,_,SID,_,_,_,Grade), L);
++!report(MasID, TID) : not reported(MasID, TID) <-
+  .findall(Grade, result(MasID,_,_,TID,_,_,_,Grade), L);
   !sum(L, Total);
-  .length(L, C);
-  .print("Total grade for student",SID,"is",Total,"/",C);
-  +reported(SID).
-+!report(SID) <- true.
+  .count(challenge(MasID,_,_,TID,_,_), C);
+  .print("Total grade for student", MasID, "is", Total, "/", C);
+  +reported(MasID, TID).
++!report(MasID, TID) <- true.
 
 +!sum([],0).
 +!sum([T|R],M) <-
