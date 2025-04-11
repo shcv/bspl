@@ -1,13 +1,15 @@
 Grading {
   roles Prof, Student, TA
   parameters out TID key, out QID key, out grade
-  private question, solution, answer
+  private question, solution, answer, done, numChallenges, numResponses, finished
 
   Prof -> Student: BeginTest[out TID key]
-  Prof -> Student: Challenge[in TID key, out QID key, out question]
+  Prof -> Student: Challenge[in TID key, out QID key, out question, nil done, nil finished]
+  Prof -> Student: EndTest[in TID key, out numChallenges, out done]
 
   Prof -> TA: Rubric[in TID key, in QID key, out solution]
-  Student -> TA: Response[in TID key, in QID key, in question, out answer]
+  Student -> TA: Response[in TID key, in QID key, in question, out answer, nil finished]
+  Student -> Prof: Resign[in TID key, out numResponses, out finished]
   TA -> Prof: Result[in TID key, in QID key, in answer, in solution, out grade]
 }
 // A simple grading protocol.

@@ -26,13 +26,24 @@ student("galahad", "Galahad").
       .emit(rubric(MasID, Prof, TA, TID, QID, Solution));
       .print("Solution for", MasID, QID, "is", Solution);
     };
-  }.
+  };
+  .count(question(_, _), NumChallenges);
+  .emitAll(end_test(MasID, Prof, Student, TID, NumChallenges, "done"));
+  .print("Sent end marker with ", NumChallenges, " questions").
 
 +result(MasID, TA, Prof, TID, QID, Ans, Sol, Grade) <-
   .print("Received result for", MasID, QID, "with grade", Grade);
   .count(result(MasID,_,_,TID,_,_,_,_), C);
   .count(challenge(MasID,_,_,TID,_,_), Challenges);
-  if (C >= Challenges) {
+  if (C >= Challenges | (resign(MasID,Student,Prof,TID,NumResponses,Finished) & C >= NumResponses)) {
+    !report(MasID, TID);
+  }.
+
+
++resign(MasID, Student, Prof, TID, NumResponses, Finished) <-
+  .print("Student ", Student, " has resigned after ", NumResponses, " responses");
+  .count(result(MasID,_,_,TID,_,_,_,_), C);
+  if (C >= NumResponses) {
     !report(MasID, TID);
   }.
 
