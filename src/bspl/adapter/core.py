@@ -58,7 +58,6 @@ class Adapter:
         receiver=None,
         color=None,
         in_place=False,
-        address=None,
         debug=False,
         **kwargs,
     ):
@@ -67,6 +66,12 @@ class Adapter:
 
         name: name of this agent
         systems: a list of MAS to participate in
+        agents: a dictionary mapping agent names to endpoints
+        emitter: encodes messages for transmission over the network
+        receiver: reads messages from the network and decodes them
+        color: distinguish agent by color in console logs
+        in_place: detect completed forms instead of using return value
+        debug: turn on debug logging when True
         """
         self.name = name
 

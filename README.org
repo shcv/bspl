@@ -35,7 +35,7 @@ On Windows, Python 3.6+ is recommended.
     #+end_example
 3. Install package in development mode
   #+begin_example
-  $ python setup.py develop
+  $ pip install -e ./bspl # or . if inside the bspl directory
   #+end_example
 
 
@@ -44,63 +44,45 @@ On Windows, Python 3.6+ is recommended.
 
    #+begin_example
 SYNOPSIS
-    bspl COMMAND | - (Alternatively, python -m bspl.main on Windows)
+    bspl GROUP | COMMAND - (Alternatively, python -m bspl.main on Windows)
+
+GROUPS
+    GROUP is one of the following:
+
+     generate
+
+     verify
 
 COMMANDS
     COMMAND is one of the following:
 
-     all-paths
-       Compute all paths for each protocol
-
      ast
        Print the parsed AST for the specification in PATH
-
-     check-syntax
-       Parse each file, printing any syntax errors found
-
-     flow
-       Generate a NodeRED flow from a protocol specification
 
      json
        Print a JSON representation of each protocol
 
-     liveness
-       Compute whether each protocol is live, using path simulation
+     check-syntax
+       Parse each file, printing any syntax errors found
 
      load-file
        Load a BSPL file, returning a Specification object containing one or more protocols
-
-     refinement
-       Given a specification file and protocol names Q and P, check whether Q refines P
-
-     safety
-       Compute whether each protocol is safe, using path simulation
-
-     sat
-       Commands that use the SAT-solving method.
-       Subcommands:
-         - enactability
-         - safety
-         - liveness
-
-     version
-       Print the currently running version of BSPL
    #+end_example
 
-   The CLI is implemented using the Fire library, which means that each command supports the "-h" help option to list the possible arguments.
+   The CLI is implemented using the ~Fire~ library, which means that each command supports the "-h" help option to list the possible arguments.
    Grouped commands, such as those under ~sat~, may inherit arguments from their parent, so check both.
 
-   Fire enables inspection and chaining of function results, such as with the ~load-file~ command for loading a specification.
+   ~Fire~ enables inspection and chaining of function results, such as with the ~load-file~ command for loading a specification.
    After the specification is loaded, you can inspect its contents and call methods on them, etc.
 
-   Fire can also launch a python shell with various objects available via ~--interactive~.
+   ~Fire~ can also launch a python shell with various objects available via ~--interactive~.
    For example, try ~bspl load-file samples/bspl/purchase protocols Purchase--interactive~, and you should get a python REPL with the Purchase protocol loaded in the ~result~ variable.
 
    There are some example protocol files in the 'samples' directory.
 
 *** Notes
    - There are probably still some bugs. If you find a case that doesn't work as you expect, please submit an issue.
-   - For easier testing of listings used in latex papers, BSPL will automatically strip latex formatting before parsing a protocol, so they should work without modification.
+   - For easier testing of listings used in latex papers, BSPL will automatically strip some latex formatting before parsing a protocol, so they should work without modification.
 
 ** Implementing Agents
 This repository provides a /protocol adapter/ for implementing agents that play roles in a BSPL protocol.
@@ -239,7 +221,7 @@ The reactor is registered using the ~@adapter.reaction~ decorator and is called 
 For more complex behaviors with interdependent states, you can use ASL files. The BSPL compiler can generate ASL templates for your protocol:
 
 #+begin_src bash
-python -m bspl generate asl logistics.bspl --all_roles
+python -m bspl.main generate asl logistics.bspl --all_roles
 #+end_src
 
 This generates basic ASL files that need to be enhanced with business logic. Here's an example of the generated vs. working code for the Wrapper role:
