@@ -1,0 +1,111 @@
+* Exercise 2: Bilateral Agreement Protocol
+In this exercise, you'll design, verify, and implement a bilateral
+agreement protocol between two parties. This exercise builds on the
+skills from Exercise 1 and introduces protocol design and verification.
+
+** Learning Objectives
+- Design a BSPL protocol specification
+- Verify protocol correctness (safety and liveness)
+- Implement agents for a bilateral agreement
+- Handle complex message dependencies and exclusive paths
+
+** The Bilateral Agreement Scenario
+You'll design a protocol for executing a bilateral agreement between two
+parties: - A "Party" who can propose agreements - A "CounterParty" who
+can also initiate requests and accept/reject proposals
+
+The protocol should support these interaction patterns:
+  1. CounterParty requests a specific type of agreement, Party proposes terms
+  2. Party directly proposes terms without a prior request
+  3. CounterParty can either accept (with signature) or reject a proposal
+  4. Party can withdraw a proposal before the CounterParty responds
+  5. Once a proposal is accepted, Party executes the agreement
+  6. If a proposal is rejected, Party should acknowledge the rejection
+
+** Tasks
+*** 1. Design and Verify the Protocol
+1. Create a file =bilateral.bspl= with your protocol specification
+2. Verify your protocol design is safe (prevents double bindings) and
+   live (can complete)
+
+Use the BSPL tooling for verification:
+
+#+begin_example sh
+$ bspl verify safety <path>
+$ bspl verify liveness <path>
+$ bspl verify all <path>      # verifies both safety and liveness
+#+end_example
+
+Suggested Methodology:
+
+1. Name protocol
+2. Identify participant roles
+3. Declare public parameters: what information is produced during enactment, and identifies completion
+   1. Identify key parameters
+   2. Specify adornments
+4. Write initiating message(s)
+   - Which role(s) can start?
+   - Should have all parameters ~out~
+5. Write concluding messages
+   - Which roles complete interaction?
+   - What parameters specify completion?
+   - Possibly add 'flag' parameters specifically for purpose
+6. Propagate information through protocol
+   - What is needed to produce each parameter or decide on action? - add as dependency via ~in~ parameter
+   - Who produces that information? Add message with parameter as ~out~
+7. Check conflicts
+   - Should actions be mutually exclusive? Ensure they bind same ~out~
+   - Can multiple roles bind same ~out~? Ensure it depends on decision held by one agent
+8. Declare private parameters
+   - all parameters must be declared for internal consistency
+9. Verify liveness and safety
+   - ~out~ conflicts held by different roles that aren't protected by earlier decisions violate safety; verifier will generate example path demonstrating conflict.
+   - Missing parameters or messages, or blocked messages, will violate liveness; check that all agents actually receive messages conveying the information they need (guaranteed in 2-party protocol; harder with more agents)
+
+A template to start with (you can modify as needed):
+
+#+begin_example
+BilateralAgreement {
+  roles Party, CounterParty
+  parameters out ID key, out type, out proposal, out decision, out closed
+
+  // CounterParty initiates
+  TODO
+
+  // Party initiates
+  TODO
+
+  // Acceptance and Execution
+  TODO
+
+  // Rejection and Acknowledgment
+  TODO
+
+  // Withdraw (close early)
+  TODO
+}
+#+end_example
+
+*** 2. Implement the Configuration
+Create a =configuration.py= file that sets up the system with the Party
+and CounterParty roles.
+
+*** 3. Implement the Party Agent
+Create a =party.py= file that implements:
+  - Reaction to Request messages by generating proposals
+  - Direct proposal initiation
+  - Handling of Accept/Reject responses
+  - Ability to withdraw proposals
+
+*** 4. Implement the CounterParty Agent
+Create a =counterparty.py= file that implements:
+  - Request initiation
+  - Proposal evaluation
+  - Logic to decide whether to accept or reject
+
+*** 5. Run and Test
+Use the provided =start.sh= script to run both agents and test various scenarios:
+  - CounterParty-initiated flow
+    (Request -> Propose -> Accept/Reject)
+  - Party-initiated flow (Propose -> Accept/Reject)
+  - Withdrawal scenario

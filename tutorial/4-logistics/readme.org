@@ -1,0 +1,68 @@
+* Exercise 4: Multi-Party Logistics Protocol
+In this exercise, you'll implement a complex multi-party protocol for a logistics operation.
+This protocol involves four different roles that need to coordinate to fulfill orders.
+This exercise will demonstrate the power of forms-based programming for managing complex correlation logic.
+
+** Learning Objectives
+- Implement a multi-party protocol with four distinct roles
+- Master complex correlation patterns with the forms-based approach
+
+** The Logistics Protocol
+#+begin_example
+Logistics {
+  roles Merchant, Wrapper, Labeler, Packer
+  parameters out orderID key, out itemID key, out item, out status
+  private address, label, wrapping
+
+  Merchant -> Labeler: RequestLabel[out orderID key, out address]
+  Merchant -> Wrapper: RequestWrapping[in orderID key, out itemID key, out item]
+  Wrapper -> Packer: Wrapped[in orderID key, in itemID key, in item, out wrapping]
+  Labeler -> Packer: Labeled[in orderID key, in address, out label]
+  Packer -> Merchant: Packed[in orderID key, in itemID key, in wrapping, in label, out status]
+}
+#+end_example
+
+This protocol models a logistics operation where:
+  1. A Merchant creates an order and requests shipping labels and item wrapping
+  2. The Labeler generates shipping labels for the order
+  3. The Wrapper wraps individual items within the order
+  4. The Packer combines wrapped items with shipping labels to finalize packages
+  5. The Merchant receives confirmation when items are packed
+
+** Tasks
+*** Complete the Configuration
+Create a =logistics_config.py= file to set up the protocol and define roles and agent addresses.
+*** Implement the Merchant
+Create a =merchant.py= file to implement the Merchant agent that:
+  - Initiates orders with unique orderIDs
+  - Requests labels with shipping addresses
+  - Requests wrapping for multiple items per order
+  - Handles packed confirmations
+*** Implement the Labeler
+Create a =labeler.py= file to implement the Labeler agent that:
+  - Receives label requests
+  - Generates appropriate shipping labels
+  - Sends labels to the Packer
+*** Implement the Wrapper
+Create a =wrapper.py= file to implement the Wrapper agent that:
+  - Receives wrapping requests
+  - Selects appropriate wrapping material based on item type
+  - Sends wrapped items to the Packer
+*** Implement the Packer
+Create a =packer.py= file to implement the Packer agent that:
+  - Receives wrapped items and shipping labels
+  - Matches labels with the correct wrapped items
+  - Confirms packing status to the Merchant
+*** Create a Start Script
+Create a =start.sh= script to run all four agents.
+
+** Implementation Guidelines
+You should primarily use the forms-based (=@adapter.enabled()=) approach to implement all four agents, as this will dramatically simplify the complex correlation logic required, especially for the Packer.
+
+** Expected Output
+When running all agents, you should see:
+  1. Merchant creating orders with multiple items
+  2. Labeler generating labels
+  3. Wrapper wrapping items
+  4. Packer combining labels with wrapped items
+  5. Merchant receiving packed confirmations

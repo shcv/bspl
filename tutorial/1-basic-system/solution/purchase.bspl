@@ -1,0 +1,9 @@
+Purchase {
+  roles B, S
+  parameters out ID key, out item, out price, out done
+
+  B -> S: RFQ[out ID key, out item]
+  S -> B: Quote[in ID key, in item, out price]
+  B -> S: Buy[in ID key, in item, in price, out done]
+  B -> S: Reject[in ID key, in price, out done]
+}

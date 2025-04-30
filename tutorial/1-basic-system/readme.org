@@ -1,0 +1,69 @@
+* Exercise 1: Basic Reaction-Based Purchase Protocol
+In this exercise, you'll implement a simple buyer-seller interaction
+using the Purchase protocol with reaction-based programming.
+
+** Learning Objectives
+- Set up a basic BSPL (Blindingly Simple Protocol Language) protocol
+- Configure a multi-agent system with roles and addresses
+- Implement reaction handlers for message processing
+- Run a complete protocol enactment
+
+** Files Provided
+- =purchase.bspl=: Protocol specification
+- =buyer.py=: Skeleton file for Buyer agent
+- =seller.py=: Skeleton file for Seller agent
+- =configuration.py=: Skeleton file for configuration
+- =start.sh=: Script to start all agents
+
+** The Purchase Protocol
+#+begin_example
+Purchase {
+  roles B, S
+  parameters out ID key, out item, out price, out done
+  
+  B -> S: RFQ[out ID key, out item]
+  S -> B: Quote[in ID key, in item, out price]
+  B -> S: Buy[in ID key, in item, in price, out done]
+  B -> S: Reject[in ID key, in price, out done]
+}
+#+end_example
+
+This protocol enables a basic purchasing interaction: 1. Buyer sends an
+RFQ (Request for Quote) with an item 2. Seller responds with a Quote
+including price 3. Buyer can either Buy the item or Reject the offer
+
+** Tasks
+*** 1. Complete =configuration.py=
+Configure agents and their addresses, and set up the Purchase protocol
+system.
+
+*** 2. Complete =buyer.py=
+1. Implement the RFQ initiation functionality to generate IDs and send
+   RFQs
+2. Implement a reaction handler for Quote messages
+3. Implement logic to decide whether to Buy or Reject based on the
+   quoted price
+
+*** 3. Complete =seller.py=
+1. Implement a reaction handler for RFQ messages
+2. Implement logic to generate quotes with appropriate prices
+3. Implement reaction handlers for Buy and Reject messages
+
+*** 4. Run the Agents
+Use the provided start script to run both agents and observe their
+interaction.
+
+** Evaluation Criteria
+- Protocol completes successfully
+- Buyer sends RFQs for different items
+- Seller provides quotes with appropriate prices
+- Buyer makes reasonable decisions based on price
+- All messages are properly handled by both agents
+
+** Extension
+Add a retry mechanism for RFQs that don't receive a response within a
+certain timeframe.
+
+** Submission
+Submit your completed Python files and a brief (1-paragraph) explanation
+of your implementation.

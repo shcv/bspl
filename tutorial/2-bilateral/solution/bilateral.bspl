@@ -1,0 +1,19 @@
+BilateralAgreement {
+  roles Party, CounterParty
+  parameters out ID key, out type, out proposal, out decision, out closed
+  private signature, accepted, rejected
+
+  // CounterParty initiates
+  CounterParty -> Party : Request [ out ID, out type ]
+  Party -> CounterParty : Propose [ in ID, in type, out proposal ]
+  // Party initiates
+  Party -> CounterParty : Propose2 [ out ID, out type, out proposal ]
+  // Acceptance
+  CounterParty -> Party : Accept [ in ID, in proposal, out signature, out decision, out accepted]
+  Party -> CounterParty : Execute [in ID, in signature, out closed]
+  // Rejection
+  CounterParty -> Party : Reject [in ID, in proposal, out decision, out rejected]
+  Party -> CounterParty: Ack[in ID, in proposal, in rejected, out closed]
+  // Withdraw (close early)
+  Party -> CounterParty : Withdraw [in ID, in proposal, out decision, out closed]
+}
