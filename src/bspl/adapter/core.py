@@ -272,9 +272,22 @@ class Adapter:
         for tup in self.generators.keys():
             for group in zip(*(schema.match(message) for schema in tup)):
                 for handler in self.generators[tup]:
+                    partials = [m.partial() for m in group]
                     # assume it returns only one message for now
-                    msg = await handler(*group)
-                    if msg:
+                    msg = await handler(*partials)
+                    if self._in_place:
+                        instances = []
+                        for m in partials:
+                            self.debug(f"Checking {m}")
+                            if m.instances:
+                                instances.extend(m.instances)
+                                m.instances.clear()
+                        if instances:
+                            self.debug(f"found instances: {instances}")
+                            await self.send(*instances)
+                            # short circuit on first message(s) to send
+                            return
+                    elif msg:
                         await self.send(msg)
                         # short circuit on first message to send
                         return
@@ -485,7 +498,7 @@ class Adapter:
                                 instances.extend(m.instances)
                                 m.instances.clear()
                         emissions.extend(instances)
-                    else:
+                    elif result:
                         emissions.extend(result)
 
         if hasattr(self, "bdi"):
