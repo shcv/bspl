@@ -73,12 +73,3 @@ async def decide_to_buy(buy_form):
 When running both agents, you should see: 1. Buyer initiating RFQs 2.
 Seller responding with Quotes 3. Buyer deciding to Buy or Reject based
 on price 4. Appropriate progress through the protocol
-** Evaluation Criteria
-- Correct use of the =enabled()= decorator
-- Proper binding of parameters in forms
-- Effective decision making based on received information
-- Code clarity and elegance
-- Thoughtful comparison between the two implementation approaches
-** Extension
-Implement a custom event system using =adapter.signal()= to trigger
-specific business logic when certain protocol states are reached.

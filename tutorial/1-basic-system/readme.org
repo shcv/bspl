@@ -52,18 +52,3 @@ system.
 *** 4. Run the Agents
 Use the provided start script to run both agents and observe their
 interaction.
-
-** Evaluation Criteria
-- Protocol completes successfully
-- Buyer sends RFQs for different items
-- Seller provides quotes with appropriate prices
-- Buyer makes reasonable decisions based on price
-- All messages are properly handled by both agents
-
-** Extension
-Add a retry mechanism for RFQs that don't receive a response within a
-certain timeframe.
-
-** Submission
-Submit your completed Python files and a brief (1-paragraph) explanation
-of your implementation.
