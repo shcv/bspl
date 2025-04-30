@@ -427,6 +427,7 @@ def extensions(U, path, **kwargs):
     kwargs = {**default_kwargs, **kwargs}
     ps = possibilities(U, path)
     safe_events = U.tangle.safe(ps, path)
+
     # default to selecting branches by message name
     def sort(p):
         return p.name
@@ -671,6 +672,46 @@ def handle_safety(
         print(f"{protocol.name} ({protocol.path}): ")
         print(
             safety(
+                protocol,
+                verbose=verbose,
+                debug=debug,
+                external=external,
+                safe=safe,
+                reduction=reduction,
+            )
+        )
+
+
+def handle_all(
+    *files, verbose=False, debug=False, external=True, safe=True, reduction=True
+):
+    """
+    Compute whether each protocol is both safe and live, using path simulation
+
+    By default, this uses tableau-based partial order reduction to minimize the number of paths considered.
+
+    Args:
+      files: Paths to specification files containing one or more protocols
+      verbose: Enable detailed output
+      debug: Print debugging information
+      external: Enable external source information (default True); use --noexternal to disable
+      reduction: Enable reduction (default True); use --noreduction to disable
+      safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
+    """
+    for protocol in load_protocols(files):
+        print(f"{protocol.name} ({protocol.path}): ")
+        print(
+            safety(
+                protocol,
+                verbose=verbose,
+                debug=debug,
+                external=external,
+                safe=safe,
+                reduction=reduction,
+            )
+        )
+        print(
+            liveness(
                 protocol,
                 verbose=verbose,
                 debug=debug,
