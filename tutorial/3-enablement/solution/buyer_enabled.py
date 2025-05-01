@@ -20,9 +20,6 @@ ITEMS = ["ball", "bat", "glove", "helmet", "shoes"]
 # Maximum acceptable price
 MAX_ACCEPTABLE_PRICE = 30.0
 
-# Track processed quotes to avoid duplicates
-processed_quotes = set()
-
 
 @adapter.decision(event=InitEvent)
 async def initialize_requests(forms):
@@ -44,21 +41,11 @@ async def initialize_requests(forms):
 async def make_purchase_decision(buy_form):
     """
     Decide whether to purchase an item based on price.
-    This is only triggered when a Quote has been received, as Buy requires
-    parameters from Quote to be enabled.
+    This is only triggered when a Quote has been received, as Buy requires parameters from Quote to be enabled.
     """
     # Extract quote information
-    ID = buy_form["ID"]
     item = buy_form["item"]
     price = float(buy_form["price"])
-
-    # Skip if we've already processed this quote
-    quote_key = f"{ID}:{item}:{price}"
-    if quote_key in processed_quotes:
-        return None
-
-    # Mark this quote as processed
-    processed_quotes.add(quote_key)
 
     adapter.info(f"Evaluating purchase of {item} at price ${price}")
 
@@ -76,19 +63,11 @@ async def make_purchase_decision(buy_form):
 async def make_reject_decision(reject_form):
     """
     Decide whether to reject a quote.
-    Only triggered when a Quote has been received and we choose not to Buy.
+    Only triggered when a Quote has been received.
     """
     # Extract quote information
     ID = reject_form["ID"]
     price = float(reject_form["price"])
-
-    # Skip if we've already processed this quote
-    quote_key = f"{ID}:{price}"
-    if quote_key in processed_quotes:
-        return None
-
-    # Mark this quote as processed
-    processed_quotes.add(quote_key)
 
     # Reject if price is above our threshold
     if price > MAX_ACCEPTABLE_PRICE:

@@ -1,0 +1,70 @@
+* Exercise 3: Forms-Based Implementation with enabled()
+In this exercise, you'll re-implement the Purchase protocol from Exercise 1, but this time using the more powerful forms-based approach with the =enabled()= decorator.
+
+** Learning Objectives
+- Understand the difference between reaction-based and forms-based implementations
+- Master the =enabled()= decorator for decision-making
+- Appreciate how the adapter applies the protocol specification
+- Experience the reduced code complexity with the forms-based approach
+
+** The Purchase Protocol (Reminder)
+#+begin_example
+Purchase {
+  roles B, S
+  parameters out ID key, out item, out price, out done
+  
+  B -> S: RFQ[out ID key, out item]
+  S -> B: Quote[in ID key, in item, out price]
+  B -> S: Buy[in ID key, in item, in price, out done]
+  B -> S: Reject[in ID key, in price, out done]
+}
+#+end_example
+
+** Tasks
+*** Configuration
+Reuse the configuration from Exercise 1 or create a new configuration file.
+
+*** Implement the Buyer Agent with adapter.enabled()
+Create a new =buyer_enabled.py= file:
+  1. Initiate the protocol by sending RFQs (=@adapter.enabled(RFQ)= doesn't work, but =@adapter.decision(event=InitEvent)= does)
+  2. Implement a decision function with =@adapter.enabled(Buy)= to handle purchasing decisions
+  3. Implement a decision function with =@adapter.enabled(Reject)= to handle rejection decisions
+
+*** Implement the Seller Agent with enabled()
+Create a new =seller_enabled.py= file:
+  1. Implement a decision function with =@adapter.enabled(Quote)= to handle quote generation
+
+*** Compare with Reaction-Based Implementation, observing:
+1. Differences in code complexity and line count
+2. How parameter passing is handled in each approach
+3. Advantages and limitations of each approach
+
+** Detailed Requirements
+*** For Buyer Implementation
+- The Buyer should be able to initiate RFQs for multiple items
+- The Buyer should make decisions based on the quoted price
+
+*** For Seller Implementation
+- The Seller should generate quotes based on a pricing model
+- The Seller should acknowledge Buy and Reject decisions
+
+** Example Skeleton
+#+begin_src python
+@adapter.enabled(Buy)
+async def decide_to_buy(buy_form):
+    """Decide whether to make a purchase."""
+    price = float(buy_form["price"])
+    
+    if price < THRESHOLD:
+        return buy_form.bind(done="accepted")
+    return None  # Don't send Buy if price is too high
+#+end_src
+
+** Expected Output
+When running both agents, you should see:
+  1. Buyer initiating RFQs
+  2. Seller responding with Quotes
+  3. Buyer deciding to Buy or Reject based on price
+  4. Appropriate progress through the protocol
+
+Look at the implementation in the =solution= directory for reference if you get stuck, or to compare your final version.

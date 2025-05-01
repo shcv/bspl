@@ -1,7 +1,6 @@
 * Exercise 2: Bilateral Agreement Protocol
-In this exercise, you'll design, verify, and implement a bilateral
-agreement protocol between two parties. This exercise builds on the
-skills from Exercise 1 and introduces protocol design and verification.
+In this exercise, you'll design, verify, and implement a bilateral agreement protocol between two parties.
+This exercise builds on the skills from Exercise 1 and introduces protocol design and verification.
 
 ** Learning Objectives
 - Design a BSPL protocol specification
@@ -10,9 +9,9 @@ skills from Exercise 1 and introduces protocol design and verification.
 - Handle complex message dependencies and exclusive paths
 
 ** The Bilateral Agreement Scenario
-You'll design a protocol for executing a bilateral agreement between two
-parties: - A "Party" who can propose agreements - A "CounterParty" who
-can also initiate requests and accept/reject proposals
+You'll design a protocol for executing a bilateral agreement between two parties:
+  - A "Party" who can propose agreements
+  - A "CounterParty" who can also initiate requests and accept/reject proposals
 
 The protocol should support these interaction patterns:
   1. CounterParty requests a specific type of agreement, Party proposes terms
@@ -23,17 +22,16 @@ The protocol should support these interaction patterns:
   6. If a proposal is rejected, Party should acknowledge the rejection
 
 ** Tasks
-*** 1. Design and Verify the Protocol
+*** Design and Verify the Protocol
 1. Create a file =bilateral.bspl= with your protocol specification
-2. Verify your protocol design is safe (prevents double bindings) and
-   live (can complete)
+2. Verify your protocol design is safe (prevents double bindings) and live (can complete)
 
 Use the BSPL tooling for verification:
 
 #+begin_example sh
-$ bspl verify safety <path>
-$ bspl verify liveness <path>
-$ bspl verify all <path>      # verifies both safety and liveness
+bspl verify safety <path>
+bspl verify liveness <path>
+bspl verify all <path>      # verifies both safety and liveness
 #+end_example
 
 Suggested Methodology:
@@ -86,26 +84,27 @@ BilateralAgreement {
 }
 #+end_example
 
-*** 2. Implement the Configuration
-Create a =configuration.py= file that sets up the system with the Party
-and CounterParty roles.
+*** Implement the Configuration
+Create a =configuration.py= file that sets up the system with the Party and CounterParty roles.
 
-*** 3. Implement the Party Agent
+*** Implement the Party Agent
 Create a =party.py= file that implements:
   - Reaction to Request messages by generating proposals
   - Direct proposal initiation
   - Handling of Accept/Reject responses
   - Ability to withdraw proposals
 
-*** 4. Implement the CounterParty Agent
+*** Implement the CounterParty Agent
 Create a =counterparty.py= file that implements:
   - Request initiation
   - Proposal evaluation
   - Logic to decide whether to accept or reject
 
-*** 5. Run and Test
+*** Run and Test
 Use the provided =start.sh= script to run both agents and test various scenarios:
   - CounterParty-initiated flow
     (Request -> Propose -> Accept/Reject)
   - Party-initiated flow (Propose -> Accept/Reject)
   - Withdrawal scenario
+
+Check the =solution= directory for examples if you get stuck, or to compare your final result.

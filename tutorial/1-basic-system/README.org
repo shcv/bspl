@@ -1,6 +1,5 @@
 * Exercise 1: Basic Reaction-Based Purchase Protocol
-In this exercise, you'll implement a simple buyer-seller interaction
-using the Purchase protocol with reaction-based programming.
+In this exercise, you'll implement a simple buyer-seller interaction using the Purchase protocol with reaction-based programming.
 
 ** Learning Objectives
 - Set up a basic BSPL (Blindingly Simple Protocol Language) protocol
@@ -28,21 +27,19 @@ Purchase {
 }
 #+end_example
 
-This protocol enables a basic purchasing interaction: 1. Buyer sends an
-RFQ (Request for Quote) with an item 2. Seller responds with a Quote
-including price 3. Buyer can either Buy the item or Reject the offer
+This protocol enables a basic purchasing interaction:
+  1. Buyer sends an RFQ (Request for Quote) with an item
+  2. Seller responds with a Quote including price
+  3. Buyer can either Buy the item or Reject the offer
 
 ** Tasks
 *** 1. Complete =configuration.py=
-Configure agents and their addresses, and set up the Purchase protocol
-system.
+Configure agents and their addresses, and set up the Purchase protocol system.
 
 *** 2. Complete =buyer.py=
-1. Implement the RFQ initiation functionality to generate IDs and send
-   RFQs
+1. Implement the RFQ initiation functionality to generate IDs and send RFQs
 2. Implement a reaction handler for Quote messages
-3. Implement logic to decide whether to Buy or Reject based on the
-   quoted price
+3. Implement logic to decide whether to Buy or Reject based on the quoted price
 
 *** 3. Complete =seller.py=
 1. Implement a reaction handler for RFQ messages
@@ -50,5 +47,6 @@ system.
 3. Implement reaction handlers for Buy and Reject messages
 
 *** 4. Run the Agents
-Use the provided start script to run both agents and observe their
-interaction.
+Use the provided start script to run both agents and observe their interaction.
+
+Check the =solution/= directory for examples if you get stuck, or to compare your final result.

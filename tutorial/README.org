@@ -1,0 +1,47 @@
+#+title: Interaction-Oriented Programming Tutorial
+
+A tutorial for learning how to use the BSPL (Blindingly Simple Protocol Language) protocol adapter.
+
+* Setup
+
+1. Create venv for python dependencies
+
+   python -m venv venv
+
+2. Activate venv
+
+   . bin/venv/activate
+
+3. Install BSPL in development mode
+
+   # assuming you're in the project root directory
+   pip install -e .
+
+4. Verify BSPL tooling works
+
+   bspl
+
+* Useful information
+- the =samples/= directory at the root of the repo contains lots of example protocols, though not all are /good/ examples
+- the =scenarios/= directory contains other implemented system examples. Some may be out of date, but all exhibit some feature of the adapter
+
+* Overview
+There (will be) 6 exercises:
+
+** Basic System
+Implement a basic system using the BSPL adapter, with a provided Purchase protocol and skeletons of each file.
+
+** Bilateral
+Write a simple two-party protocol first, verify it, then implement the system.
+
+** Enablement
+Re-implement the Purchase system from the first exercise, using the forms-based 'enablement' model.
+
+** Logistics
+Implement a more complex 4-party system.
+
+** Protocols
+Fix a series of broken protocol specifications, using the verification tooling.
+
+** Bootstrapping
+Extend the logistics exercise with a 'bootstrapping' phase, where the agents enact a Setup protocol with a Registry to perform the configuration, instead of hard-coding all of the agent identities and relationships in advance.

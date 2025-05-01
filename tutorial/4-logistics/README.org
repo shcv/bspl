@@ -66,3 +66,5 @@ When running all agents, you should see:
   3. Wrapper wrapping items
   4. Packer combining labels with wrapped items
   5. Merchant receiving packed confirmations
+
+Check the =solution= directory for hints, or to compare your final result.
