@@ -68,3 +68,32 @@ When running both agents, you should see:
   4. Appropriate progress through the protocol
 
 Look at the implementation in the =solution= directory for reference if you get stuck, or to compare your final version.
+
+** Testing Your Solution
+A test script is provided to automatically test your implementation:
+
+#+begin_example
+./test.sh
+#+end_example
+
+This script will:
+- Run your implementation
+- Collect logs in the =logs/= directory
+- Verify that the forms-based implementation is working correctly
+- Confirm that RFQs, Quotes, and Buy/Reject decisions flow through the protocol
+- Report on successful and failed test cases
+
+You can also use the solution test script as a reference or to test specific components:
+
+#+begin_example
+# Run only the solution implementation
+solution/test.sh
+
+# Test your buyer_enabled.py with the solution seller
+solution/test.sh buyer_enabled.py
+
+# Test your seller_enabled.py with the solution buyer
+solution/test.sh seller_enabled.py
+#+end_example
+
+Comparing the test results between Exercise 1 and this exercise will help you understand the behavior differences between reaction-based and forms-based approaches.

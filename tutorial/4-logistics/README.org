@@ -68,3 +68,36 @@ When running all agents, you should see:
   5. Merchant receiving packed confirmations
 
 Check the =solution= directory for hints, or to compare your final result.
+
+** Testing Your Solution
+A test script is provided to automatically test your implementation:
+
+#+begin_example
+./test.sh
+#+end_example
+
+This script will:
+- Run your implementation
+- Collect logs in the =logs/= directory
+- Verify that all four agents are correctly participating in the protocol
+- Confirm that orders progress through all stages of the logistics process
+- Check that items are successfully being packed and orders completed
+- Report on successful and failed test cases
+
+You can also use the solution test script as a reference or to test specific components:
+
+#+begin_example
+# Run only the solution implementation
+solution/test.sh
+
+# Test your merchant.py with solution support agents
+solution/test.sh merchant.py
+
+# Test your merchant.py and wrapper.py with other solution agents
+solution/test.sh merchant.py wrapper.py
+
+# Test all your components together
+solution/test.sh merchant.py labeler.py wrapper.py packer.py
+#+end_example
+
+This approach lets you test individual components against known working implementations, which is especially helpful for isolating issues in a multi-agent system.

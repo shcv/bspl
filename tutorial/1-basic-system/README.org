@@ -50,3 +50,29 @@ Configure agents and their addresses, and set up the Purchase protocol system.
 Use the provided start script to run both agents and observe their interaction.
 
 Check the =solution/= directory for examples if you get stuck, or to compare your final result.
+
+*** 5. Testing Your Solution
+A test script is provided to automatically test your implementation:
+
+#+begin_example
+./test.sh
+#+end_example
+
+This script will:
+- Run your implementation
+- Collect logs in the =logs/= directory
+- Verify that key protocol steps are being executed correctly
+- Report on successful and failed test cases
+
+You can also use the solution test script as a reference or to test specific components:
+
+#+begin_example
+# Run only the solution implementation
+solution/test.sh
+
+# Test your buyer.py with the solution seller
+solution/test.sh buyer.py
+
+# Test your seller.py with the solution buyer
+solution/test.sh seller.py
+#+end_example
