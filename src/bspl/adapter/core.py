@@ -91,7 +91,9 @@ class Adapter:
         handler.setFormatter(formatter)
         self.logger.handlers.clear()
         self.logger.addHandler(handler)
-        if debug:
+        # Check for environment variable to enable debug mode
+        env_debug = os.environ.get("BSPL_ADAPTER_DEBUG", "").lower() in ("1", "true", "yes", "on")
+        if debug or env_debug:
             logging.getLogger("bspl").setLevel(logging.DEBUG)
 
         self.roles = {
