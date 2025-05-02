@@ -4,14 +4,13 @@ This file defines the agents and their addresses, and sets up the protocol syste
 """
 
 import bspl
-from bspl.parsers.bspl import load_file
 
 # TODO: Load the protocol specification from purchase.bspl
 
 # Example:
-# spec = load_file("path-to-protocol.bspl")       # load the file
-# protocol_object = spec.export("ProtocolName")     # export protocol as module; also return protocol object
-# from ProtocolName import RoleObject, MessageObject        # import relevant role and message objects from protocol
+# spec = bspl.load_file("path-to-protocol.bspl")       # load the file
+# protocol_object = spec.export("ProtocolName")        # export protocol as module; also return protocol object
+# from ProtocolName import RoleObject, MessageObject   # import relevant role and message objects from protocol
 
 # TODO: Define agent addresses (localhost with different ports)
 

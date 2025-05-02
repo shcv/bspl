@@ -7,7 +7,9 @@ import logging
 import random
 from bspl.adapter import Adapter
 from configuration import agents, systems
-from Purchase import Seller, RFQ, Quote, Buy, Reject
+
+# TODO Import the Purchase protocol roles and messages
+
 
 # Create the Seller adapter
 adapter = Adapter("seller", systems, agents)

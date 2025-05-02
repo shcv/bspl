@@ -4,11 +4,9 @@ This file defines the agents and their addresses, and sets up the protocol syste
 """
 
 import bspl
-from bspl.parsers.bspl import load_file
 
 # Load the protocol specification from purchase.bspl
-purchase_spec = load_file("purchase.bspl")
-purchase = purchase_spec.export("Purchase")
+purchase = bspl.load_file("purchase.bspl").export("Purchase")
 from Purchase import B, S
 
 # Define agent addresses (localhost with different ports)
