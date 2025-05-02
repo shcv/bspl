@@ -501,7 +501,11 @@ class Adapter:
                                 m.instances.clear()
                         emissions.extend(instances)
                     elif result:
-                        emissions.extend(result)
+                        # Handle both single messages and lists/collections
+                        if hasattr(result, '__iter__') and not isinstance(result, (str, dict)) and not hasattr(result, 'schema'):
+                            emissions.extend(result)
+                        else:
+                            emissions.append(result)
 
         if hasattr(self, "bdi"):
             emissions.extend(
