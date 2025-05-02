@@ -27,19 +27,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Create logs directory if it doesn't exist
-mkdir -p logs
+mkdir -p "$SCRIPT_DIR/logs"
 
 # Log files
-PARTY_LOG="logs/party.log"
-COUNTERPARTY_LOG="logs/counterparty.log"
-COMBINED_LOG="logs/combined.log"
+PARTY_LOG="$SCRIPT_DIR/logs/party.log"
+COUNTERPARTY_LOG="$SCRIPT_DIR/logs/counterparty.log"
+COMBINED_LOG="$SCRIPT_DIR/logs/combined.log"
 
 # Kill any existing processes using the ports (in case previous run didn't clean up)
 KILLING=false
 
 # Use grep to identify ports being used from configuration 
 # Default ports in case no logs exist yet
-for port in $(grep -o "Listening on ('localhost', [0-9]*)" logs/*.log 2>/dev/null | grep -o "[0-9]\{4,5\}" || echo "8001 8002"); do
+for port in $(grep -o "Listening on ('localhost', [0-9]*)" "$SCRIPT_DIR/logs"/*.log 2>/dev/null | grep -o "[0-9]\{4,5\}" || echo "8001 8002"); do
     pid=$(lsof -i:$port -t 2>/dev/null || true)
     if [ -n "$pid" ]; then
         echo "Killing process $pid using port $port"
@@ -68,18 +68,28 @@ if [[ "$(basename "$SCRIPT_DIR")" == "solution" ]]; then
 fi
 
 # Determine if counterparty script is a relative path
-if [[ "$COUNTERPARTY_SCRIPT" == /* || "$COUNTERPARTY_SCRIPT" == ../* || "$COUNTERPARTY_SCRIPT" == ./* ]]; then
-  # Handling absolute or relative path
+if [[ "$COUNTERPARTY_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting CounterParty from: $COUNTERPARTY_SCRIPT"
   BSPL_ADAPTER_DEBUG=true python "$COUNTERPARTY_SCRIPT" > $COUNTERPARTY_LOG 2>&1 &
+elif [[ "$COUNTERPARTY_SCRIPT" == ../* || "$COUNTERPARTY_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting CounterParty from: $COUNTERPARTY_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  BSPL_ADAPTER_DEBUG=true python "$COUNTERPARTY_SCRIPT" > $COUNTERPARTY_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting CounterParty from current directory"
+    echo "Starting CounterParty from solution directory"
+    cd "$SCRIPT_DIR"
     BSPL_ADAPTER_DEBUG=true python "$COUNTERPARTY_SCRIPT" > $COUNTERPARTY_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting CounterParty from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$COUNTERPARTY_SCRIPT" > $COUNTERPARTY_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    BSPL_ADAPTER_DEBUG=true python "$COUNTERPARTY_SCRIPT" > $COUNTERPARTY_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 COUNTERPARTY_PID=$!
@@ -88,18 +98,28 @@ COUNTERPARTY_PID=$!
 sleep 1
 
 # Determine if party script is a relative path
-if [[ "$PARTY_SCRIPT" == /* || "$PARTY_SCRIPT" == ../* || "$PARTY_SCRIPT" == ./* ]]; then
-  # Handling absolute or relative path
+if [[ "$PARTY_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting Party from: $PARTY_SCRIPT"
   BSPL_ADAPTER_DEBUG=true python "$PARTY_SCRIPT" > $PARTY_LOG 2>&1 &
+elif [[ "$PARTY_SCRIPT" == ../* || "$PARTY_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting Party from: $PARTY_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  BSPL_ADAPTER_DEBUG=true python "$PARTY_SCRIPT" > $PARTY_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting Party from current directory"
+    echo "Starting Party from solution directory"
+    cd "$SCRIPT_DIR"
     BSPL_ADAPTER_DEBUG=true python "$PARTY_SCRIPT" > $PARTY_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting Party from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$PARTY_SCRIPT" > $PARTY_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    BSPL_ADAPTER_DEBUG=true python "$PARTY_SCRIPT" > $PARTY_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 PARTY_PID=$!
@@ -177,24 +197,24 @@ check_pattern "Sending .*Reject" "CounterParty sent Reject messages" || ((FAILUR
 check_pattern "Received message: .*Accept" "Party received Accept messages" || ((FAILURES++))
 check_pattern "Received message: .*Reject" "Party received Reject messages" || ((FAILURES++))
 check_pattern "Sending .*Execute" "Party sent Execute messages" || ((FAILURES++))
-check_pattern "Sending .*Acknowledge" "Party sent Acknowledge messages" || ((FAILURES++))
+check_pattern "Sending .*Ack" "Party sent Acknowledge messages" || ((FAILURES++))
 check_pattern "Received message: .*Execute" "CounterParty received Execute messages" || ((FAILURES++))
-check_pattern "Received message: .*Acknowledge" "CounterParty received Acknowledge messages" || ((FAILURES++))
+check_pattern "Received message: .*Ack" "CounterParty received Acknowledge messages" || ((FAILURES++))
 check_pattern "Sending .*Withdraw" "Party sent Withdraw messages" || ((FAILURES++))
 check_pattern "Received message: .*Withdraw" "CounterParty received Withdraw messages" || ((FAILURES++))
 
 # Check detailed message parameters
-check_pattern "Request.*ID.*details" "Request contains required parameters" || ((FAILURES++))
-check_pattern "Propose.*ID.*details.*terms" "Propose contains required parameters" || ((FAILURES++))
-check_pattern "Accept.*ID.*terms.*status" "Accept contains required parameters" || ((FAILURES++))
-check_pattern "Reject.*ID.*status" "Reject contains required parameters" || ((FAILURES++))
-check_pattern "Execute.*ID.*outcome" "Execute contains required parameters" || ((FAILURES++))
-check_pattern "Acknowledge.*ID" "Acknowledge contains required parameters" || ((FAILURES++))
-check_pattern "Withdraw.*ID" "Withdraw contains required parameters" || ((FAILURES++))
+check_pattern "Request.*ID.*type" "Request contains required parameters" || ((FAILURES++))
+check_pattern "Propose.*ID.*type.*proposal" "Propose contains required parameters" || ((FAILURES++))
+check_pattern "Accept.*ID.*proposal.*signature" "Accept contains required parameters" || ((FAILURES++))
+check_pattern "Reject.*ID.*proposal.*decision" "Reject contains required parameters" || ((FAILURES++))
+check_pattern "Execute.*ID.*signature.*closed" "Execute contains required parameters" || ((FAILURES++))
+check_pattern "Ack.*ID" "Acknowledge contains required parameters" || ((FAILURES++))
+check_pattern "Withdraw.*ID.*proposal.*decision" "Withdraw contains required parameters" || ((FAILURES++))
 
 # Count completed transactions by looking at the protocol level messages
 EXECUTED_COUNT=$(grep -c "Sending .*Execute" $COMBINED_LOG || echo 0)
-REJECTED_COUNT=$(grep -c "Sending .*Acknowledge" $COMBINED_LOG || echo 0)
+REJECTED_COUNT=$(grep -c "Sending .*Ack" $COMBINED_LOG || echo 0)
 WITHDRAWN_COUNT=$(grep -c "Sending .*Withdraw" $COMBINED_LOG || echo 0)
 TOTAL_COUNT=$((EXECUTED_COUNT + REJECTED_COUNT + WITHDRAWN_COUNT))
 
@@ -224,10 +244,10 @@ fi
 
 # Display log file details
 echo "--------------"
-echo "Test logs written to logs/ directory"
+echo "Test logs written to $SCRIPT_DIR/logs/ directory"
 
 # Show a summary of log sizes
 echo "Log file sizes:"
-ls -l logs/*.log
+ls -l "$SCRIPT_DIR/logs"/*.log
 
 echo "Done."

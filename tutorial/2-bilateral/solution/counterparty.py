@@ -41,44 +41,46 @@ async def initiate_requests():
         adapter.info(f"Requesting {request_type} agreement (ID: {ID})")
         await adapter.send(request_msg)
 
-        await asyncio.sleep(3)  # Wait 3 seconds between requests
+        await asyncio.sleep(2)  # Wait 2 seconds between requests
 
 
 @adapter.reaction(Propose, Propose2)
 async def handle_proposal(message):
-    """React to a proposal by deciding whether to accept or reject."""
+    """React to a proposal by deciding whether to accept, reject, or do nothing."""
     ID = message["ID"]
     proposal = message["proposal"]
 
     adapter.info(f"Received proposal: {proposal} (ID: {ID})")
 
-    # Wait a bit before responding
-    await asyncio.sleep(3)
+    # Wait a bit before responding to give time for decisions
+    await asyncio.sleep(1)  # Short delay
 
-    # Simple decision logic based on ID number
-    id_parts = ID.split("-")
-    if len(id_parts) > 1:
-        id_num = int(id_parts[1])
-
-        if id_num % 3 != 0:  # Accept 2/3 of proposals
-            # Accept the proposal
-            signature = f"SIG-{ID}"
-            accept_msg = Accept(
-                ID=ID,
-                proposal=proposal,
-                signature=signature,
-                decision="accepted",
-                accepted="yes",
-            )
-            adapter.info(f"Accepting proposal (ID: {ID})")
-            await adapter.send(accept_msg)
-        else:
-            # Reject the proposal
-            reject_msg = Reject(
-                ID=ID, proposal=proposal, decision="rejected", rejected="yes"
-            )
-            adapter.info(f"Rejecting proposal (ID: {ID})")
-            await adapter.send(reject_msg)
+    # Make a 3-way decision based on ID hash
+    # 0: Accept, 1: Reject, 2: Do nothing (will be withdrawn)
+    decision = sum(ord(c) for c in ID) % 3
+    
+    if decision == 0:
+        # Accept the proposal
+        signature = f"SIG-{ID}"
+        accept_msg = Accept(
+            ID=ID,
+            proposal=proposal,
+            signature=signature,
+            decision="accepted",
+            accepted="yes",
+        )
+        adapter.info(f"Accepting proposal (ID: {ID})")
+        await adapter.send(accept_msg)
+    elif decision == 1:
+        # Reject the proposal
+        reject_msg = Reject(
+            ID=ID, proposal=proposal, decision="rejected", rejected="yes"
+        )
+        adapter.info(f"Rejecting proposal (ID: {ID})")
+        await adapter.send(reject_msg)
+    else:
+        # Do nothing - this proposal will be withdrawn by the party after timeout
+        adapter.info(f"No decision for proposal (ID: {ID}), waiting for withdrawal")
 
 
 @adapter.reaction(Execute)
@@ -116,7 +118,7 @@ async def periodic_requests():
     global counter
 
     while True:
-        await asyncio.sleep(15)  # Wait 15 seconds between new requests
+        await asyncio.sleep(5)  # Wait 5 seconds between new requests
 
         counter += 1
         ID = f"counter-{counter}"

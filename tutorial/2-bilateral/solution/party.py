@@ -36,6 +36,49 @@ PROPOSALS = [
 ]
 
 
+async def send_proposal(ID, proposal_type, proposal, direct=True):
+    """Send a proposal and automatically withdraw it after 3 seconds if no response.
+    
+    Args:
+        ID: The unique identifier for the proposal
+        proposal_type: The type of proposal
+        proposal: The proposal content
+        direct: If True, sends a Propose2 message (direct proposal)
+               If False, sends a Propose message (response to request)
+    """
+    # Send the appropriate proposal message
+    if direct:
+        propose_msg = Propose2(ID=ID, type=proposal_type, proposal=proposal)
+        adapter.info(f"Initiating proposal: {proposal} (ID: {ID})")
+    else:
+        propose_msg = Propose(ID=ID, type=proposal_type, proposal=proposal)
+        adapter.info(f"Sending proposal: {proposal}")
+    
+    await adapter.send(propose_msg)
+    
+    # Track the proposal
+    active_proposals[ID] = proposal
+    
+    # Schedule withdrawal after 3 seconds if no response received
+    asyncio.create_task(schedule_withdrawal(ID, proposal))
+
+
+async def schedule_withdrawal(ID, proposal):
+    """Schedule a withdrawal after 3 seconds if the proposal is still active."""
+    await asyncio.sleep(3)  # Wait 3 seconds
+    
+    # Check if proposal is still active (hasn't been accepted or rejected)
+    if ID in active_proposals:
+        adapter.info(f"No response received for proposal {ID}, withdrawing...")
+        withdraw_msg = Withdraw(
+            ID=ID, proposal=proposal, decision="withdrawn", closed="withdrawn"
+        )
+        await adapter.send(withdraw_msg)
+        
+        # Remove from active proposals
+        del active_proposals[ID]
+
+
 async def initiate_proposals():
     """Initiate proposals directly."""
     global counter
@@ -46,19 +89,13 @@ async def initiate_proposals():
         proposal_type = f"type-{counter % 4}"
         proposal = PROPOSALS[counter % len(PROPOSALS)]
 
-        propose_msg = Propose2(ID=ID, type=proposal_type, proposal=proposal)
-        adapter.info(f"Initiating proposal: {proposal} (ID: {ID})")
-        await adapter.send(propose_msg)
-
-        active_proposals[ID] = proposal
-        await asyncio.sleep(3)  # Wait 3 seconds between proposals
+        await send_proposal(ID, proposal_type, proposal, direct=True)
+        await asyncio.sleep(2)  # Wait 2 seconds between proposals
 
 
 @adapter.reaction(Request)
 async def handle_request(message):
     """React to a request by generating a proposal."""
-    global counter
-
     ID = message["ID"]
     request_type = message["type"]
 
@@ -68,11 +105,7 @@ async def handle_request(message):
     id_num = int(ID.split("-")[1]) % len(PROPOSALS)
     proposal = PROPOSALS[id_num]
 
-    propose_msg = Propose(ID=ID, type=request_type, proposal=proposal)
-    adapter.info(f"Sending proposal: {proposal}")
-    await adapter.send(propose_msg)
-
-    active_proposals[ID] = proposal
+    await send_proposal(ID, request_type, proposal, direct=False)
 
 
 @adapter.reaction(Accept)
@@ -112,35 +145,8 @@ async def handle_reject(message):
         del active_proposals[ID]
 
 
-async def periodic_withdrawals():
-    """Periodically withdraw a proposal."""
-    global counter
-
-    while True:
-        await asyncio.sleep(10)  # Check every 10 seconds
-
-        if not active_proposals:
-            continue
-
-        # Always withdraw the first proposal in the list
-        if active_proposals:
-            ID = list(active_proposals.keys())[0]
-            proposal = active_proposals[ID]
-
-            adapter.info(f"Active proposals: {active_proposals}")
-            adapter.info(f"Withdrawing proposal: {proposal} (ID: {ID})")
-
-            withdraw_msg = Withdraw(
-                ID=ID, proposal=proposal, decision="withdrawn", closed="withdrawn"
-            )
-            await adapter.send(withdraw_msg)
-
-            del active_proposals[ID]
-
-
 if __name__ == "__main__":
     adapter.info("Starting Party agent...")
     adapter.start(
         initiate_proposals(),
-        periodic_withdrawals(),
     )
