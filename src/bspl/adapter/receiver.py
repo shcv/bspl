@@ -68,6 +68,40 @@ class Receiver:
         self.transport.close()
 
 
+class MockReceiver:
+    """
+    A mock receiver that doesn't bind to any network ports.
+    Only useful for testing - doesn't actually receive any network data.
+    """
+    def __init__(self, address=None, decoder=decode, unbundler=unbundle):
+        self.address = address or ("localhost", 0)  # Use any free port
+        self.decode = decoder
+        self.unbundle = unbundler
+        self.listening = False
+        self.received_messages = []
+    
+    async def task(self, adapter):
+        """Start the mock receiver (doesn't actually bind to any ports)"""
+        self.adapter = adapter
+        self.queue = Queue()
+        self.listening = True
+        adapter.debug(f"Mock receiver initialized (no sockets bound)")
+    
+    async def inject_message(self, message):
+        """Simulate receiving a message from the network"""
+        if self.listening and hasattr(self, 'adapter'):
+            self.received_messages.append(message)
+            await self.adapter.receive(message.serialize())
+            return True
+        return False
+    
+    async def stop(self):
+        """Stop the mock receiver"""
+        self.listening = False
+        if hasattr(self, 'adapter'):
+            self.adapter.debug(f"Mock receiver stopped")
+
+
 class TCPReceiver:
     def __init__(self, address, decoder=decode):
         self.address = address

@@ -4,7 +4,8 @@ import pytest
 import bspl.parsers.bspl
 from bspl.adapter import Adapter
 from bspl.adapter.message import Message
-from bspl.adapter.emitter import Emitter
+from bspl.adapter.emitter import Emitter, MockEmitter
+from bspl.adapter.receiver import Receiver, MockReceiver
 from bspl.adapter.event import InitEvent
 
 logger = logging.getLogger("bspl")
@@ -74,7 +75,10 @@ def ship(RFQ):
 
 @pytest.mark.asyncio
 async def test_receive_process(systems, agents, req):
-    a = Adapter("S", systems, agents)
+    # Create the adapter with mock network components to avoid binding to real ports
+    mock_emitter = MockEmitter()
+    mock_receiver = MockReceiver()
+    a = Adapter("S", systems, agents, emitter=mock_emitter, receiver=mock_receiver)
     await a.receive(req(item="ball").serialize())
     await a.update()
 
@@ -83,7 +87,10 @@ async def test_receive_process(systems, agents, req):
 
 @pytest.mark.asyncio
 async def test_send(systems, agents, req):
-    a = Adapter("C", systems, agents)
+    # Create the adapter with mock network components to avoid binding to real ports
+    mock_emitter = MockEmitter()
+    mock_receiver = MockReceiver()
+    a = Adapter("C", systems, agents, emitter=mock_emitter, receiver=mock_receiver)
     m = req(item="ball")
     await a.send(m)
 
@@ -91,8 +98,10 @@ async def test_send(systems, agents, req):
 @pytest.mark.asyncio
 async def test_match(RFQ, systems, agents, req, quote, ship):
     """Test that the schema.match(**params) method works"""
-    # create adapter and inject methods
-    a = Adapter("S", systems, agents)
+    # Create the adapter with mock network components to avoid binding to real ports
+    mock_emitter = MockEmitter()
+    mock_receiver = MockReceiver()
+    a = Adapter("S", systems, agents, emitter=mock_emitter, receiver=mock_receiver)
     # make sure there's a req in the history
     m = req(item="ball")
     await a.receive(m.serialize())
@@ -108,7 +117,10 @@ async def test_match(RFQ, systems, agents, req, quote, ship):
 
 @pytest.mark.asyncio
 async def test_enabled_initiators(systems, agents, req):
-    a = Adapter("C", systems, agents)
+    # Create the adapter with mock network components to avoid binding to real ports
+    mock_emitter = MockEmitter()
+    mock_receiver = MockReceiver()
+    a = Adapter("C", systems, agents, emitter=mock_emitter, receiver=mock_receiver)
     await a.process(InitEvent())
 
     print(list(a.enabled_messages.messages()))

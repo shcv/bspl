@@ -68,8 +68,40 @@ class Emitter:
         self.socket.close()
 
 
-class MockEmitter(Emitter):
-    def transmit(self, packet, dest):
+class MockEmitter:
+    """
+    A completely mock emitter that doesn't create any network sockets or connections.
+    Just logs and tracks messages for testing purposes.
+    """
+    
+    def __init__(self, encoder=encode, mtu=1500 - 48):
+        """Initialize without creating any sockets"""
+        self.encode = encoder
+        self.mtu = mtu
+        self.sent_messages = []
+        self.stats = {"bytes": 0, "packets": 0}
+        logger.debug("Initialized MockEmitter (no sockets created)")
+        
+    async def send(self, message):
+        """Track message without any network operations"""
+        self.sent_messages.append(message)
+        packet = self.encode(message)
+        logger.debug(f"Mock emitter recording: {message} to {message.dest}")
+        self.stats["bytes"] += len(packet)
+        self.stats["packets"] += 1
+        
+    async def bulk_send(self, messages):
+        """Track multiple messages without any network operations"""
+        self.sent_messages.extend(messages)
+        for message in messages:
+            packet = self.encode(message)
+            logger.debug(f"Mock emitter recording: {message} to {message.dest}")
+            self.stats["bytes"] += len(packet)
+            self.stats["packets"] += 1
+    
+    async def stop(self):
+        """No-op since there are no sockets to close"""
+        logger.debug("MockEmitter stopped (no sockets to close)")
         pass
 
 
