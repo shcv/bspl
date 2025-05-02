@@ -1,0 +1,23 @@
+BilateralAgreement {
+  roles Party, CounterParty
+  parameters out ID key, out type, out proposal, out decision, out closed
+  private signature, accepted, rejected
+  
+  // TODO: CounterParty initiates
+  // Implement CounterParty -> Party message for initiating a request
+  // Implement Party -> CounterParty response with proposal
+
+  // TODO: Party initiates
+  // Implement Party -> CounterParty message for direct proposal
+
+  // TODO: Acceptance path
+  // Implement CounterParty -> Party message for accepting a proposal
+  // Implement Party -> CounterParty message for executing agreement
+
+  // TODO: Rejection path
+  // Implement CounterParty -> Party message for rejecting a proposal
+  // Implement Party -> CounterParty message for acknowledging rejection
+
+  // TODO: Withdrawal path
+  // Implement Party -> CounterParty message for withdrawing a proposal
+}
