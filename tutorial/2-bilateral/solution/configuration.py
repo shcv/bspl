@@ -11,10 +11,10 @@ bilateral_spec = load_file("bilateral.bspl")
 bilateral = bilateral_spec.export("BilateralAgreement")
 from BilateralAgreement import Party, CounterParty
 
-# Define agent addresses
+# Define agent addresses (0.0.0.0 with different ports)
 agents = {
-    "party": [("localhost", 8001)],
-    "counterparty": [("localhost", 8002)],
+    "party": [("0.0.0.0", 8001)],
+    "counterparty": [("0.0.0.0", 8002)],
 }
 
 # Define the protocol system

@@ -11,10 +11,10 @@ purchase_spec = load_file("purchase.bspl")
 purchase = purchase_spec.export("Purchase")
 from Purchase import Buyer, Seller
 
-# Define agent addresses (localhost with different ports)
+# Define agent addresses (0.0.0.0 with different ports)
 agents = {
-    "buyer": [("localhost", 8001)],
-    "seller": [("localhost", 8002)],
+    "buyer": [("0.0.0.0", 8001)],
+    "seller": [("0.0.0.0", 8002)],
 }
 
 # Define the Purchase protocol system

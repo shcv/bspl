@@ -11,12 +11,12 @@ logistics_spec = load_file("logistics.bspl")
 logistics = logistics_spec.export("Logistics")
 from Logistics import Merchant, Wrapper, Labeler, Packer
 
-# Define agent addresses
+# Define agent addresses (0.0.0.0 with different ports)
 agents = {
-    "merchant": [("localhost", 8001)],
-    "wrapper": [("localhost", 8002)],
-    "labeler": [("localhost", 8003)],
-    "packer": [("localhost", 8004)],
+    "merchant": [("0.0.0.0", 8001)],
+    "wrapper": [("0.0.0.0", 8002)],
+    "labeler": [("0.0.0.0", 8003)],
+    "packer": [("0.0.0.0", 8004)],
 }
 
 # Define the Logistics protocol system

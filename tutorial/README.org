@@ -2,24 +2,237 @@
 
 A tutorial for learning how to use the BSPL (Blindingly Simple Protocol Language) protocol adapter.
 
-* Setup
+* Installation and Setup
 
-1. Create venv for python dependencies
+** Local Installation
 
-   python -m venv venv
+*** Linux Environment
 
-2. Activate venv
+1. Ensure Python 3.8+ is installed
+   #+begin_src bash
+   python3 --version
+   #+end_src
 
-   . bin/venv/activate
+   If not installed, use your distribution's package manager:
+   #+begin_src bash
+   # For Debian/Ubuntu
+   sudo apt update
+   sudo apt install python3 python3-pip python3-venv
 
-3. Install BSPL in development mode
+   # For Fedora/RHEL
+   sudo dnf install python3 python3-pip
+   #+end_src
 
-   # assuming you're in the project root directory
+2. Clone the repository and navigate to the project directory
+   #+begin_src bash
+   git clone https://gitlab.com/masr/bspl.git
+   cd bspl
+   #+end_src
+
+3. Create a virtual environment for Python dependencies
+   #+begin_src bash
+   python3 -m venv venv
+   #+end_src
+
+4. Activate the virtual environment
+   #+begin_src bash
+   source venv/bin/activate
+   #+end_src
+
+5. Install BSPL in development mode
+   #+begin_src bash
    pip install -e .
+   #+end_src
 
-4. Verify BSPL tooling works
-
+6. Verify BSPL tooling works
+   #+begin_src bash
    bspl
+   #+end_src
+
+*** macOS Environment
+
+1. Ensure Python 3.8+ is installed
+   #+begin_src bash
+   python3 --version
+   #+end_src
+
+   If not installed, use Homebrew:
+   #+begin_src bash
+   # Install Homebrew if needed
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   
+   # Install Python 3
+   brew install python3
+   #+end_src
+
+2. Clone the repository and navigate to the project directory
+   #+begin_src bash
+   git clone https://gitlab.com/masr/bspl.git
+   cd bspl
+   #+end_src
+
+3. Create a virtual environment for Python dependencies
+   #+begin_src bash
+   python3 -m venv venv
+   #+end_src
+
+4. Activate the virtual environment
+   #+begin_src bash
+   source venv/bin/activate
+   #+end_src
+
+5. Install BSPL in development mode
+   #+begin_src bash
+   pip install -e .
+   #+end_src
+
+6. Verify BSPL tooling works
+   #+begin_src bash
+   bspl
+   #+end_src
+
+** Using Docker
+
+Docker provides a consistent environment for running the exercises, which can be helpful for avoiding dependency issues.
+
+*** Prerequisites
+
+1. Install Docker
+   - [[https://docs.docker.com/engine/install/][Docker installation guide]]
+   - Ensure Docker is running on your system
+
+2. Clone the repository (if not done already)
+   #+begin_src bash
+   git clone https://gitlab.com/masr/bspl.git
+   cd bspl
+   #+end_src
+
+*** Building the Docker Image
+
+1. Build the BSPL agent Docker image
+   #+begin_src bash
+   docker build -f agent.docker -t bspl-agent .
+   #+end_src
+
+*** Running Exercises in Docker
+
+1. To run tests for an exercise in Docker:
+   #+begin_src bash
+   # Navigate to the repository root
+   cd /path/to/bspl
+   
+   # Run a specific tutorial test in Docker
+   docker run --rm --network=host -v $(pwd):/src -e PYTHONUNBUFFERED=1 -w /src/tutorial/1-basic-system/solution bspl-agent python test.py
+   #+end_src
+
+2. To work on an exercise interactively:
+   #+begin_src bash
+   # Start an interactive shell in the Docker container
+   docker run --rm -it --network=host -v $(pwd):/src -w /src/tutorial bspl-agent bash
+   
+   # Now you're inside the container and can run Python scripts directly
+   cd 1-basic-system
+   python test.py
+   #+end_src
+
+*** Tips for Docker Usage
+
+- The `-v $(pwd):/src` flag mounts your current directory to /src in the container
+- Files edited on your host system will be immediately available in the container
+- Use `--network=host` for proper communication between agents
+- When running multiple agents, each agent runs on a different port which is automatically configured
+
+** Working with the Exercises
+
+*** Running Specific Exercises
+
+Each exercise has its own directory with:
+- A README.org file explaining the exercise
+- A starting template for implementation
+- A "solution" subdirectory with a complete working solution
+
+To work on an exercise:
+
+1. Read the README.org file in the exercise directory
+2. Implement the required components according to the instructions
+3. Run the test script to verify your implementation:
+   #+begin_src bash
+   cd tutorial/1-basic-system
+   python test.py
+   #+end_src
+
+4. If your implementation doesn't work, you can check the solution:
+   #+begin_src bash
+   cd tutorial/1-basic-system/solution
+   python test.py
+   #+end_src
+
+*** Exercise Flow
+
+The exercises build on each other:
+
+1. *Basic System* - Simple buyer/seller purchase protocol
+2. *Bilateral* - Two-party protocol design and implementation
+3. *Enablement* - Form-based enablement model for Purchase system
+4. *Logistics* - Multi-party protocol with four agent roles
+
+** Troubleshooting Common Issues
+
+*** Port Already in Use
+
+If you see errors about ports being in use:
+
+#+begin_src
+⚠️ WARNING: Port 8001 is in use
+#+end_src
+
+You can find and kill the processes using those ports:
+
+#+begin_src bash
+# Find processes using port 8001
+lsof -i:8001
+
+# Kill the process using a specific port
+lsof -ti:8001 | xargs kill -9
+
+# Kill processes using a range of ports (e.g., 8001-8004)
+lsof -ti:8001-8004 | xargs kill -9
+#+end_src
+
+*** Agent Communication Issues
+
+If agents start but don't communicate properly:
+
+1. Check that your agent addresses use "0.0.0.0" instead of "localhost" in configuration.py:
+   #+begin_src python
+   agents = {
+       "buyer": [("0.0.0.0", 8001)],
+       "seller": [("0.0.0.0", 8002)],
+   }
+   #+end_src
+
+2. Ensure each agent has a unique port number
+
+3. Verify that no firewall is blocking the communication
+
+*** Python Package Issues
+
+If you encounter dependency errors:
+
+1. Make sure your virtual environment is activated:
+   #+begin_src bash
+   source venv/bin/activate  # Linux/macOS
+   #+end_src
+
+2. Try reinstalling requirements:
+   #+begin_src bash
+   pip install -e .
+   #+end_src
+
+3. Or use Docker to avoid dependency problems:
+   #+begin_src bash
+   docker run --rm -it --network=host -v $(pwd):/src -w /src bspl-agent bash
+   #+end_src
 
 * Useful information
 - the =samples/= directory at the root of the repo contains lots of example protocols, though not all are /good/ examples

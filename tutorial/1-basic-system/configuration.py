@@ -12,7 +12,7 @@ import bspl
 # protocol_object = spec.export("ProtocolName")        # export protocol as module; also return protocol object
 # from ProtocolName import RoleObject, MessageObject   # import relevant role and message objects from protocol
 
-# TODO: Define agent addresses (localhost with different ports)
+# TODO: Define agent addresses (0.0.0.0 with different ports)
 
 agents = {
     # Format: "agent_name": [("host", port)],

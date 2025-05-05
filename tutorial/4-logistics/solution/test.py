@@ -119,7 +119,7 @@ class LogisticsTester:
             # Create a socket to test if port is in use
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(1)
-            result = sock.connect_ex(('localhost', port))
+            result = sock.connect_ex(('0.0.0.0', port))
             sock.close()
             
             if result == 0:  # Port is in use
