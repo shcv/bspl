@@ -4,6 +4,75 @@ A tutorial for learning how to use the BSPL (Blindingly Simple Protocol Language
 
 * Installation and Setup
 
+** GitHub Codespaces (Cloud Development)
+
+GitHub Codespaces provides a cloud-based development environment that you can access directly in your browser.
+
+*** Setting Up a Codespace
+
+1. Go to GitHub and fork or clone the BSPL repository
+   - Visit https://github.com/NovellusHoldings/bspl or https://github.com/shcv/bspl
+   - Click on "Fork" to create your personal copy
+   - Ensure you're on the "tutorial" branch
+
+2. Create a new Codespace
+   - From your forked repository, click the green "Code" button
+   - Select the "Codespaces" tab
+   - Click "Create codespace on tutorial" to create a new codespace on the tutorial branch
+
+3. Once the codespace is ready, set up the environment in the terminal:
+   #+begin_src bash
+   # Create a Python virtual environment
+   python -m venv venv
+   
+   # Activate the virtual environment
+   source venv/bin/activate
+   
+   # Install BSPL in development mode
+   pip install -e .
+   #+end_src
+
+4. Verify the setup by running a test:
+   #+begin_src bash
+   # Navigate to an exercise solution
+   cd tutorial/1-basic-system/solution/
+   
+   # Run the test script
+   ./test.py
+   #+end_src
+
+*** Advantages of Codespaces
+
+- No local setup required - everything runs in the cloud
+- Consistent environment that works across different operating systems
+- Pre-configured with necessary development tools
+- Access your workspace from any browser
+
+*** Working with Codespaces
+
+- Your codespace will automatically save your work
+- You can commit and push changes directly from the codespace
+- Codespaces remain active for a period of time even when you close the browser
+- You can stop your codespace to save usage quota and restart it later
+
+*** Port Forwarding for Agents
+
+When running BSPL agents in Codespaces, the agents need to communicate with each other:
+
+1. Codespaces automatically forwards ports when they're opened by applications
+2. Update the agent configurations to use 0.0.0.0 for binding:
+   #+begin_src python
+   agents = {
+       "buyer": [("0.0.0.0", 8001)],
+       "seller": [("0.0.0.0", 8002)],
+   }
+   #+end_src
+
+3. If ports are not automatically forwarded, you can manually forward them:
+   - Click on the "Ports" tab in the Codespaces terminal panel
+   - Click "Add Port" and add the ports used by your agents (e.g., 8001, 8002)
+   - Set visibility to "Private to Codespace" since the communication is only needed within the codespace
+
 ** Local Installation
 
 *** Linux Environment
