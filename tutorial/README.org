@@ -308,7 +308,7 @@ If you encounter dependency errors:
 - the =scenarios/= directory contains other implemented system examples. Some may be out of date, but all exhibit some feature of the adapter
 
 * Overview
-There (will be) 6 exercises:
+There are 4 exercises:
 
 ** Basic System
 Implement a basic system using the BSPL adapter, with a provided Purchase protocol and skeletons of each file.
@@ -321,9 +321,3 @@ Re-implement the Purchase system from the first exercise, using the forms-based 
 
 ** Logistics
 Implement a more complex 4-party system.
-
-** Protocols
-Fix a series of broken protocol specifications, using the verification tooling.
-
-** Bootstrapping
-Extend the logistics exercise with a 'bootstrapping' phase, where the agents enact a Setup protocol with a Registry to perform the configuration, instead of hard-coding all of the agent identities and relationships in advance.
