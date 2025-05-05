@@ -54,13 +54,43 @@ Create a =packer.py= file to implement the Packer agent that:
   - Matches labels with the correct wrapped items
   - Confirms packing status to the Merchant
 *** Create a Start Script
-Create a =start.sh= script to run all four agents.
+Create a =start.sh= script to run all four agents. Your script should:
+- Start each agent process in the background
+- Display all agent logs in the terminal in real-time
+- Wait for user input to stop all agents
+
+#+begin_example
+# Example start.sh script structure
+#!/usr/bin/env bash
+
+# Start agents in the background
+echo "Starting Merchant..."
+python merchant.py &
+MERCHANT_PID=$!
+
+# Add similar lines for other agents...
+
+# Wait for user input to stop
+read -p "Press any key to stop the agents..."
+
+# Kill all agent processes
+kill $MERCHANT_PID $OTHER_AGENT_PIDS
+
+echo "Agents stopped."
+#+end_example
 
 ** Implementation Guidelines
 You should primarily use the forms-based (=@adapter.enabled()=) approach to implement all four agents, as this will dramatically simplify the complex correlation logic required, especially for the Packer.
 
 ** Expected Output
-When running all agents, you should see:
+When running all agents with your start script:
+
+#+begin_example
+# Run all four agents
+./start.sh
+#+end_example
+
+You should see:
   1. Merchant creating orders with multiple items
   2. Labeler generating labels
   3. Wrapper wrapping items
@@ -75,9 +105,6 @@ Test scripts are provided to automatically test your implementation:
 #+begin_example
 # Run the Python test script
 ./test.py
-
-# Or run the Bash test script (if available)
-./test.sh
 #+end_example
 
 These scripts will:

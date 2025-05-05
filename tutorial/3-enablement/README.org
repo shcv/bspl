@@ -61,6 +61,18 @@ async def decide_to_buy(buy_form):
 #+end_src
 
 ** Expected Output
+Run both agents using the start script in the solution directory (or create your own):
+
+#+begin_example
+# Run the Buyer and Seller agents
+./solution/start.sh
+#+end_example
+
+The script will:
+- Start both agents in the background
+- Display all agent logs in the terminal in real-time
+- Wait for you to press a key to stop the agents
+
 When running both agents, you should see:
   1. Buyer initiating RFQs
   2. Seller responding with Quotes
@@ -75,9 +87,6 @@ Test scripts are provided to automatically test your implementation:
 #+begin_example
 # Run the Python test script
 ./test.py
-
-# Or run the Bash test script (if available)
-./test.sh
 #+end_example
 
 These scripts will:

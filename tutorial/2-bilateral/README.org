@@ -102,8 +102,19 @@ Create a =counterparty.py= file that implements:
 
 *** Run and Test
 Use the provided =start.sh= script to run both agents and test various scenarios:
-  - CounterParty-initiated flow
-    (Request -> Propose -> Accept/Reject)
+
+#+begin_example
+# Run the Party and CounterParty agents
+./start.sh
+#+end_example
+
+The script will:
+- Start both agents in the background
+- Display all agent logs in the terminal in real-time
+- Wait for you to press a key to stop the agents
+
+Observe these different interaction patterns:
+  - CounterParty-initiated flow (Request -> Propose -> Accept/Reject)
   - Party-initiated flow (Propose -> Accept/Reject)
   - Withdrawal scenario
 
@@ -115,9 +126,6 @@ Test scripts are provided to automatically test your implementation:
 #+begin_example
 # Run the Python test script
 ./test.py
-
-# Or run the Bash test script (if available)
-./test.sh
 #+end_example
 
 These scripts will:
