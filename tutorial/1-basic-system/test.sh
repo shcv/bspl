@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
+# Safer pipefail for older Bash versions
+if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+  set -o pipefail
+fi
+set -u
 
 # This script is a wrapper around the solution test script
 # It will run the current directory's buyer.py and seller.py files

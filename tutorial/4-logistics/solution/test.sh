@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
+# Safer pipefail for older Bash versions
+if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+  set -o pipefail
+fi
+set -u
 
 # Determine script directory for relative paths
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -11,8 +16,11 @@ LABELER_SCRIPT="labeler.py"    # Default: solution labeler script
 WRAPPER_SCRIPT="wrapper.py"    # Default: solution wrapper script
 PACKER_SCRIPT="packer.py"      # Default: solution packer script
 
+# Setup PYTHONPATH to ensure modules can be found
+export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
+
 # Process command line arguments for agent scripts
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
   arg="$1"
   # Extract file name and determine agent type from the file name
   filename=$(basename "$arg")
@@ -35,33 +43,75 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Create logs directory if it doesn't exist
-mkdir -p logs
+mkdir -p "$SCRIPT_DIR/logs"
 
 # Log files
-MERCHANT_LOG="logs/merchant.log"
-LABELER_LOG="logs/labeler.log"
-WRAPPER_LOG="logs/wrapper.log"
-PACKER_LOG="logs/packer.log"
-COMBINED_LOG="logs/combined.log"
+MERCHANT_LOG="$SCRIPT_DIR/logs/merchant.log"
+LABELER_LOG="$SCRIPT_DIR/logs/labeler.log"
+WRAPPER_LOG="$SCRIPT_DIR/logs/wrapper.log"
+PACKER_LOG="$SCRIPT_DIR/logs/packer.log"
+COMBINED_LOG="$SCRIPT_DIR/logs/combined.log"
 
-# Kill any existing processes using the ports (in case previous run didn't clean up)
-KILLING=false
+# Check for existing processes using the ports (but don't kill them)
 
-# Use grep to identify ports being used from configuration 
-# Default ports in case no logs exist yet
-for port in $(grep -o "Listening on ('localhost', [0-9]*)" logs/*.log 2>/dev/null | grep -o "[0-9]\{4,5\}" || echo "8001 8002 8003 8004"); do
-    pid=$(lsof -i:$port -t 2>/dev/null || true)
-    if [ -n "$pid" ]; then
-        echo "Killing process $pid using port $port"
-        kill -9 $pid 2>/dev/null || true
-        KILLING=true
+# Check for processes using ports that our tests need
+DEFAULT_PORTS="8001 8002"
+DETECTED_PORTS=""
+PORTS_IN_USE=false
+
+# Try to extract ports from logs if they exist
+if [ -d "$SCRIPT_DIR/logs" ] && ls "$SCRIPT_DIR/logs"/*.log 1>/dev/null 2>&1; then
+    # More compatible grep pattern
+    DETECTED_PORTS=$(grep -o "Listening on ('localhost', [0-9]*)" "$SCRIPT_DIR/logs"/*.log 2>/dev/null | 
+                     grep -o "[0-9][0-9][0-9][0-9][0-9]\|[0-9][0-9][0-9][0-9]" || echo "")
+fi
+
+# Use detected ports or fall back to defaults
+PORTS_TO_CHECK=${DETECTED_PORTS:-$DEFAULT_PORTS}
+
+echo "⚙️ Checking for conflicting processes on ports: $PORTS_TO_CHECK"
+
+for port in $PORTS_TO_CHECK; do
+    # Try different methods to find processes
+    if command -v lsof >/dev/null 2>&1; then
+        # If lsof is available (Mac/Linux)
+        pid=$(lsof -i:$port -t 2>/dev/null || true)
+        if [ -n "$pid" ]; then
+            echo "⚠️ WARNING: Port $port is in use by process ID: $pid"
+            PORTS_IN_USE=true
+        fi
+    elif command -v netstat >/dev/null 2>&1; then
+        # If netstat is available but not lsof
+        if [ "$(uname)" = "Darwin" ]; then
+            # Mac OS X style netstat
+            pid=$(netstat -anv | grep ".$port " | awk '{print $9}' || true)
+        else
+            # Linux style netstat
+            pid=$(netstat -tulpn 2>/dev/null | grep ":$port " | 
+                 grep -o '[0-9]*/[^ ]*' | cut -d/ -f1 || true)
+        fi
+        
+        if [ -n "$pid" ]; then
+            echo "⚠️ WARNING: Port $port is in use by process ID: $pid"
+            PORTS_IN_USE=true
+        fi
     fi
 done
 
-# Wait for processes to be killed if any were found
-if $KILLING; then
-  echo "Waiting for processes to terminate..."
-  sleep 2
+# If ports are in use, provide guidance
+if $PORTS_IN_USE; then
+    echo ""
+    echo "⚠️ ========================================================== ⚠️"
+    echo "  Some ports required for testing are already in use."
+    echo "  This might cause test failures or unexpected behavior."
+    echo ""
+    echo "  To kill processes using these ports, you can run:"
+    echo "  pkill -f 'localhost.*${PORTS_TO_CHECK// /\|localhost.*}'"
+    echo "  or for a specific port:"
+    echo "  lsof -ti:PORT_NUMBER | xargs kill -9"
+    echo "⚠️ ========================================================== ⚠️"
+    echo ""
+    # Continue tests anyway - user decided not to kill
 fi
 
 # Clean up old logs
@@ -69,6 +119,15 @@ rm -f $MERCHANT_LOG $LABELER_LOG $WRAPPER_LOG $PACKER_LOG $COMBINED_LOG
 
 # Create empty log files
 touch $MERCHANT_LOG $LABELER_LOG $WRAPPER_LOG $PACKER_LOG $COMBINED_LOG
+
+# Clean up any solution/ prefix from script paths
+MERCHANT_SCRIPT=$(echo "$MERCHANT_SCRIPT" | sed 's#^solution/##')
+LABELER_SCRIPT=$(echo "$LABELER_SCRIPT" | sed 's#^solution/##')
+WRAPPER_SCRIPT=$(echo "$WRAPPER_SCRIPT" | sed 's#^solution/##')
+PACKER_SCRIPT=$(echo "$PACKER_SCRIPT" | sed 's#^solution/##')
+
+# Save current directory
+START_DIR=$(pwd)
 
 # Determine if we're running from solution directory or parent directory
 # Check if we're inside the solution directory
@@ -80,49 +139,82 @@ fi
 echo "Starting logistics agents..."
 
 # Start Labeler
-if [[ "$LABELER_SCRIPT" == /* || "$LABELER_SCRIPT" == ../* || "$LABELER_SCRIPT" == ./* ]]; then
+if [[ "$LABELER_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting Labeler from: $LABELER_SCRIPT"
   BSPL_ADAPTER_DEBUG=true python "$LABELER_SCRIPT" > $LABELER_LOG 2>&1 &
+elif [[ "$LABELER_SCRIPT" == ../* || "$LABELER_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting Labeler from: $LABELER_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  BSPL_ADAPTER_DEBUG=true python "$LABELER_SCRIPT" > $LABELER_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting Labeler from current directory"
+    echo "Starting Labeler from solution directory"
+    cd "$SCRIPT_DIR"
     BSPL_ADAPTER_DEBUG=true python "$LABELER_SCRIPT" > $LABELER_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting Labeler from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$LABELER_SCRIPT" > $LABELER_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    BSPL_ADAPTER_DEBUG=true python "$LABELER_SCRIPT" > $LABELER_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 LABELER_PID=$!
 
 # Start Wrapper
-if [[ "$WRAPPER_SCRIPT" == /* || "$WRAPPER_SCRIPT" == ../* || "$WRAPPER_SCRIPT" == ./* ]]; then
+if [[ "$WRAPPER_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting Wrapper from: $WRAPPER_SCRIPT"
   BSPL_ADAPTER_DEBUG=true python "$WRAPPER_SCRIPT" > $WRAPPER_LOG 2>&1 &
+elif [[ "$WRAPPER_SCRIPT" == ../* || "$WRAPPER_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting Wrapper from: $WRAPPER_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  BSPL_ADAPTER_DEBUG=true python "$WRAPPER_SCRIPT" > $WRAPPER_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting Wrapper from current directory"
+    echo "Starting Wrapper from solution directory"
+    cd "$SCRIPT_DIR"
     BSPL_ADAPTER_DEBUG=true python "$WRAPPER_SCRIPT" > $WRAPPER_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting Wrapper from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$WRAPPER_SCRIPT" > $WRAPPER_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    BSPL_ADAPTER_DEBUG=true python "$WRAPPER_SCRIPT" > $WRAPPER_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 WRAPPER_PID=$!
 
 # Start Packer
-if [[ "$PACKER_SCRIPT" == /* || "$PACKER_SCRIPT" == ../* || "$PACKER_SCRIPT" == ./* ]]; then
+if [[ "$PACKER_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting Packer from: $PACKER_SCRIPT"
   BSPL_ADAPTER_DEBUG=true python "$PACKER_SCRIPT" > $PACKER_LOG 2>&1 &
+elif [[ "$PACKER_SCRIPT" == ../* || "$PACKER_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting Packer from: $PACKER_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  BSPL_ADAPTER_DEBUG=true python "$PACKER_SCRIPT" > $PACKER_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting Packer from current directory"
+    echo "Starting Packer from solution directory"
+    cd "$SCRIPT_DIR"
     BSPL_ADAPTER_DEBUG=true python "$PACKER_SCRIPT" > $PACKER_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting Packer from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$PACKER_SCRIPT" > $PACKER_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    BSPL_ADAPTER_DEBUG=true python "$PACKER_SCRIPT" > $PACKER_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 PACKER_PID=$!
@@ -131,24 +223,35 @@ PACKER_PID=$!
 sleep 1
 
 # Start Merchant (which initiates the protocol)
-if [[ "$MERCHANT_SCRIPT" == /* || "$MERCHANT_SCRIPT" == ../* || "$MERCHANT_SCRIPT" == ./* ]]; then
+if [[ "$MERCHANT_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting Merchant from: $MERCHANT_SCRIPT"
   BSPL_ADAPTER_DEBUG=true python "$MERCHANT_SCRIPT" > $MERCHANT_LOG 2>&1 &
+elif [[ "$MERCHANT_SCRIPT" == ../* || "$MERCHANT_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting Merchant from: $MERCHANT_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  BSPL_ADAPTER_DEBUG=true python "$MERCHANT_SCRIPT" > $MERCHANT_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting Merchant from current directory"
+    echo "Starting Merchant from solution directory"
+    cd "$SCRIPT_DIR"
     BSPL_ADAPTER_DEBUG=true python "$MERCHANT_SCRIPT" > $MERCHANT_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting Merchant from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$MERCHANT_SCRIPT" > $MERCHANT_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    BSPL_ADAPTER_DEBUG=true python "$MERCHANT_SCRIPT" > $MERCHANT_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 MERCHANT_PID=$!
 
-# Run for 7 seconds to let the protocol execute completely
-echo "Running logistics protocol for 7 seconds..."
-sleep 7
+# Run for 4 seconds to let the protocol execute completely
+echo "Running logistics protocol for 4 seconds..."
+sleep 4
 
 # Stop all processes
 echo "Stopping processes..."
@@ -265,10 +368,10 @@ fi
 
 # Display log file details
 echo "--------------"
-echo "Test logs written to logs/ directory"
+echo "Test logs written to $SCRIPT_DIR/logs/ directory"
 
 # Show a summary of log sizes
 echo "Log file sizes:"
-ls -l logs/*.log
+ls -l "$SCRIPT_DIR/logs"/*.log
 
 echo "Done."

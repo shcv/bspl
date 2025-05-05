@@ -7,17 +7,23 @@ import logging
 import uuid
 from bspl.adapter import Adapter
 from configuration import agents, systems
-from Purchase import Buyer, RFQ, Quote, Buy, Reject
+from Purchase import RFQ, Quote, Buy, Reject
 
 # Create the Buyer adapter
 adapter = Adapter("buyer", systems, agents)
+
+# Items to request quotes for
+ITEMS = ["ball", "bat", "glove", "helmet", "shoes"]
+
+# Maximum acceptable price
+MAX_ACCEPTABLE_PRICE = 30.0
 
 
 # TODO: Implement a function to send RFQs for different items
 async def send_rfqs():
     """Send RFQs for different items."""
     # TODO: Define items to request quotes for
-    items = []  # Add your items here
+    items = ITEMS
 
     for item in items:
         # TODO: Generate a unique ID
@@ -25,8 +31,8 @@ async def send_rfqs():
 
         # TODO: Create and send RFQ message with async adapter.send()
 
-        # Small delay between requests
-        await asyncio.sleep(0.5)
+        # Small delay between requests (optional)
+        # await asyncio.sleep(0.1)
 
 
 # TODO: Implement a reaction handler for Quote messages
@@ -36,7 +42,7 @@ async def handle_quote(message):
     # TODO: Extract information from quote message
 
     # TODO: Decide whether to buy or reject based on price
-    # If price is acceptable:
+    # If price is acceptable (price <= MAX_ACCEPTABLE_PRICE):
     #    Send Buy message
     # Else:
     #    Send Reject message

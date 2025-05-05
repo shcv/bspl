@@ -7,7 +7,7 @@ import bspl
 
 # Load the protocol specification from purchase.bspl
 purchase = bspl.load_file("purchase.bspl").export("Purchase")
-from Purchase import B, S
+from Purchase import Buyer, Seller
 
 # Define agent addresses (localhost with different ports)
 agents = {
@@ -19,6 +19,6 @@ agents = {
 systems = {
     "purchase": {
         "protocol": purchase,
-        "roles": {B: "buyer", S: "seller"},
+        "roles": {Buyer: "buyer", Seller: "seller"},
     }
 }

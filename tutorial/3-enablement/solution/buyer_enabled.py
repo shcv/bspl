@@ -9,7 +9,7 @@ import random
 from bspl.adapter import Adapter
 from bspl.adapter.event import InitEvent
 from configuration import agents, systems
-from Purchase import Buyer, RFQ, Quote, Buy, Reject
+from Purchase import RFQ, Quote, Buy, Reject
 
 # Create the Buyer adapter
 adapter = Adapter("buyer", systems, agents)

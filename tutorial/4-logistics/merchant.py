@@ -12,26 +12,25 @@ from configuration import agents, systems
 from Logistics import RequestLabel, RequestWrapping, Packed
 
 # Create the Merchant adapter
-adapter = Adapter("merchant", systems, agents)
+# in_place=True allows us to bind parameters on the message forms to make and send instances,
+# without needing to collect and return them
+adapter = Adapter("merchant", systems, agents, in_place=True)
 
 # Constants
-SHIPPING_ADDRESSES = [
-    "123 Main St., New York, NY 10001",
-    "456 Oak Ave., Los Angeles, CA 90001",
-    "789 Pine Rd., Chicago, IL 60007",
-    "321 Maple Dr., Houston, TX 77001",
+ADDRESSES = [
+    "123 Main St, Anytown, AN 12345",
+    "456 Oak Ave, Springfield, SP 67890",
+    "789 Pine Rd, Liberty, LB 13579",
+    "321 Cedar Ln, Westville, WV 24680",
+    "654 Maple Dr, Eastwood, EW 97531",
 ]
 
-ITEMS = {
-    "book": "paperback",
-    "shirt": "cotton",
-    "mug": "ceramic",
-    "toy": "plastic",
-    "jewelry": "gold",
-}
+# Sample items that can be ordered
+ITEMS = ["ball", "plate", "glass", "book", "toy", "electronics", "clothing", "jewelry"]
 
-# Track orders and items
-orders = {}  # To track orders and their items
+# Track orders and their items
+orders = {}  # orderID -> {itemID -> item}
+packed_items = {}  # orderID -> {itemID -> status}
 
 
 @adapter.decision(event=InitEvent)
@@ -41,8 +40,17 @@ async def create_orders(forms):
     # TODO: For each order:
     #   - Generate a shipping address
     #   - Request a shipping label
-    #   - Add multiple items to the order
-    #   - Request wrapping for each item
+    #   - Initialize order tracking data structures
+
+
+@adapter.enabled(RequestWrapping)
+async def request_wrapping(request_wrapping_form):
+    """Add items to an order and request wrapping for them."""
+    # TODO: For each order:
+    #   - Generate unique item IDs
+    #   - Select random items
+    #   - Track the items in the orders dictionary
+    #   - Bind parameters to the request_wrapping_form
 
 
 @adapter.reaction(Packed)
@@ -52,25 +60,30 @@ async def handle_packed(message):
     Update order status and check if order is complete.
     """
     # TODO: Process packed item notification
+    # - Extract orderID, itemID, and status from message
+    # - Update packed_items dictionary with the item's status
+    # - Check if all items in this order are now packed
+    # - Log order completion if all items are packed
 
 
-async def order_status_monitor():
-    """Periodically check and log the status of all orders."""
+async def monitor_orders():
+    """Periodically check order status and log summary."""
     while True:
-        for orderID, order in orders.items():
-            total_items = len(order["items"])
-            packed_items = sum(1 for item in order["items"].values() if item["status"] == "packed")
-            adapter.info(f"Order {orderID} status: {packed_items}/{total_items} items packed")
-            
-            # Check if order is complete
-            if packed_items == total_items and total_items > 0:
-                adapter.info(f"Order {orderID} is now complete!")
-        
-        await asyncio.sleep(5)  # Check every 5 seconds
+        await asyncio.sleep(2)  # Check every 2 seconds
+
+        if not orders:
+            continue
+
+        adapter.info("--- Order Status Summary ---")
+        for orderID, items in orders.items():
+            packed_count = len(packed_items.get(orderID, {}))
+            total_items = len(items)
+            adapter.info(f"Order {orderID}: {packed_count}/{total_items} items packed")
+        adapter.info("---------------------------")
 
 
 if __name__ == "__main__":
     adapter.info("Starting Merchant agent...")
     # Start the adapter with background tasks
-    asyncio.create_task(order_status_monitor())
+    asyncio.create_task(monitor_orders())
     adapter.start()

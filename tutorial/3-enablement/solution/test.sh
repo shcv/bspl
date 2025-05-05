@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
+# Safer pipefail for older Bash versions
+if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+  set -o pipefail
+fi
+set -u
 
 # Determine script directory for relative paths
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -9,8 +14,11 @@ PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 BUYER_SCRIPT="buyer_enabled.py"  # Default: solution buyer script
 SELLER_SCRIPT="seller_enabled.py"  # Default: solution seller script
 
+# Setup PYTHONPATH to ensure modules can be found
+export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
+
 # Process command line arguments for agent scripts
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
   arg="$1"
   # Extract file name and determine agent type from the file name
   filename=$(basename "$arg")
@@ -27,31 +35,73 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Create logs directory if it doesn't exist
-mkdir -p logs
+mkdir -p "$SCRIPT_DIR/logs"
 
 # Log files
-BUYER_LOG="logs/buyer_enabled.log"
-SELLER_LOG="logs/seller_enabled.log"
-COMBINED_LOG="logs/combined.log"
+BUYER_LOG="$SCRIPT_DIR/logs/buyer_enabled.log"
+SELLER_LOG="$SCRIPT_DIR/logs/seller_enabled.log"
+COMBINED_LOG="$SCRIPT_DIR/logs/combined.log"
 
-# Kill any existing processes using the ports (in case previous run didn't clean up)
-KILLING=false
+# Check for existing processes using the ports (but don't kill them)
 
-# Use grep to identify ports being used from configuration 
-# Default ports in case no logs exist yet
-for port in $(grep -o "Listening on ('localhost', [0-9]*)" logs/*.log 2>/dev/null | grep -o "[0-9]\{4,5\}" || echo "8001 8002"); do
-    pid=$(lsof -i:$port -t 2>/dev/null || true)
-    if [ -n "$pid" ]; then
-        echo "Killing process $pid using port $port"
-        kill -9 $pid 2>/dev/null || true
-        KILLING=true
+# Check for processes using ports that our tests need
+DEFAULT_PORTS="8001 8002"
+DETECTED_PORTS=""
+PORTS_IN_USE=false
+
+# Try to extract ports from logs if they exist
+if [ -d "$SCRIPT_DIR/logs" ] && ls "$SCRIPT_DIR/logs"/*.log 1>/dev/null 2>&1; then
+    # More compatible grep pattern
+    DETECTED_PORTS=$(grep -o "Listening on ('localhost', [0-9]*)" "$SCRIPT_DIR/logs"/*.log 2>/dev/null | 
+                     grep -o "[0-9][0-9][0-9][0-9][0-9]\|[0-9][0-9][0-9][0-9]" || echo "")
+fi
+
+# Use detected ports or fall back to defaults
+PORTS_TO_CHECK=${DETECTED_PORTS:-$DEFAULT_PORTS}
+
+echo "⚙️ Checking for conflicting processes on ports: $PORTS_TO_CHECK"
+
+for port in $PORTS_TO_CHECK; do
+    # Try different methods to find processes
+    if command -v lsof >/dev/null 2>&1; then
+        # If lsof is available (Mac/Linux)
+        pid=$(lsof -i:$port -t 2>/dev/null || true)
+        if [ -n "$pid" ]; then
+            echo "⚠️ WARNING: Port $port is in use by process ID: $pid"
+            PORTS_IN_USE=true
+        fi
+    elif command -v netstat >/dev/null 2>&1; then
+        # If netstat is available but not lsof
+        if [ "$(uname)" = "Darwin" ]; then
+            # Mac OS X style netstat
+            pid=$(netstat -anv | grep ".$port " | awk '{print $9}' || true)
+        else
+            # Linux style netstat
+            pid=$(netstat -tulpn 2>/dev/null | grep ":$port " | 
+                 grep -o '[0-9]*/[^ ]*' | cut -d/ -f1 || true)
+        fi
+        
+        if [ -n "$pid" ]; then
+            echo "⚠️ WARNING: Port $port is in use by process ID: $pid"
+            PORTS_IN_USE=true
+        fi
     fi
 done
 
-# Wait for processes to be killed if any were found
-if $KILLING; then
-  echo "Waiting for processes to terminate..."
-  sleep 2
+# If ports are in use, provide guidance
+if $PORTS_IN_USE; then
+    echo ""
+    echo "⚠️ ========================================================== ⚠️"
+    echo "  Some ports required for testing are already in use."
+    echo "  This might cause test failures or unexpected behavior."
+    echo ""
+    echo "  To kill processes using these ports, you can run:"
+    echo "  pkill -f 'localhost.*${PORTS_TO_CHECK// /\|localhost.*}'"
+    echo "  or for a specific port:"
+    echo "  lsof -ti:PORT_NUMBER | xargs kill -9"
+    echo "⚠️ ========================================================== ⚠️"
+    echo ""
+    # Continue tests anyway - user decided not to kill
 fi
 
 # Clean up old logs
@@ -59,6 +109,13 @@ rm -f $BUYER_LOG $SELLER_LOG $COMBINED_LOG
 
 # Create empty log files
 touch $BUYER_LOG $SELLER_LOG $COMBINED_LOG
+
+# Clean up any solution/ prefix from script paths
+BUYER_SCRIPT=$(echo "$BUYER_SCRIPT" | sed 's#^solution/##')
+SELLER_SCRIPT=$(echo "$SELLER_SCRIPT" | sed 's#^solution/##')
+
+# Save current directory
+START_DIR=$(pwd)
 
 # Determine if we're running from solution directory or parent directory
 # Check if we're inside the solution directory
@@ -68,18 +125,33 @@ if [[ "$(basename "$SCRIPT_DIR")" == "solution" ]]; then
 fi
 
 # Determine if seller script is a relative path
-if [[ "$SELLER_SCRIPT" == /* || "$SELLER_SCRIPT" == ../* || "$SELLER_SCRIPT" == ./* ]]; then
-  # Handling absolute or relative path
+if [[ "$SELLER_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting Seller (forms-based) from: $SELLER_SCRIPT"
+  SCRIPT_DIR_PATH=$(dirname "$SELLER_SCRIPT")
+  export PYTHONPATH="$SCRIPT_DIR_PATH:${PYTHONPATH:-}"
   BSPL_ADAPTER_DEBUG=true python "$SELLER_SCRIPT" > $SELLER_LOG 2>&1 &
+elif [[ "$SELLER_SCRIPT" == ../* || "$SELLER_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting Seller (forms-based) from: $SELLER_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
+  BSPL_ADAPTER_DEBUG=true python "$SELLER_SCRIPT" > $SELLER_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting Seller (forms-based) from current directory"
+    echo "Starting Seller (forms-based) from solution directory"
+    cd "$SCRIPT_DIR"
+    export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
     BSPL_ADAPTER_DEBUG=true python "$SELLER_SCRIPT" > $SELLER_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting Seller (forms-based) from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$SELLER_SCRIPT" > $SELLER_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
+    BSPL_ADAPTER_DEBUG=true python "$SELLER_SCRIPT" > $SELLER_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 SELLER_PID=$!
@@ -88,25 +160,40 @@ SELLER_PID=$!
 sleep 1
 
 # Determine if buyer script is a relative path
-if [[ "$BUYER_SCRIPT" == /* || "$BUYER_SCRIPT" == ../* || "$BUYER_SCRIPT" == ./* ]]; then
-  # Handling absolute or relative path
+if [[ "$BUYER_SCRIPT" == /* ]]; then
+  # Absolute path
   echo "Starting Buyer (forms-based) from: $BUYER_SCRIPT"
+  SCRIPT_DIR_PATH=$(dirname "$BUYER_SCRIPT")
+  export PYTHONPATH="$SCRIPT_DIR_PATH:${PYTHONPATH:-}"
   BSPL_ADAPTER_DEBUG=true python "$BUYER_SCRIPT" > $BUYER_LOG 2>&1 &
+elif [[ "$BUYER_SCRIPT" == ../* || "$BUYER_SCRIPT" == ./* ]]; then
+  # Relative path to solution directory
+  echo "Starting Buyer (forms-based) from: $BUYER_SCRIPT (relative to $SCRIPT_DIR)"
+  cd "$SCRIPT_DIR"
+  export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
+  BSPL_ADAPTER_DEBUG=true python "$BUYER_SCRIPT" > $BUYER_LOG 2>&1 &
+  cd - > /dev/null
 else
   # Handle both running from parent or solution directory
   if $IS_IN_SOLUTION; then
-    echo "Starting Buyer (forms-based) from current directory"
+    echo "Starting Buyer (forms-based) from solution directory"
+    cd "$SCRIPT_DIR"
+    export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
     BSPL_ADAPTER_DEBUG=true python "$BUYER_SCRIPT" > $BUYER_LOG 2>&1 &
+    cd - > /dev/null
   else
     echo "Starting Buyer (forms-based) from solution directory"
-    BSPL_ADAPTER_DEBUG=true python "solution/$BUYER_SCRIPT" > $BUYER_LOG 2>&1 &
+    cd "$SCRIPT_DIR"
+    export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
+    BSPL_ADAPTER_DEBUG=true python "$BUYER_SCRIPT" > $BUYER_LOG 2>&1 &
+    cd - > /dev/null
   fi
 fi
 BUYER_PID=$!
 
-# Run for 5 seconds to let the protocol execute completely
-echo "Running forms-based purchase protocol for 5 seconds..."
-sleep 5
+# Run for 3 seconds to let the protocol execute completely
+echo "Running forms-based purchase protocol for 3 seconds..."
+sleep 3
 
 # Stop all processes
 echo "Stopping processes..."
@@ -212,10 +299,10 @@ fi
 
 # Display log file details
 echo "--------------"
-echo "Test logs written to logs/ directory"
+echo "Test logs written to $SCRIPT_DIR/logs/ directory"
 
 # Show a summary of log sizes
 echo "Log file sizes:"
-ls -l logs/*.log
+ls -l "$SCRIPT_DIR/logs"/*.log
 
 echo "Done."

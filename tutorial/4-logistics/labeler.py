@@ -25,7 +25,8 @@ async def generate_label(label_form):
     """
     # TODO: Extract orderID and address from the form
     
-    # TODO: Generate a tracking number
+    # TODO: Generate a unique tracking number using uuid
+    # tracking_number = f"TRACK-{str(uuid.uuid4())[:8]}"
     
     # TODO: Return the form with the label parameter bound
 

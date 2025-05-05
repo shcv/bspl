@@ -4,6 +4,7 @@ Implementation of the Party agent for the BilateralAgreement protocol.
 
 import asyncio
 import logging
+import os
 from bspl.adapter import Adapter
 from configuration import agents, systems
 from BilateralAgreement import (
@@ -18,11 +19,12 @@ from BilateralAgreement import (
     Withdraw,
 )
 
+# Fixed minimal delays
+PROPOSAL_INTERVAL = 0.1  # Small delay between proposals
+WITHDRAWAL_TIMEOUT = 0.3  # Short timeout for withdrawals
+
 # Create the Party adapter
 adapter = Adapter("party", systems, agents)
-
-# Track active proposals
-active_proposals = {}
 
 # Simple counter for IDs
 counter = 0
@@ -36,9 +38,26 @@ PROPOSALS = [
 ]
 
 
+async def initiate_proposals():
+    """Initiate proposals directly."""
+    global counter
+
+    for i in range(3):  # Start with 3 proposals
+        counter += 1
+        ID = f"party-{counter}"
+        proposal_type = f"type-{counter % 4}"
+        proposal = PROPOSALS[counter % len(PROPOSALS)]
+
+        await send_proposal(ID, proposal_type, proposal, direct=True)
+        if PROPOSAL_INTERVAL > 0:
+            await asyncio.sleep(
+                PROPOSAL_INTERVAL
+            )  # Use configurable interval between proposals
+
+
 async def send_proposal(ID, proposal_type, proposal, direct=True):
     """Send a proposal and automatically withdraw it after 3 seconds if no response.
-    
+
     Args:
         ID: The unique identifier for the proposal
         proposal_type: The type of proposal
@@ -53,44 +72,23 @@ async def send_proposal(ID, proposal_type, proposal, direct=True):
     else:
         propose_msg = Propose(ID=ID, type=proposal_type, proposal=proposal)
         adapter.info(f"Sending proposal: {proposal}")
-    
+
     await adapter.send(propose_msg)
-    
-    # Track the proposal
-    active_proposals[ID] = proposal
-    
-    # Schedule withdrawal after 3 seconds if no response received
+
+    # Schedule withdrawal to happen if no response received
     asyncio.create_task(schedule_withdrawal(ID, proposal))
 
 
 async def schedule_withdrawal(ID, proposal):
-    """Schedule a withdrawal after 3 seconds if the proposal is still active."""
-    await asyncio.sleep(3)  # Wait 3 seconds
-    
-    # Check if proposal is still active (hasn't been accepted or rejected)
-    if ID in active_proposals:
-        adapter.info(f"No response received for proposal {ID}, withdrawing...")
-        withdraw_msg = Withdraw(
-            ID=ID, proposal=proposal, decision="withdrawn", closed="withdrawn"
-        )
-        await adapter.send(withdraw_msg)
-        
-        # Remove from active proposals
-        del active_proposals[ID]
+    """Schedule a withdrawal after the timeout."""
+    adapter.info("Waiting for response to proposal...")
+    await asyncio.sleep(WITHDRAWAL_TIMEOUT)  # Use configurable timeout
 
-
-async def initiate_proposals():
-    """Initiate proposals directly."""
-    global counter
-
-    for i in range(2):  # Start with 2 proposals
-        counter += 1
-        ID = f"party-{counter}"
-        proposal_type = f"type-{counter % 4}"
-        proposal = PROPOSALS[counter % len(PROPOSALS)]
-
-        await send_proposal(ID, proposal_type, proposal, direct=True)
-        await asyncio.sleep(2)  # Wait 2 seconds between proposals
+    # Attempt to send withdrawal; will be blocked if proposal is already closed
+    withdraw_msg = Withdraw(
+        ID=ID, proposal=proposal, decision="withdrawn", closed="withdrawn"
+    )
+    await adapter.send(withdraw_msg)
 
 
 @adapter.reaction(Request)
@@ -121,9 +119,6 @@ async def handle_accept(message):
     adapter.info(f"Executing agreement: {ID}")
     await adapter.send(execute_msg)
 
-    if ID in active_proposals:
-        del active_proposals[ID]
-
 
 @adapter.reaction(Reject)
 async def handle_reject(message):
@@ -140,9 +135,6 @@ async def handle_reject(message):
     )
     adapter.info(f"Acknowledging rejection: {ID}")
     await adapter.send(ack_msg)
-
-    if ID in active_proposals:
-        del active_proposals[ID]
 
 
 if __name__ == "__main__":

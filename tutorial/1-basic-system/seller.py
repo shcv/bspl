@@ -8,11 +8,21 @@ import random
 from bspl.adapter import Adapter
 from configuration import agents, systems
 
-# TODO Import the Purchase protocol roles and messages
+# Import the Purchase protocol roles and messages
+from Purchase import RFQ, Quote, Buy, Reject
 
 
 # Create the Seller adapter
 adapter = Adapter("seller", systems, agents)
+
+# Simple pricing model
+ITEM_PRICES = {"ball": 15.0, "bat": 35.0, "glove": 25.0, "helmet": 45.0, "shoes": 60.0}
+
+def get_price(item):
+    """Get the base price for an item and add small random variation."""
+    base_price = ITEM_PRICES.get(item, 20.0)  # Default price if item not in dictionary
+    variation = random.uniform(-2.0, 5.0)  # Add some variation
+    return round(base_price + variation, 2)
 
 
 @adapter.reaction(RFQ)

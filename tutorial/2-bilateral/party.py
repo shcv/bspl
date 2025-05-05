@@ -22,6 +22,15 @@ PROPOSAL_TERMS = {
     "basic": "Basic terms with lower cost",
 }
 
+# Sample proposal templates
+PROPOSALS = [
+    "Buy 10 widgets for $500",
+    "Provide consulting for 20 hours"
+]
+
+# Simple counter for IDs
+counter = 0
+
 
 @adapter.reaction(Request)
 async def handle_request(message):
@@ -39,12 +48,14 @@ async def handle_request(message):
 
 
 async def initiate_proposals():
-    """Periodically initiate direct proposals without prior requests."""
-    # TODO: Implement logic to periodically send direct proposals (Propose2)
-    # - Generate unique IDs
-    # - Select random proposal types
-    # - Create and send Propose2 messages
-    # - Add appropriate delay between proposals
+    """Initiate direct proposals without prior requests."""
+    global counter
+    
+    # TODO: Implement logic to send direct proposals (Propose2)
+    # - Increment counter and generate ID using counter (e.g., "party-1")
+    # - Select proposal type and content
+    # - Create and send Propose2 message
+    # - Schedule withdrawal for the proposal
 
 
 @adapter.reaction(Accept)
@@ -56,8 +67,9 @@ async def handle_accept(message):
         message: The Accept message containing signature and decision
     """
     # TODO: Process acceptance and execute the agreement
-    # - Extract signature and other details
-    # - Send Execute message to confirm agreement execution
+    # - Extract ID and signature from the message
+    # - Create and send Execute message to confirm agreement execution
+    # - The Execute message completes the agreement process
 
 
 @adapter.reaction(Reject)
@@ -69,15 +81,19 @@ async def handle_reject(message):
         message: The Reject message
     """
     # TODO: Handle rejection by acknowledging it
-    # - Send Ack message to acknowledge rejection
+    # - Extract ID, proposal, and rejected status from the message
+    # - Create and send Ack message to acknowledge rejection
+    # - The Ack message closes the agreement process
 
 
-async def withdraw_inactive_proposals():
-    """Periodically check for and withdraw proposals that have been pending too long."""
-    # TODO: Implement logic to withdraw pending proposals after a timeout
-    # - Track proposals with timestamps
-    # - Check for proposals beyond timeout threshold
-    # - Send Withdraw message for timed-out proposals
+async def schedule_withdrawal(ID, proposal):
+    """Schedule a withdrawal after a timeout if no response is received."""
+    # TODO: Implement logic to withdraw a specific proposal after a timeout
+    # - Wait for a short period (e.g., 0.3 seconds)
+    # - Create Withdraw message with ID and proposal parameters
+    # - Set the decision and closed status
+    # - Send Withdraw message
+    # - The protocol will automatically block the withdrawal if already accepted/rejected
 
 
 if __name__ == "__main__":

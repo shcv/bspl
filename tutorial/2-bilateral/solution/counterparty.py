@@ -4,6 +4,7 @@ Implementation of the CounterParty agent for the BilateralAgreement protocol.
 
 import asyncio
 import logging
+import os
 from bspl.adapter import Adapter
 from configuration import agents, systems
 from BilateralAgreement import (
@@ -17,6 +18,10 @@ from BilateralAgreement import (
     Ack,
     Withdraw,
 )
+
+# Fixed minimal delays
+REQUEST_INTERVAL = 0.1  # Small delay between initial requests
+DECISION_DELAY = 0  # No delay for decisions
 
 # Create the CounterParty adapter
 adapter = Adapter("counterparty", systems, agents)
@@ -32,7 +37,7 @@ async def initiate_requests():
     """Send requests for agreements."""
     global counter
 
-    for i in range(2):  # Start with 2 requests
+    for i in range(3):  # Start with 3 requests
         counter += 1
         ID = f"counter-{counter}"
         request_type = REQUEST_TYPES[counter % len(REQUEST_TYPES)]
@@ -41,7 +46,8 @@ async def initiate_requests():
         adapter.info(f"Requesting {request_type} agreement (ID: {ID})")
         await adapter.send(request_msg)
 
-        await asyncio.sleep(2)  # Wait 2 seconds between requests
+        if REQUEST_INTERVAL > 0:
+            await asyncio.sleep(REQUEST_INTERVAL)  # Use configurable interval
 
 
 @adapter.reaction(Propose, Propose2)
@@ -52,13 +58,14 @@ async def handle_proposal(message):
 
     adapter.info(f"Received proposal: {proposal} (ID: {ID})")
 
-    # Wait a bit before responding to give time for decisions
-    await asyncio.sleep(1)  # Short delay
+    # Optional delay for decision-making
+    if DECISION_DELAY > 0:
+        await asyncio.sleep(DECISION_DELAY)
 
     # Make a 3-way decision based on ID hash
     # 0: Accept, 1: Reject, 2: Do nothing (will be withdrawn)
     decision = sum(ord(c) for c in ID) % 3
-    
+
     if decision == 0:
         # Accept the proposal
         signature = f"SIG-{ID}"
@@ -113,25 +120,6 @@ async def handle_withdraw(message):
     adapter.info(f"Status: {closed}")
 
 
-async def periodic_requests():
-    """Periodically send new requests."""
-    global counter
-
-    while True:
-        await asyncio.sleep(5)  # Wait 5 seconds between new requests
-
-        counter += 1
-        ID = f"counter-{counter}"
-        request_type = REQUEST_TYPES[counter % len(REQUEST_TYPES)]
-
-        request_msg = Request(ID=ID, type=request_type)
-        adapter.info(f"Requesting {request_type} agreement (ID: {ID})")
-        await adapter.send(request_msg)
-
-
 if __name__ == "__main__":
     adapter.info("Starting CounterParty agent...")
-    adapter.start(
-        initiate_requests(),
-        periodic_requests(),
-    )
+    adapter.start(initiate_requests())

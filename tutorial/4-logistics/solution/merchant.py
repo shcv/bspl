@@ -106,7 +106,7 @@ async def handle_packed(message):
 async def monitor_orders():
     """Periodically check order status and log summary."""
     while True:
-        await asyncio.sleep(5)  # Check every 5 seconds
+        await asyncio.sleep(2)  # Check every 2 seconds
 
         if not orders:
             continue

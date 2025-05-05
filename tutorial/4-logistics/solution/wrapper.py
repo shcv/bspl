@@ -25,14 +25,7 @@ WRAPPING_MATERIALS = {
 
 def select_wrapping_material(item):
     """Select appropriate wrapping material based on item type."""
-    if item.lower() in FRAGILE_ITEMS:
-        return WRAPPING_MATERIALS["fragile"]
-    elif item.lower() == "clothing":
-        return WRAPPING_MATERIALS["clothing"]
-    elif item.lower() == "book":
-        return WRAPPING_MATERIALS["book"]
-    else:
-        return WRAPPING_MATERIALS["standard"]
+    return WRAPPING_MATERIALS.get(item.lower(), WRAPPING_MATERIALS["standard"])
 
 
 @adapter.enabled(Wrapped)
@@ -53,15 +46,6 @@ async def wrap_item(wrapped_form):
 
     # Bind the wrapping material to the form
     return wrapped_form.bind(wrapping=wrapping)
-
-
-# React to wrapping requests for logging purposes
-@adapter.reaction(RequestWrapping)
-async def log_wrapping_request(message):
-    """Log when a wrapping request is received."""
-    adapter.info(
-        f"Received wrapping request for item {message['item']} (ID: {message['itemID']}) in order {message['orderID']}"
-    )
 
 
 if __name__ == "__main__":

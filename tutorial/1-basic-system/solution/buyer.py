@@ -28,8 +28,8 @@ async def send_rfqs():
         await adapter.send(rfq)
         adapter.info(f"Sent RFQ for {item} with ID {ID}")
 
-        # Small delay between requests
-        await asyncio.sleep(0.5)
+        # Minimal delay between requests
+        await asyncio.sleep(0.1)
 
 
 @adapter.reaction(Quote)

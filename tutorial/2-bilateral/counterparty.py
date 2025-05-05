@@ -15,11 +15,11 @@ from BilateralAgreement import Request, Propose, Propose2, Accept, Reject, Execu
 adapter = Adapter("counterparty", systems, agents)
 
 # Constants and settings
-REQUEST_TYPES = ["standard", "premium", "basic"]
+REQUEST_TYPES = ["product", "service", "partner", "license"]
 ACCEPT_PROBABILITY = 0.6  # 60% chance to accept proposals
 
 
-async def send_requests():
+async def initiate_requests():
     """Periodically send requests for different agreement types."""
     # TODO: Implement logic to periodically send requests
     # - Generate unique IDs
@@ -37,15 +37,20 @@ async def handle_proposal(message):
     Args:
         message: The Propose or Propose2 message from Party
     """
-    # TODO: Extract information from proposal message
+    # TODO: Extract information from proposal message (ID, type, proposal)
     
-    # TODO: Decide whether to accept or reject (using random probability)
+    # TODO: Make a decision whether to accept or reject
+    # You can use a simple approach like random probability:
+    # if random.random() < ACCEPT_PROBABILITY:
+    #    # Accept the proposal
+    # else:
+    #    # Reject the proposal
     
     # TODO: If accepting:
-    #   - Generate a digital signature
-    #   - Send Accept message with signature
+    #   - Generate a signature (e.g., "SIG-" + ID)
+    #   - Create and send Accept message with signature
     # TODO: If rejecting:
-    #   - Send Reject message
+    #   - Create and send Reject message
 
 
 @adapter.reaction(Execute)
@@ -87,4 +92,4 @@ async def handle_withdrawal(message):
 
 if __name__ == "__main__":
     adapter.info("Starting CounterParty agent...")
-    # TODO: Start the adapter with the send_requests function
+    # TODO: Start the adapter with the initiate_requests function

@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
+# Safer pipefail for older Bash versions
+if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+  set -o pipefail
+fi
+set -u
 
 # Determine script directory for relative paths
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Setup PYTHONPATH to ensure modules can be found
+export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
 
 # Parse arguments to identify which agent files to use
 PARTY_SCRIPT="party.py"  # Default: solution party script
 COUNTERPARTY_SCRIPT="counterparty.py"  # Default: solution counterparty script
 
 # Process command line arguments for agent scripts
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
   arg="$1"
   # Extract file name and determine agent type from the file name
   filename=$(basename "$arg")
@@ -34,25 +42,9 @@ PARTY_LOG="$SCRIPT_DIR/logs/party.log"
 COUNTERPARTY_LOG="$SCRIPT_DIR/logs/counterparty.log"
 COMBINED_LOG="$SCRIPT_DIR/logs/combined.log"
 
-# Kill any existing processes using the ports (in case previous run didn't clean up)
-KILLING=false
-
-# Use grep to identify ports being used from configuration 
-# Default ports in case no logs exist yet
-for port in $(grep -o "Listening on ('localhost', [0-9]*)" "$SCRIPT_DIR/logs"/*.log 2>/dev/null | grep -o "[0-9]\{4,5\}" || echo "8001 8002"); do
-    pid=$(lsof -i:$port -t 2>/dev/null || true)
-    if [ -n "$pid" ]; then
-        echo "Killing process $pid using port $port"
-        kill -9 $pid 2>/dev/null || true
-        KILLING=true
-    fi
-done
-
-# Wait for processes to be killed if any were found
-if $KILLING; then
-  echo "Waiting for processes to terminate..."
-  sleep 2
-fi
+# Kill any existing processes for the Bilateral agents
+echo "Cleaning up any running agent processes..."
+pkill -f "python (party|counterparty).py" 2>/dev/null || true
 
 # Clean up old logs
 rm -f $PARTY_LOG $COUNTERPARTY_LOG $COMBINED_LOG
@@ -60,12 +52,21 @@ rm -f $PARTY_LOG $COUNTERPARTY_LOG $COMBINED_LOG
 # Create empty log files
 touch $PARTY_LOG $COUNTERPARTY_LOG $COMBINED_LOG
 
+# Remember when we started
+START_TIME=$(date +%s)
+
+# Save current directory
+START_DIR=$(pwd)
+
 # Determine if we're running from solution directory or parent directory
 # Check if we're inside the solution directory
 IS_IN_SOLUTION=false
 if [[ "$(basename "$SCRIPT_DIR")" == "solution" ]]; then
   IS_IN_SOLUTION=true
 fi
+
+# Clean up any solution/ prefix from script paths
+COUNTERPARTY_SCRIPT=$(echo "$COUNTERPARTY_SCRIPT" | sed 's#^solution/##')
 
 # Determine if counterparty script is a relative path
 if [[ "$COUNTERPARTY_SCRIPT" == /* ]]; then
@@ -95,7 +96,10 @@ fi
 COUNTERPARTY_PID=$!
 
 # Wait for CounterParty to initialize
-sleep 1
+sleep 0.5
+
+# Clean up any solution/ prefix from script paths
+PARTY_SCRIPT=$(echo "$PARTY_SCRIPT" | sed 's#^solution/##')
 
 # Determine if party script is a relative path
 if [[ "$PARTY_SCRIPT" == /* ]]; then
@@ -124,20 +128,37 @@ else
 fi
 PARTY_PID=$!
 
-# Run for 12 seconds to ensure we see all protocol patterns
-# (including withdrawals which happen after 10 seconds)
-echo "Running bilateral agreement protocol for 12 seconds..."
-sleep 12
+# Run for 1.5 seconds to ensure we see withdrawals (agents use 0.3s withdrawal timeout)
+echo "Running bilateral agreement protocol for 1.5 seconds..."
+TEST_DURATION=1.5
+
+sleep $TEST_DURATION
 
 # Stop all processes
 echo "Stopping processes..."
 kill $COUNTERPARTY_PID $PARTY_PID 2>/dev/null || true
 
 # Wait for processes to fully terminate
-sleep 1
+sleep 0.5
+
+# Calculate test duration
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo "Test ran for approximately $DURATION seconds"
+
+# Make sure logs exist and have content
+if [ ! -s "$PARTY_LOG" ] || [ ! -s "$COUNTERPARTY_LOG" ]; then
+  echo "ERROR: One or more log files is empty. Check if agents started properly."
+  ls -l "$SCRIPT_DIR/logs"/*.log
+fi
 
 # Combine logs for easier analysis
 cat $PARTY_LOG $COUNTERPARTY_LOG > $COMBINED_LOG
+
+# Make sure we have something in the combined log
+if [ ! -s "$COMBINED_LOG" ]; then
+  echo "ERROR: Combined log is empty. Tests will fail."
+fi
 
 # Function to check if pattern exists in logs
 check_pattern() {

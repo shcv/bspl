@@ -3,21 +3,21 @@ BilateralAgreement {
   parameters out ID key, out type, out proposal, out decision, out closed
   private signature, accepted, rejected
   
-  // TODO: CounterParty initiates
-  // Implement CounterParty -> Party message for initiating a request
-  // Implement Party -> CounterParty response with proposal
-
+  // CounterParty initiates
+  CounterParty -> Party : Request [ out ID, out type ]
+  Party -> CounterParty : Propose [ in ID, in type, out proposal ]
+  
   // TODO: Party initiates
   // Implement Party -> CounterParty message for direct proposal
 
-  // TODO: Acceptance path
-  // Implement CounterParty -> Party message for accepting a proposal
-  // Implement Party -> CounterParty message for executing agreement
+  // TODO: Complete acceptance path
+  // Implement CounterParty -> Party: Accept message
+  // Implement Party -> CounterParty: Execute message to complete accepted agreement
 
-  // TODO: Rejection path
-  // Implement CounterParty -> Party message for rejecting a proposal
-  // Implement Party -> CounterParty message for acknowledging rejection
+  // TODO: Complete rejection path
+  // Implement CounterParty -> Party: Reject message 
+  // Implement Party -> CounterParty: Ack message to acknowledge rejection
 
-  // TODO: Withdrawal path
-  // Implement Party -> CounterParty message for withdrawing a proposal
+  // TODO: Complete withdrawal path
+  // Implement Party -> CounterParty: Withdraw message for closing a proposal with no response
 }

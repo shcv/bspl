@@ -24,22 +24,17 @@ async def generate_label(labeled_form):
     orderID = labeled_form["orderID"]
     address = labeled_form["address"]
 
-    # Generate a label (in a real system, this might involve printing a physical label)
-    # For this example, we'll create a unique identifier for the label
-    label_id = f"LBL-{uuid.uuid4().hex[:8].upper()}"
-
-    # Simulate different shipping carriers based on address
-    carriers = ["FedEx", "UPS", "USPS", "DHL"]
-    carrier = carriers[hash(address) % len(carriers)]
-
+    # Generate a unique tracking number
+    tracking_number = f"TRACK-{str(uuid.uuid4())[:8]}"
+    
     # Create a formatted label
-    label = f"{carrier}-{label_id}"
+    label = tracking_number
 
     adapter.info(f"Generated shipping label {label} for order {orderID}")
     adapter.info(f"Shipping to: {address}")
 
     # Bind the label to the form
-    return labeled_form.bind(label=label + "2")
+    return labeled_form.bind(label=label)
 
 
 # React to label requests for logging purposes
