@@ -28,8 +28,12 @@ class LogisticsTester:
         # Determine execution mode based on the current directory
         self.current_dir = Path.cwd()
         
-        # Check if we're running from the solution directory
-        self.is_solution_mode = self.current_dir.samefile(self.solution_dir)
+        # Get the path used to invoke this script
+        invoke_path = Path(sys.argv[0])
+        
+        # Check if we're running from the solution directory directly or through a symlink from parent
+        self.is_solution_mode = (self.current_dir.samefile(self.solution_dir) or 
+                                "solution" in invoke_path.parts)
         
         # Determine script directory based on mode
         if self.is_solution_mode:

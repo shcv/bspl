@@ -110,13 +110,17 @@ Use the provided =start.sh= script to run both agents and test various scenarios
 Check the =solution= directory for examples if you get stuck, or to compare your final result.
 
 *** Testing Your Solution
-A test script is provided to automatically test your implementation:
+Test scripts are provided to automatically test your implementation:
 
 #+begin_example
+# Run the Python test script
+./test.py
+
+# Or run the Bash test script (if available)
 ./test.sh
 #+end_example
 
-This script will:
+These scripts will:
 - Run your implementation
 - Collect logs in the =logs/= directory
 - Verify key protocol flows including:
@@ -126,15 +130,19 @@ This script will:
   - Withdrawal scenarios
 - Report on successful and failed test cases
 
-You can also use the solution test script as a reference or to test specific components:
+You can also test the solution implementation directly:
 
 #+begin_example
-# Run only the solution implementation
-solution/test.sh
+# Test the solution implementation
+./solution/test.py
+#+end_example
 
+Test with specific components:
+
+#+begin_example
 # Test your party.py with the solution counterparty
-solution/test.sh party.py
+./test.py solution/counterparty.py
 
 # Test your counterparty.py with the solution party
-solution/test.sh counterparty.py
+./test.py solution/party.py
 #+end_example

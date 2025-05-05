@@ -52,27 +52,35 @@ Use the provided start script to run both agents and observe their interaction.
 Check the =solution/= directory for examples if you get stuck, or to compare your final result.
 
 *** 5. Testing Your Solution
-A test script is provided to automatically test your implementation:
+Test scripts are provided to automatically test your implementation:
 
 #+begin_example
+# Run the Python test script
+./test.py
+
+# Or run the Bash test script (if available)
 ./test.sh
 #+end_example
 
-This script will:
+These scripts will:
 - Run your implementation
 - Collect logs in the =logs/= directory
 - Verify that key protocol steps are being executed correctly
 - Report on successful and failed test cases
 
-You can also use the solution test script as a reference or to test specific components:
+You can also test the solution implementation directly:
 
 #+begin_example
-# Run only the solution implementation
-solution/test.sh
+# Test the solution implementation
+./solution/test.py
+#+end_example
 
+Test with specific components:
+
+#+begin_example
 # Test your buyer.py with the solution seller
-solution/test.sh buyer.py
+./test.py solution/seller.py
 
 # Test your seller.py with the solution buyer
-solution/test.sh seller.py
+./test.py solution/buyer.py
 #+end_example
