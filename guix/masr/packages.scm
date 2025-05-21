@@ -28,6 +28,8 @@
         (base32
          "1ir949z28ng4xll3pd0n3clizd5n378qa634vc8kvkxna4cghn70"))))
     (build-system python-build-system)
+    (inputs
+     (list glibc))
     (propagated-inputs
      (list
       python-agentspeak

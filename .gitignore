@@ -21,3 +21,5 @@ pip-wheel-metadata/
 bspl_parser.py
 spl_parser.py
 langshaw_parser.py
+
+**/.claude/settings.local.json

@@ -1,11 +1,13 @@
-;;; Copyright © 2021 Samuel Christie <shcv@sdf.org>
+;;; Copyright © 2025 Samuel Christie <shcv@sdf.org>
 
 (define-module (masr packages python-xyz)
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (gnu packages)
+  #:use-module (gnu packages base)
   #:use-module (gnu packages compression)
   #:use-module (gnu packages check)
   #:use-module (gnu packages python-check)
+  #:use-module (gnu packages python-build)
   #:use-module (gnu packages python-xyz)
   #:use-module (gnu packages libffi)
   #:use-module (gnu packages time)
@@ -13,12 +15,13 @@
   #:use-module (guix packages)
   #:use-module (guix download)
   #:use-module (guix build-system python)
+  #:use-module (guix build-system pyproject)
   #:use-module (srfi srfi-1))
 
 (define-public python-tatsu
   (package
     (name "python-tatsu")
-    (version "5.8.3")
+    (version "5.12.1")
     (source
      (origin
        (method url-fetch)
@@ -42,34 +45,34 @@
 (define-public python-pytest-mypy
   (package
     (name "python-pytest-mypy")
-    (version "0.8.0")
+    (version "1.0.1")
     (source
-      (origin
-        (method url-fetch)
-        (uri (pypi-uri "pytest-mypy" version))
-        (sha256
-          (base32
-            "077hmajyngi1rbxmq2nra6i1ckc000y74ndn82n9imd7zsj1im33"))))
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "pytest-mypy" version))
+       (sha256
+        (base32
+         "077hmajyngi1rbxmq2nra6i1ckc000y74ndn82n9imd7zsj1im33"))))
     (build-system python-build-system)
     (propagated-inputs
-      `(("python-attrs" ,python-attrs)
-        ("python-filelock" ,python-filelock)
-        ("python-mypy" ,python-mypy)
-        ("python-pytest" ,python-pytest)))
+     `(("python-attrs" ,python-attrs)
+       ("python-filelock" ,python-filelock)
+       ("python-mypy" ,python-mypy)
+       ("python-pytest" ,python-pytest)))
     (native-inputs
-      `(("python-setuptools-scm" ,python-setuptools-scm)))
+     `(("python-setuptools-scm" ,python-setuptools-scm)))
     (home-page
-      "https://github.com/dbader/pytest-mypy")
+     "https://github.com/dbader/pytest-mypy")
     (synopsis
-      "Mypy static type checker plugin for Pytest")
+     "Mypy static type checker plugin for Pytest")
     (description
-      "Mypy static type checker plugin for Pytest")
+     "Mypy static type checker plugin for Pytest")
     (license license:expat)))
 
 (define-public python-setuptools-scm
   (package
     (name "python-setuptools-scm")
-    (version "5.0.1")
+    (version "8.3.1")
     (source (origin
               (method url-fetch)
               (uri (pypi-uri "setuptools_scm" version))
@@ -90,15 +93,17 @@ them as the version argument or in a SCM managed file.")
     (name "python-boolexpr")
     (version "2.4")
     (source
-      (origin
-        (method url-fetch)
-        (uri (pypi-uri "boolexpr" version))
-        (sha256
-          (base32
-            "0bwzq1cp7lwnsh5n5paq6rgwagf6md2rlxr2m1lfa79r2rzp6jhp"))))
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "boolexpr" version))
+       (sha256
+        (base32
+         "0bwzq1cp7lwnsh5n5paq6rgwagf6md2rlxr2m1lfa79r2rzp6jhp"))))
     (build-system python-build-system)
+    (inputs
+     (list glibc))
     (propagated-inputs
-      `(("python-cffi" ,python-cffi)))
+     (list python-cffi))
     (home-page "http://www.boolexpr.org")
     (synopsis "Boolean Expressions")
     (description "Boolean Expressions")
@@ -109,15 +114,15 @@ them as the version argument or in a SCM managed file.")
     (name "python-ttictoc")
     (version "0.5.6")
     (source
-      (origin
-        (method url-fetch)
-        (uri (pypi-uri "ttictoc" version))
-        (sha256
-          (base32
-            "1nb436zyidwrqzzfz0r55s9nk05jjy7kysbiglzv36gjz8sabq4s"))))
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "ttictoc" version))
+       (sha256
+        (base32
+         "1nb436zyidwrqzzfz0r55s9nk05jjy7kysbiglzv36gjz8sabq4s"))))
     (build-system python-build-system)
     (home-page
-      "https://github.com/hector-sab/ttictoc")
+     "https://github.com/hector-sab/ttictoc")
     (synopsis "Time parts of your code easily.")
     (description "Time parts of your code easily.")
     (license license:expat)))
@@ -125,22 +130,31 @@ them as the version argument or in a SCM managed file.")
 (define-public python-aiorun
   (package
     (name "python-aiorun")
-    (version "2020.12.1")
+    (version "2025.1.1")
     (source
-      (origin
-        (method url-fetch)
-        (uri (pypi-uri "aiorun" version))
-        (sha256
-          (base32
-            "06zxr7g8r61qfyygrvalw7ym777xjwr74ks8mdwrqw6sv8vmyhw8"))))
-    (build-system python-build-system)
-    (propagated-inputs
-      `(("python-pytest" ,python-pytest)
-        ("python-pytest-cov" ,python-pytest-cov)))
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "aiorun" version))
+       (sha256
+        (base32
+         "18sh1mym59s7rjwafv66s36q9rsg43lhdnrjnld6gqjc0dd0glc6"))))
+    (build-system pyproject-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (replace 'check
+           (lambda* (#:key tests? #:allow-other-keys)
+             (when tests?
+               ;; Skip the test_sigterm_mp test entirely
+               (invoke "python" "-m" "pytest" "-vvs" "-k" "not test_sigterm_mp")))))))
+    (inputs
+     (list python-pytest python-pytest-cov))
+    (native-inputs
+     (list python-flit-core))
     (home-page "https://github.com/cjrh/aiorun")
     (synopsis "Boilerplate for asyncio applications")
     (description
-      "Boilerplate for asyncio applications")
+     "Boilerplate for asyncio applications")
     (license license:asl2.0)))
 
 (define-public python-aiocron
@@ -167,12 +181,12 @@ them as the version argument or in a SCM managed file.")
     (name "python-ijson")
     (version "3.1.4")
     (source
-      (origin
-        (method url-fetch)
-        (uri (pypi-uri "ijson" version))
-        (sha256
-          (base32
-            "1sp463ywj4jv5cp6hsv2qwiima30d09xsabxb2dyq5b17jp0640x"))))
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "ijson" version))
+       (sha256
+        (base32
+         "1sp463ywj4jv5cp6hsv2qwiima30d09xsabxb2dyq5b17jp0640x"))))
     (build-system python-build-system)
     (arguments
      `(#:phases
@@ -181,7 +195,7 @@ them as the version argument or in a SCM managed file.")
            (lambda _
              (substitute* "test/test_base.py"
                (("(.*?)for backend in (.*?)'yajl', (.*)$" all indent prefix end)
-                 ;; remove 'yajl' from list of backends
+                ;; remove 'yajl' from list of backends
                 (string-append indent "for backend in " prefix end)))
              (delete-file "ijson/backends/yajl.py")
              #t)))))
@@ -190,9 +204,9 @@ them as the version argument or in a SCM managed file.")
        ("libyajl" ,libyajl)))
     (home-page "https://github.com/ICRAR/ijson")
     (synopsis
-      "Iterative JSON parser with standard Python iterator interfaces")
+     "Iterative JSON parser with standard Python iterator interfaces")
     (description
-      "Iterative JSON parser with standard Python iterator interfaces")
+     "Iterative JSON parser with standard Python iterator interfaces")
     (license license:bsd-3)))
 
 (define-public python-agentspeak
