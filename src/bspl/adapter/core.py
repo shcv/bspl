@@ -154,7 +154,7 @@ class Adapter:
             self.warning("Data does not parse to a dictionary: {}".format(data))
             return
 
-        schema = self.messages[data["schema"]]
+        schema = self.find_message(data["schema"])
         message = Message(schema, data["payload"], meta=data.get("meta", {}))
         message.meta["received"] = datetime.datetime.now()
         if self.history.is_duplicate(message):

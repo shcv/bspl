@@ -40,7 +40,7 @@ with open(grammar_path, "r", encoding="utf8") as grammar:
 
 
 def lookup(protocol, names):
-    return [protocol.messages[name] for name in names]
+    return [protocol.find_message(name) for name in names]
 
 
 def from_ast(protocol, ast):

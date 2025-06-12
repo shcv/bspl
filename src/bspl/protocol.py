@@ -2,6 +2,7 @@ from .utils import merge, upcamel
 import inspect
 import sys
 import re
+import copy
 from types import ModuleType
 
 
@@ -27,6 +28,7 @@ class Specification:
 
         for p in self.protocols.values():
             p.resolve_references(self)
+            
         # Validate parameter consistency after references are resolved
         from .validation import validate_protocol_parameters
         for p in self.protocols.values():
@@ -112,6 +114,10 @@ class Reference(Base):
     def __init__(self, name, parameters=None, parent=None):
         self.parameters = parameters  # list(Parameter)
         super().__init__(name, parent, "reference")
+
+    @property
+    def name(self):
+        return self.raw_name + (str(self.idx) if getattr(self, 'idx', 1) > 1 else "")
 
     def format(self, ref=True):
         return "{}({}, {})".format(
@@ -226,7 +232,20 @@ class Protocol(Base):
 
     @property
     def messages(self):
-        return {k: v for r in self.references.values() for k, v in r.messages.items()}
+        return {v.qualified_name: v for r in self.references.values() for v in r.messages.values()}
+    
+    def find_message(self, name):
+        """Find message by name, searching both qualified and unqualified names"""
+        # First try direct qualified lookup
+        if name in self.messages:
+            return self.messages[name]
+        
+        # Then try unqualified name lookup
+        for msg in self.messages.values():
+            if msg.name == name:
+                return msg
+        
+        raise KeyError(f"Message '{name}' not found in protocol '{self.name}'")
 
     @property
     def is_entrypoint(self):
@@ -318,7 +337,7 @@ class Protocol(Base):
         refs = {}
         for r in self.references.values():
             if r.type == "protocol" or r.type == "reference":
-                protocol = spec.protocols.get(r.name)
+                protocol = spec.protocols.get(r.raw_name)
                 if not protocol:
                     raise LookupError(f"Undefined protocol {r.name}")
                 refs[r.name] = protocol.instance(spec, self, r)
@@ -330,11 +349,11 @@ class Protocol(Base):
 
     def instance(self, spec, parent, reference):
         p = Protocol(
-            self.name,
+            reference.name,
             self.roles.values(),
             public_parameters=self.public_parameters.values(),
             private_parameters=self.private_parameters.values(),
-            references=self.references.values(),
+            references=[copy.deepcopy(r) for r in self.references.values()],
             parent=parent,
         )
         for i, r in enumerate(self.roles.values()):
@@ -355,7 +374,7 @@ class Protocol(Base):
 
     def find_schema(self, payload=None, name=None, to=None):
         if name:
-            return self.messages[name]
+            return self.find_message(name)
 
         for schema in self.messages.values():
             if to and schema.recipient is not to:
@@ -506,9 +525,9 @@ class Message(Protocol):
 
     def acknowledgment(self):
         name = "@" + self.raw_name
-        if name in self.parent.messages:
-            return self.parent.messages[name]
-        else:
+        try:
+            return self.parent.find_message(name)
+        except KeyError:
             m = Message(
                 "@" + self.raw_name, self.recipient, self.sender, parent=self.parent
             )
