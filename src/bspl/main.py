@@ -3,6 +3,7 @@ import fire
 import json
 from .generators import Generate
 from .verification import Verify
+import tatsu.exceptions
 
 
 def handle_projection(role_name, *files, filter=".*", verbose=False):
@@ -56,7 +57,11 @@ def handle_ast(path, indent=2):
         raw = file.read()
         raw = strip_latex(raw)
 
-        spec = model.parse(raw, rule_name="document")
+        try:
+            spec = model.parse(raw, rule_name="document")
+        except tatsu.exceptions.TatSuException as e:
+            print(f"Syntax error in {path}: {e}")
+            return
 
         def remove_parseinfo(d):
             if not isinstance(d, (dict, list)):

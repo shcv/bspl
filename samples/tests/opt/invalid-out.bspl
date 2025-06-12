@@ -1,0 +1,6 @@
+InvalidOut {
+  roles A, B
+  parameters out x key, out y
+  
+  A -> B: test[out x key]
+}

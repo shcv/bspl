@@ -1,0 +1,7 @@
+MultiSelfMessaging {
+  roles Worker
+  parameters out taskID key, out result, out logged
+  
+  Worker -> Worker: process[out taskID key, out result]
+  Worker -> Worker: log[in taskID key, in result, out logged]
+}

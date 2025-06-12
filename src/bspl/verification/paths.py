@@ -700,23 +700,29 @@ def handle_all(
     """
     for protocol in load_protocols(files):
         print(f"{protocol.name} ({protocol.path}): ")
-        print(
-            safety(
-                protocol,
-                verbose=verbose,
-                debug=debug,
-                external=external,
-                safe=safe,
-                reduction=reduction,
+        try:
+            print(
+                safety(
+                    protocol,
+                    verbose=verbose,
+                    debug=debug,
+                    external=external,
+                    safe=safe,
+                    reduction=reduction,
+                )
             )
-        )
-        print(
-            liveness(
-                protocol,
-                verbose=verbose,
-                debug=debug,
-                external=external,
-                safe=safe,
-                reduction=reduction,
+            print(
+                liveness(
+                    protocol,
+                    verbose=verbose,
+                    debug=debug,
+                    external=external,
+                    safe=safe,
+                    reduction=reduction,
+                )
             )
-        )
+        except Exception as e:
+            if debug:
+                raise
+            print(f"Verification error: {e}")
+            print("(Use --debug flag to see full traceback)")

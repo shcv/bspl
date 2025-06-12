@@ -1,0 +1,6 @@
+InvalidOpt {
+  roles A, B
+  parameters out x key, opt y
+  
+  A -> B: test[out x key, opt y]
+}

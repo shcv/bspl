@@ -1,0 +1,7 @@
+ValidParameters {
+  roles A, B, C
+  parameters out x key, out y, in z, opt w, any v
+  
+  A -> B: produce[out x key, out y]
+  B -> C: consume[in x key, in y, in z]
+}

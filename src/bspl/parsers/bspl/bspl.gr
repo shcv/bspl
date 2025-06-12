@@ -13,14 +13,18 @@ roles = ','.{role} ;
 role = name:word ;
 
 params = ','.{param} ;
-param = [adornment:adornment] name:word [key:'key'];
-adornment = 'out' | 'in' | 'nil' | 'any' | 'opt' ;
+param = [adornment:protocol_adornment] name:word [key:'key'];
+protocol_adornment = 'out' | 'in' | 'nil' | 'any' | 'opt' ;
+
+message_params = ','.{message_param} ;
+message_param = [adornment:message_adornment] name:word [key:'key'];
+message_adornment = 'out' | 'in' | 'nil' ;
 
 references = { message | ref } ;
 
 ref = type:`protocol` name:spacename '(' ~ [roles:roles '|'] params:params ')' ;
 
-message = type:`message` sender:word ('->'|'→'|'↦') ~ recipient:word [':'] name:word ('[' parameters:params ']' | ());
+message = type:`message` sender:word ('->'|'→'|'↦') ~ recipient:word [':'] name:word ('[' parameters:message_params ']' | ());
 
 word = /[\w@>-]+/ ;
 spacename = /[ \w@-]+/ ;

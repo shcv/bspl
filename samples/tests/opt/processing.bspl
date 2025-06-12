@@ -1,0 +1,7 @@
+ProcessingService {
+  roles Processor
+  parameters in orderID key, in item, out processed, opt success, opt errorCode, opt details
+  
+  // Core processing always happens
+  Processor -> Processor: process[in orderID key, in item, out processed]
+}

@@ -27,6 +27,10 @@ class Specification:
 
         for p in self.protocols.values():
             p.resolve_references(self)
+        # Validate parameter consistency after references are resolved
+        from .validation import validate_protocol_parameters
+        for p in self.protocols.values():
+            validate_protocol_parameters(p)
 
     def export(self, protocol):
         p = self.protocols[protocol]

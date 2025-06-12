@@ -1,0 +1,26 @@
+OrderProcessing {
+  roles Client, Processor, Manager
+  parameters out orderID key, out item, out finalized, out notified
+  private processed, success, errorCode, details
+  
+  Client -> Processor: request[out orderID key, out item]
+  ProcessingService(Processor, orderID key, item, processed, opt success, opt errorCode, opt details)
+  
+  // Multiple finalization options based on available optional data
+  Processor -> Manager: notify[in orderID key, in item, in processed, out notified]
+  Manager -> Client: basic-complete[in orderID key, in item, out finalized]
+  Manager -> Client: success-complete[in orderID key, in item, in success, out finalized]  
+  Manager -> Client: error-complete[in orderID key, in item, in errorCode, in details, out finalized]
+}
+
+ProcessingService {
+  roles Processor
+  parameters in orderID key, in item, out processed, opt success, opt errorCode, opt details
+  
+  // Core processing always happens
+  Processor -> Processor: process[in orderID key, in item, out processed]
+  
+  // Optional success/error reporting - may or may not occur
+  Processor -> Processor: success-log[in orderID key, in processed, out success]
+  Processor -> Processor: error-log[in orderID key, in processed, out errorCode, out details]
+}

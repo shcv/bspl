@@ -1,0 +1,15 @@
+Outer {
+  roles A, B
+  parameters out x key
+  private y
+  
+  Inner(A, B, x key, opt y)
+  A -> B: use-optional[in y]
+}
+
+Inner {
+  roles A, B  
+  parameters in x key, opt y
+  
+  A -> B: basic[out x key]
+}

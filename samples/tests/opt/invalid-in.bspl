@@ -1,0 +1,6 @@
+InvalidIn {
+  roles A, B
+  parameters in x key, in y
+  
+  A -> B: test[out x key, out y]
+}

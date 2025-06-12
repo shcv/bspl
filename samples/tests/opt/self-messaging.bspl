@@ -1,0 +1,6 @@
+SelfMessaging {
+  roles Worker
+  parameters out taskID key, out result
+  
+  Worker -> Worker: process[out taskID key, out result]
+}
