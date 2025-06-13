@@ -28,9 +28,10 @@ class Specification:
 
         for p in self.protocols.values():
             p.resolve_references(self)
-            
+
         # Validate parameter consistency after references are resolved
         from .validation import validate_protocol_parameters
+
         for p in self.protocols.values():
             validate_protocol_parameters(p)
 
@@ -38,10 +39,20 @@ class Specification:
         p = self.protocols[protocol]
         frm = inspect.stack()[1]
         module = ProtoMod(p.name)
+
         for name, message in p.messages.items():
             module[name] = message
+
         for name, role in p.roles.items():
             module[name] = role
+
+        # Export sub-protocols for unqualified message access
+        for ref in p.references.values():
+            if hasattr(ref, "type") and ref.type == "protocol":
+                # Create a safe module name (replace spaces with underscores)
+                safe_name = ref.name.replace(" ", "_").replace("-", "_")
+                module[safe_name] = ref
+
         module.protocol = p
         sys.modules[p.name] = module
         p.module = module
@@ -117,7 +128,7 @@ class Reference(Base):
 
     @property
     def name(self):
-        return self.raw_name + (str(self.idx) if getattr(self, 'idx', 1) > 1 else "")
+        return self.raw_name + (str(self.idx) if getattr(self, "idx", 1) > 1 else "")
 
     def format(self, ref=True):
         return "{}({}, {})".format(
@@ -232,20 +243,17 @@ class Protocol(Base):
 
     @property
     def messages(self):
-        return {v.qualified_name: v for r in self.references.values() for v in r.messages.values()}
-    
-    def find_message(self, name):
-        """Find message by name, searching both qualified and unqualified names"""
-        # First try direct qualified lookup
-        if name in self.messages:
-            return self.messages[name]
-        
-        # Then try unqualified name lookup
-        for msg in self.messages.values():
-            if msg.name == name:
-                return msg
-        
-        raise KeyError(f"Message '{name}' not found in protocol '{self.name}'")
+        result = {}
+        for r in self.references.values():
+            if hasattr(r, "type") and r.type == "message":
+                # Direct messages: use unqualified names
+                for v in r.messages.values():
+                    result[v.name] = v
+            else:
+                # Protocol references: use qualified names
+                for v in r.messages.values():
+                    result[v.qualified_name] = v
+        return result
 
     @property
     def is_entrypoint(self):
@@ -274,9 +282,13 @@ class Protocol(Base):
                 self.name,
                 ", ".join(self.roles.keys()),
                 ", ".join([p.format() for p in self.public_parameters.values()]),
-                "  private " + ", ".join([p for p in self.private_parameters]) + "\n"
-                if self.private_parameters
-                else "",
+                (
+                    "  private "
+                    + ", ".join([p for p in self.private_parameters])
+                    + "\n"
+                    if self.private_parameters
+                    else ""
+                ),
                 "\n  ".join([r.format(ref=True) for r in self.references.values()]),
             )
 
@@ -374,7 +386,7 @@ class Protocol(Base):
 
     def find_schema(self, payload=None, name=None, to=None):
         if name:
-            return self.find_message(name)
+            return self.messages[name]
 
         for schema in self.messages.values():
             if to and schema.recipient is not to:
@@ -526,7 +538,7 @@ class Message(Protocol):
     def acknowledgment(self):
         name = "@" + self.raw_name
         try:
-            return self.parent.find_message(name)
+            return self.parent.messages[name]
         except KeyError:
             m = Message(
                 "@" + self.raw_name, self.recipient, self.sender, parent=self.parent

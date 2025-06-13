@@ -60,6 +60,26 @@ def sources(path, p):
     return set(i.msg.sender.name for i in path if p in i.msg.outs)
 
 
+def has_parameter_conflict(path, p):
+    """Check if parameter p has conflicting sources within the same key context"""
+    # Group message instances by their key context
+    contexts = {}
+    for i in path:
+        if p in i.msg.outs:
+            # Create a key context tuple from the message's key parameters
+            key_context = tuple(sorted(i.msg.keys.keys()))
+            if key_context not in contexts:
+                contexts[key_context] = set()
+            contexts[key_context].add(i.msg.sender.name)
+
+    # Check if any key context has multiple sources (real conflict)
+    for key_context, role_set in contexts.items():
+        if len(role_set) > 1:
+            return True
+
+    return False
+
+
 def viable(path, msg):
     msg_count = len([i.msg for i in path if i.msg == msg])
     if (
@@ -531,7 +551,7 @@ def safety(protocol, **kwargs):
                 print(path)
 
         for p in parameters:
-            if len(sources(path, p)) > 1:
+            if has_parameter_conflict(path, p):
                 return {
                     "safe": False,
                     "reason": "Found parameter with multiple sources in a path",
