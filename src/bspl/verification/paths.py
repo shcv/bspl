@@ -60,6 +60,66 @@ def sources(path, p):
     return set(i.msg.sender.name for i in path if p in i.msg.outs)
 
 
+def protocol_has_single_key_context(protocol):
+    """Check if all messages in protocol share the same key context"""
+    if not protocol.messages:
+        return True
+
+    # Get the key context of the first message
+    first_msg = next(iter(protocol.messages.values()))
+    first_context = tuple(sorted(first_msg.keys.keys()))
+
+    # Check if all other messages have the same key context
+    for msg in protocol.messages.values():
+        if tuple(sorted(msg.keys.keys())) != first_context:
+            return False
+
+    return True
+
+
+def has_parameter_conflict(path, p):
+    """Check if parameter p has conflicting sources within the same key context"""
+    # Group message instances by their key context
+    contexts = {}
+    for i in path:
+        if p in i.msg.outs:
+            # Create a key context tuple from the message's key parameters
+            key_context = tuple(sorted(i.msg.keys.keys()))
+            if key_context not in contexts:
+                contexts[key_context] = set()
+            contexts[key_context].add(i.msg.sender.name)
+
+    # Check if any key context has multiple sources (real conflict)
+    for key_context, role_set in contexts.items():
+        if len(role_set) > 1:
+            return True
+
+    return False
+
+
+def check_all_parameter_conflicts(path, parameters):
+    """Check all parameters for conflicts in a single pass through the path"""
+    # Build all key contexts once
+    param_contexts = {}  # param -> {key_context -> set(roles)}
+
+    for i in path:
+        key_context = tuple(sorted(i.msg.keys.keys()))
+        for p in i.msg.outs:
+            if p in parameters:
+                if p not in param_contexts:
+                    param_contexts[p] = {}
+                if key_context not in param_contexts[p]:
+                    param_contexts[p][key_context] = set()
+                param_contexts[p][key_context].add(i.msg.sender.name)
+
+    # Check for conflicts
+    for p, contexts in param_contexts.items():
+        for role_set in contexts.values():
+            if len(role_set) > 1:
+                return p  # Return first conflicting parameter
+    return None
+
+
 def viable(path, msg):
     msg_count = len([i.msg for i in path if i.msg == msg])
     if (
@@ -514,6 +574,10 @@ def safety(protocol, **kwargs):
     if kwargs["debug"]:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
     parameters = {p for m in protocol.messages.values() for p in m.outs}
+
+    # Optimization: Check if protocol has single key context
+    single_key_context = protocol_has_single_key_context(protocol)
+
     new_paths = [empty_path()]
     checked = 0
     max_paths = 0
@@ -530,13 +594,29 @@ def safety(protocol, **kwargs):
             if kwargs["verbose"] and not kwargs["debug"]:
                 print(path)
 
-        for p in parameters:
-            if len(sources(path, p)) > 1:
+        # Optimized conflict checking
+        if single_key_context:
+            # Fast path: Use simple sources check for single key context
+            for p in parameters:
+                if len(sources(path, p)) > 1:
+                    return {
+                        "safe": False,
+                        "reason": "Found parameter with multiple sources in a path",
+                        "path": path,
+                        "parameter": p,
+                        "checked": checked,
+                        "maximal paths": max_paths,
+                        "elapsed": t.stop(),
+                    }
+        else:
+            # Complex path: Check all parameters in single pass
+            conflicting_param = check_all_parameter_conflicts(path, parameters)
+            if conflicting_param:
                 return {
                     "safe": False,
                     "reason": "Found parameter with multiple sources in a path",
                     "path": path,
-                    "parameter": p,
+                    "parameter": conflicting_param,
                     "checked": checked,
                     "maximal paths": max_paths,
                     "elapsed": t.stop(),

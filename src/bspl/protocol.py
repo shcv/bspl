@@ -2,6 +2,7 @@ from .utils import merge, upcamel
 import inspect
 import sys
 import re
+import copy
 from types import ModuleType
 
 
@@ -27,8 +28,10 @@ class Specification:
 
         for p in self.protocols.values():
             p.resolve_references(self)
+
         # Validate parameter consistency after references are resolved
         from .validation import validate_protocol_parameters
+
         for p in self.protocols.values():
             validate_protocol_parameters(p)
 
@@ -36,10 +39,20 @@ class Specification:
         p = self.protocols[protocol]
         frm = inspect.stack()[1]
         module = ProtoMod(p.name)
+
         for name, message in p.messages.items():
             module[name] = message
+
         for name, role in p.roles.items():
             module[name] = role
+
+        # Export sub-protocols for unqualified message access
+        for ref in p.references.values():
+            if hasattr(ref, "type") and ref.type == "protocol":
+                # Create a safe module name (replace spaces with underscores)
+                safe_name = ref.name.replace(" ", "_").replace("-", "_")
+                module[safe_name] = ref
+
         module.protocol = p
         sys.modules[p.name] = module
         p.module = module
@@ -112,6 +125,10 @@ class Reference(Base):
     def __init__(self, name, parameters=None, parent=None):
         self.parameters = parameters  # list(Parameter)
         super().__init__(name, parent, "reference")
+
+    @property
+    def name(self):
+        return self.raw_name + (str(self.idx) if getattr(self, "idx", 1) > 1 else "")
 
     def format(self, ref=True):
         return "{}({}, {})".format(
@@ -226,7 +243,17 @@ class Protocol(Base):
 
     @property
     def messages(self):
-        return {k: v for r in self.references.values() for k, v in r.messages.items()}
+        result = {}
+        for r in self.references.values():
+            if hasattr(r, "type") and r.type == "message":
+                # Direct messages: use unqualified names
+                for v in r.messages.values():
+                    result[v.name] = v
+            else:
+                # Protocol references: use qualified names
+                for v in r.messages.values():
+                    result[v.qualified_name] = v
+        return result
 
     @property
     def is_entrypoint(self):
@@ -255,9 +282,13 @@ class Protocol(Base):
                 self.name,
                 ", ".join(self.roles.keys()),
                 ", ".join([p.format() for p in self.public_parameters.values()]),
-                "  private " + ", ".join([p for p in self.private_parameters]) + "\n"
-                if self.private_parameters
-                else "",
+                (
+                    "  private "
+                    + ", ".join([p for p in self.private_parameters])
+                    + "\n"
+                    if self.private_parameters
+                    else ""
+                ),
                 "\n  ".join([r.format(ref=True) for r in self.references.values()]),
             )
 
@@ -318,7 +349,7 @@ class Protocol(Base):
         refs = {}
         for r in self.references.values():
             if r.type == "protocol" or r.type == "reference":
-                protocol = spec.protocols.get(r.name)
+                protocol = spec.protocols.get(r.raw_name)
                 if not protocol:
                     raise LookupError(f"Undefined protocol {r.name}")
                 refs[r.name] = protocol.instance(spec, self, r)
@@ -330,11 +361,11 @@ class Protocol(Base):
 
     def instance(self, spec, parent, reference):
         p = Protocol(
-            self.name,
+            reference.name,
             self.roles.values(),
             public_parameters=self.public_parameters.values(),
             private_parameters=self.private_parameters.values(),
-            references=self.references.values(),
+            references=[copy.deepcopy(r) for r in self.references.values()],
             parent=parent,
         )
         for i, r in enumerate(self.roles.values()):
@@ -506,9 +537,9 @@ class Message(Protocol):
 
     def acknowledgment(self):
         name = "@" + self.raw_name
-        if name in self.parent.messages:
+        try:
             return self.parent.messages[name]
-        else:
+        except KeyError:
             m = Message(
                 "@" + self.raw_name, self.recipient, self.sender, parent=self.parent
             )
