@@ -1,7 +1,8 @@
-from ..protocol import Message, Role, Parameter
+from ..protocol import Message, Role, Parameter, Protocol
 from pprint import pformat
 from ttictoc import Timer
 from ..parsers.bspl import load_protocols
+from collections.abc import Mapping
 
 
 def empty_path():
@@ -140,10 +141,6 @@ def viable(path, msg):
             print("Only send external messages if they would contribute")
             return False
     out_keys = set(msg.keys).intersection(msg.outs)
-    # print(msg.name)
-    # print(msg.keys, msg.outs, out_keys)
-    # print(msg.outs)
-    # print(out_keys)
     if out_keys and all(sources(path, p) for p in out_keys):
         # don't allow multiple key bindings in the same path; they're different enactments
         # print("Don't allow multiple key bindings on the same path; they're different enactments")
@@ -223,6 +220,25 @@ class Tangle:
         self.receptions = {Reception(e) for e in self.emissions}
         self.events = self.emissions.union(self.receptions)
 
+        # setup extra conflicts between parameters
+        self.conflicts = {}
+        if "conflicts" in kwargs:
+            for a in kwargs["conflicts"]:
+                for b in kwargs["conflicts"][a]:
+                    As = set()
+                    Bs = set()
+                    for e in self.events:
+                        ps = e.ins.union(e.outs)
+                        if a in ps and b not in ps:
+                            As.add(e)
+                        if b in ps and a not in ps:
+                            Bs.add(e)
+                    for e in As:
+                        if e in self.conflicts:
+                            self.conflicts[e].update(Bs)
+                        else:
+                            self.conflicts[e] = Bs
+
         # sources for parameters, for computing endowment
         self.sources = {}
         for R in roles:
@@ -291,13 +307,26 @@ class Tangle:
         # a -|| c if:
         #  1. a does not endow c
         #  2. a -| c or a -| b and c |- b
+        # or a conflicts c or a conflicts b and c enables b
         self.tangles = {
-            a: self.disables[a].union(
+            a: self.disables[a]  # a -| c
+            .union(  # or
+                {
+                    c
+                    for c in self.enables
+                    if c not in self.endows.get(a, [])  # a does not endow c
+                    and self.enables[c].intersection(
+                        self.disables[a]
+                    )  # a -| b and c |- b
+                }
+            )
+            .union(self.conflicts.get(a, set()))  # merge in conflicts
+            .union(
                 {
                     c
                     for c in self.enables
                     if c not in self.endows.get(a, [])
-                    and self.enables[c].intersection(self.disables[a])
+                    and self.enables[c].intersection(self.conflicts.get(a, set()))
                 }
             )
             for a in self.events
@@ -481,7 +510,7 @@ def extensions(U, path, **kwargs):
     default_kwargs = {
         "by_degree": False,
         "reduction": True,
-        "safe": True,
+        "safe": False,
         "debug": False,
     }
     kwargs = {**default_kwargs, **kwargs}
@@ -500,7 +529,7 @@ def extensions(U, path, **kwargs):
     if not kwargs["reduction"]:
         # all the possibilities
         xs = {path + (p,) for p in ps}
-    elif not kwargs["safe"] and safe_events:
+    elif kwargs["safe"] and safe_events:
         # expand all non-disabling events first
         xs = {path + (min(safe_events, key=sort),)}
     else:
@@ -512,20 +541,39 @@ def extensions(U, path, **kwargs):
     return xs
 
 
-def max_paths(U, **kwargs):
-    max_paths = []
+def max_paths(U, yield_xs=False, **kwargs):
+    """Yield each path in UoD U that is maximal, i.e., has no extensions."""
+    if isinstance(U, Protocol):
+        U = UoD.from_protocol(U, **kwargs)
+
     new_paths = [empty_path()]
     while len(new_paths):
         p = new_paths.pop()
+        if "query" in kwargs and kwargs["query"](p) == False:
+            continue
         xs = extensions(U, p, **kwargs)
         if xs:
             new_paths.extend(xs)
         else:
-            max_paths.insert(len(max_paths), p)
-    return max_paths
+            yield (p, xs) if yield_xs else p
 
 
-def liveness(protocol, **kwargs):
+def every_path(U, yield_xs=False, **kwargs):
+    """Yield each path in UoD U."""
+    if isinstance(U, Protocol):
+        U = UoD.from_protocol(U, **kwargs)
+
+    new_paths = [empty_path()]
+    while len(new_paths):
+        path = new_paths.pop()
+        xs = extensions(U, path, **kwargs)
+        if xs:
+            new_paths.extend(xs)
+
+        yield (path, xs) if yield_xs else path
+
+
+def verify(protocol, fn, generator=max_paths, **kwargs):
     default_kwargs = {"debug": False, "verbose": False}
     kwargs = {**default_kwargs, **kwargs}
     t = Timer()
@@ -533,99 +581,30 @@ def liveness(protocol, **kwargs):
     U = UoD.from_protocol(protocol, **kwargs)
     if kwargs["debug"]:
         print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
-    new_paths = [empty_path()]
-    checked = 0
-    max_paths = 0
-    while len(new_paths):
-        p = new_paths.pop()
-        if kwargs["debug"]:
-            print(p)
-        checked += 1
-        xs = extensions(U, p, **kwargs)
-        if xs:
-            new_paths.extend(xs)
-        else:
-            max_paths += 1
-            if kwargs["verbose"] and not kwargs["debug"]:
-                print(p)
-            if total_knowledge(U, p).intersection(protocol.outs) < protocol.outs:
-                return {
-                    "live": False,
-                    "reason": "Found path that does not extend to completion",
-                    "path": p,
-                    "checked": checked,
-                    "maximal paths": max_paths,
-                    "elapsed": t.stop(),
-                }
-    return {
-        "live": True,
-        "checked": checked,
-        "maximal paths": max_paths,
-        "elapsed": t.stop(),
-    }
-
-
-def safety(protocol, **kwargs):
-    default_kwargs = {"debug": False, "verbose": False}
-    kwargs = {**default_kwargs, **kwargs}
-    t = Timer()
-    t.start()
-    U = UoD.from_protocol(protocol)
-    if kwargs["debug"]:
-        print(f"incompatibilities: {pformat(U.tangle.incompatible)}")
-    parameters = {p for m in protocol.messages.values() for p in m.outs}
-
-    # Optimization: Check if protocol has single key context
-    single_key_context = protocol_has_single_key_context(protocol)
-
-    new_paths = [empty_path()]
-    checked = 0
-    max_paths = 0
-    while len(new_paths):
-        path = new_paths.pop()
-        if kwargs["debug"]:
+    state = {}
+    count = 0
+    for path, xs in generator(U, yield_xs=True, **kwargs):
+        count += 1
+        if kwargs["verbose"] and not kwargs["debug"]:
             print(path)
-        checked += 1
-        xs = extensions(U, path, **kwargs)
-        if xs:
-            new_paths.extend(xs)
-        else:
-            max_paths += 1
-            if kwargs["verbose"] and not kwargs["debug"]:
-                print(path)
 
-        # Optimized conflict checking
-        if single_key_context:
-            # Fast path: Use simple sources check for single key context
-            for p in parameters:
-                if len(sources(path, p)) > 1:
-                    return {
-                        "safe": False,
-                        "reason": "Found parameter with multiple sources in a path",
-                        "path": path,
-                        "parameter": p,
-                        "checked": checked,
-                        "maximal paths": max_paths,
-                        "elapsed": t.stop(),
-                    }
+        result = fn(U=U, protocol=protocol, path=path, xs=xs, **kwargs)
+        # True/False ends with a result, None continues
+        if result == None:
+            continue
         else:
-            # Complex path: Check all parameters in single pass
-            conflicting_param = check_all_parameter_conflicts(path, parameters)
-            if conflicting_param:
-                return {
-                    "safe": False,
-                    "reason": "Found parameter with multiple sources in a path",
-                    "path": path,
-                    "parameter": conflicting_param,
-                    "checked": checked,
-                    "maximal paths": max_paths,
-                    "elapsed": t.stop(),
-                }
+            return {
+                "elapsed": t.stop(),
+                "path": path,
+                "paths": count,
+                **result,
+            }
+
+    final = fn(U=U, protocol=protocol, done=True, **kwargs)
     return {
-        "safe": True,
-        "checked": checked,
-        "maximal paths": max_paths,
         "elapsed": t.stop(),
+        "paths": count,
+        **final,
     }
 
 
@@ -637,49 +616,59 @@ def total_knowledge(U, path):
     return k
 
 
-def all_paths(U, **kwargs):
-    default_kwargs = {"debug": False, "verbose": False, "quiet": False}
-    kwargs = {**default_kwargs, **kwargs}
-    t = Timer()
-    t.start()
-    paths = set()
-    new_paths = [empty_path()]
-    longest_path = 0
-    max_paths = 0
-    if kwargs["debug"]:
-        print(f"incompatible: {pformat(U.tangle.incompatible)}")
-    while new_paths:
-        p = new_paths.pop()
-        if kwargs["debug"]:
-            print(p)
-        if len(p) > longest_path:
-            longest_path = len(p)
-        if len(p) > len(U.messages) * 2:
-            print("Path too long: ", p)
-            exit(1)
-        xs = extensions(U, p, **kwargs)
-        if xs:
-            new_paths.extend(xs)
-        else:
-            max_paths += 1
-            if kwargs["verbose"] and not kwargs["debug"]:
-                print(p)
+def liveness(U=None, protocol=None, path=None, done=None, **kwargs):
+    if done:
+        return {"live": True}
 
-        paths.add(p)  # add path to paths even if it has unreceived messages
-    if not kwargs["quiet"]:
-        print(
-            f"{len(paths)} paths, longest path: {longest_path}, maximal paths: {max_paths}, elapsed: {t.stop()}"
-        )
-    return paths
+    known = total_knowledge(U, path).intersection(protocol.outs)
+    if known < protocol.outs:
+        return {"live": False, "incomplete": known.difference(protocol.outs)}
 
 
-def handle_all_paths(
-    *files, debug=False, verbose=False, external=False, safe=True, reduction=False
+def safety(protocol=None, path=None, done=None, **kwargs):
+    if done:
+        return {"safe": True}
+
+    parameters = {p for m in protocol.messages.values() for p in m.outs}
+
+    # Use key-aware safety checking
+    # Optimization: Check if protocol has single key context
+    single_key_context = protocol_has_single_key_context(protocol)
+
+    if single_key_context:
+        # Fast path: Use simple sources check for single key context
+        for p in parameters:
+            if len(sources(path, p)) > 1:
+                return {"safe": False, "unsafe": p}
+    else:
+        # Complex path: Check all parameters in single pass with key context awareness
+        conflicting_param = check_all_parameter_conflicts(path, parameters)
+        if conflicting_param:
+            return {"safe": False, "unsafe": conflicting_param}
+
+
+def live(p):
+    return verify(p, liveness)
+
+
+def safe(p):
+    return verify(p, safety)
+
+
+def handle_paths(
+    *files,
+    maximal=False,
+    debug=False,
+    verbose=False,
+    external=False,
+    safe=True,
+    reduction=False,
+    quiet=False,
 ):
-    """
-    Compute all paths for each protocol
+    """Compute all paths for each protocol
 
-    By default, this does *not* use partial-order reduction, but it can be enabled via the --reduction flag.
+    By default, this does *not* use partial-order reduction, but it can be
+    enabled via the --reduction flag.
 
     Args:
       files: Paths to specification files containing one or more protocols
@@ -688,27 +677,47 @@ def handle_all_paths(
       external: Enable external source information
       reduction: Enable reduction
       safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
+      maximal: Only compute maximal paths; enable with --maximal
     """
+
+    longest_path = []
+    paths = []
+    maxed = []
+
+    def step(done=None, path=None, xs=None, **kwargs):
+        nonlocal longest_path
+        if done:
+            return {"longest": longest_path, "paths": len(maxed)}
+        else:
+            paths.append(path)
+            if len(path) > len(longest_path):
+                longest_path = path
+            if not xs:
+                maxed.append(path)
+
     for protocol in load_protocols(files):
         print(f"{protocol.name} ({protocol.path}): ")
-        U = UoD.from_protocol(protocol)
-        all_paths(
-            U,
-            verbose=verbose,
-            debug=debug,
-            external=external,
-            safe=safe,
-            reduction=reduction,
+        print(
+            verify(
+                protocol,
+                step,
+                every_path if not maximal else max_paths,
+                verbose=verbose,
+                debug=debug,
+                external=external,
+                safe=safe,
+                reduction=reduction,
+            )
         )
 
 
 def handle_liveness(
     *files, verbose=False, debug=False, external=False, safe=True, reduction=True
 ):
-    """
-    Compute whether each protocol is live, using path simulation
+    """Compute whether each protocol is live, using path simulation
 
-    By default, this uses tableau-based partial order reduction to minimize the number of paths considered.
+    By default, this uses tableau-based partial order reduction to minimize
+    the number of paths considered.
 
     Args:
       files: Paths to specification files containing one or more protocols
@@ -717,12 +726,14 @@ def handle_liveness(
       external: Enable external source information
       reduction: Enable reduction (default True); use --noreduction to disable
       safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
+
     """
     for protocol in load_protocols(files):
         print(f"{protocol.name} ({protocol.path}): ")
         print(
-            liveness(
+            verify(
                 protocol,
+                liveness,
                 verbose=verbose,
                 debug=debug,
                 external=external,
@@ -735,10 +746,10 @@ def handle_liveness(
 def handle_safety(
     *files, verbose=False, debug=False, external=True, safe=True, reduction=True
 ):
-    """
-    Compute whether each protocol is safe, using path simulation
+    """Compute whether each protocol is safe, using path simulation
 
-    By default, this uses tableau-based partial order reduction to minimize the number of paths considered.
+    By default, this uses tableau-based partial order reduction to minimize
+    the number of paths considered.
 
     Args:
       files: Paths to specification files containing one or more protocols
@@ -747,12 +758,15 @@ def handle_safety(
       external: Enable external source information (default True); use --noexternal to disable
       reduction: Enable reduction (default True); use --noreduction to disable
       safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
+
     """
     for protocol in load_protocols(files):
         print(f"{protocol.name} ({protocol.path}): ")
         print(
-            safety(
+            verify(
                 protocol,
+                safety,
+                every_path,
                 verbose=verbose,
                 debug=debug,
                 external=external,
@@ -782,8 +796,10 @@ def handle_all(
         print(f"{protocol.name} ({protocol.path}): ")
         try:
             print(
-                safety(
+                verify(
                     protocol,
+                    safety,
+                    max_paths,
                     verbose=verbose,
                     debug=debug,
                     external=external,
@@ -792,8 +808,10 @@ def handle_all(
                 )
             )
             print(
-                liveness(
+                verify(
                     protocol,
+                    liveness,
+                    max_paths,
                     verbose=verbose,
                     debug=debug,
                     external=external,

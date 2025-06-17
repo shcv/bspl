@@ -1,4 +1,4 @@
-@@eol_comments :: /#[^\n]*$/
+@@eol_comments :: /#[^\n]*\n/
 @@whitespace :: None
 @@keyword :: who what do sayso nono nogo
 

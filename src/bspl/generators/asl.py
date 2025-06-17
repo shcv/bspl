@@ -1,7 +1,7 @@
 import os
 from ..parsers.bspl import load_file
 from ..verification import paths
-from ..verification.paths import max_paths, UoD, all_paths, Emission, Reception
+from ..verification.paths import max_paths, UoD, Emission, Reception
 from ..utils import abort, camel_to_snake, camel, upcamel
 
 

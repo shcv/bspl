@@ -20,6 +20,7 @@ from bspl.verification.precedence import (
     ordered,
     cycle,
 )
+from bspl.parsers.precedence import parse
 
 
 def test_ordered():
@@ -162,3 +163,14 @@ def test_cycle():
     assert not cycle(["a<b", "b<c"])
     assert cycle(["a<b", "b<a"])
     assert cycle(["a<b", "b<c", "c<a"])
+
+
+def test_precedence_parser():
+    parse("a & b")
+    parse("a | b")
+    parse("a & b | c")
+    parse("a . -b")
+    parse("a | c")
+    parse("a|-(c.e & d)")
+    parse("a < b")
+    assert False

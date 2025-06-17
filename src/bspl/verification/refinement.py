@@ -3,7 +3,7 @@ from . import paths
 from .paths import (
     key_sets,
     UoD,
-    all_paths,
+    every_path,
     possibilities,
     sources,
     known,
@@ -91,8 +91,8 @@ def refines(U, params, Q, P, verbose=False):
             "reason": "{} uses keys that do not appear in {}".format(Q.name, P.name),
         }
 
-    paths_Q = all_paths(U_Q, verbose=verbose, reduction=False)
-    paths_P = all_paths(U_P, verbose=verbose, reduction=False)
+    paths_Q = list(every_path(U_Q, verbose=verbose, reduction=False))
+    paths_P = list(every_path(U_P, verbose=verbose, reduction=False))
 
     longest_Q = longest_P = []
     for q in paths_Q:
@@ -134,6 +134,8 @@ def refines(U, params, Q, P, verbose=False):
                 "ok": False,
                 "path": q,
                 "match": match,
+                "p possibilities": possibilities(U_P, match),
+                "q possibilities": possibilities(U_Q, q),
                 "reason": "path in {} has branches, but path in {} does not".format(
                     P.name, Q.name
                 ),

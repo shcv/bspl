@@ -1,0 +1,24 @@
+FinishEarly {
+  roles A, B
+  parameters out ID key
+  private a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q
+
+  A -> B Start[out ID]
+  A -> B step0[in ID, out a]
+  A -> B step1[in ID, out b]
+  A -> B step2[in ID, out c]
+  A -> B step3[in ID, out d]
+  A -> B step4[in ID, out e]
+  A -> B step5[in ID, out f]
+  A -> B step6[in ID, out g]
+  A -> B step7[in ID, out h]
+  A -> B step8[in ID, out i]
+  A -> B step9[in ID, out j]
+  A -> B step10[in ID, out k]
+  A -> B step11[in ID, out l]
+  A -> B step12[in ID, out m]
+  A -> B step13[in ID, out n]
+  A -> B step14[in ID, out o]
+  A -> B step15[in ID, out p]
+  A -> B step16[in ID, out q]
+}
