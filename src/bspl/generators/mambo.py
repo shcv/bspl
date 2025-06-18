@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 
 from bspl.parsers.bspl import load_file
-from bspl.verification.mambo import Occurs
+from bspl.verification.mambo import Occurs, get_smart_name
 from itertools import combinations, chain
+
+
+def has_key_conflict(msg1, msg2):
+    """Check if two messages could have a safety conflict based on key contexts."""
+    keys1 = set(msg1.keys.keys())
+    keys2 = set(msg2.keys.keys())
+    return keys1.issubset(keys2) or keys2.issubset(keys1)
 
 
 def unsafe(protocol):
@@ -18,9 +25,9 @@ def unsafe(protocol):
 
     pairs = set(chain.from_iterable(combinations(c, 2) for c in conflicts))
     pairs = [
-        (Occurs(p[0].name) & Occurs(p[1].name))
+        (Occurs(get_smart_name(protocol.spec, p[0])) & Occurs(get_smart_name(protocol.spec, p[1])))
         for p in pairs
-        if p[0].sender != p[1].sender
+        if p[0].sender != p[1].sender and has_key_conflict(p[0], p[1])
     ]
     if not pairs:
         return None

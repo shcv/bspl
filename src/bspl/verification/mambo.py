@@ -17,6 +17,25 @@ from .paths import (
 from ..protocol import Protocol
 from ..parsers.bspl import load_protocols
 from ..parsers import precedence
+from collections import defaultdict
+
+
+def has_name_conflicts(spec, msg_name):
+    """Check if a message name appears in multiple protocols within the spec."""
+    count = 0
+    for protocol in spec.protocols.values():
+        if msg_name in [msg.name for msg in protocol.messages.values()]:
+            count += 1
+            if count > 1:
+                return True
+    return False
+
+
+def get_smart_name(spec, msg):
+    """Return qualified name if conflicts exist, otherwise return simple name."""
+    if has_name_conflicts(spec, msg.name):
+        return msg.qualified_name
+    return msg.name
 
 
 class Query:
@@ -141,15 +160,47 @@ class Occurs(Query):
         super().__init__(p)
         self.p = p
         self.role = None
+        self.protocol = None
+
+        # Handle role:parameter format (existing functionality)
         if ":" in p:
             self.role, self.p = p.split(":")
+        # Handle protocol/message format (new functionality)
+        elif "/" in p:
+            self.protocol, self.p = p.split("/", 1)
 
     @property
     def parameters(self):
         return {self.p}
 
     def __str__(self):
-        return self.p if not self.role else f"{self.role}:{self.p}"
+        if self.role:
+            return f"{self.role}:{self.p}"
+        elif self.protocol:
+            return f"{self.protocol}/{self.p}"
+        else:
+            return self.p
+
+    def _matches_event(self, e):
+        """Check if this Occurs query matches the given event."""
+        # Check if the event matches our message name
+        name_matches = self.p == e.name
+        param_matches = self.p in e.ins or self.p in e.outs
+
+        if not (name_matches or param_matches):
+            return False
+
+        # If we have a protocol qualifier, only match if the event's message
+        # has the same qualified name
+        if self.protocol:
+            return (
+                hasattr(e, "msg")
+                and hasattr(e.msg, "qualified_name")
+                and e.msg.qualified_name == f"{self.protocol}/{self.p}"
+            )
+
+        # No protocol qualifier, match any message with this name/parameter
+        return True
 
     def _call(self, path, **kwargs):
         # assume non-incremental by default to avoid surprises
@@ -161,13 +212,13 @@ class Occurs(Query):
             if not match_role(self.role, e):
                 return
             # match on name or ins/outs
-            if self.p == e.name or self.p in e.ins or self.p in e.outs:
+            if self._matches_event(e):
                 return len(path) - 1
         else:
             for i, e in enumerate(path):
                 if not match_role(self.role, e):
                     continue
-                if self.p == e.name or self.p in e.ins or self.p in e.outs:
+                if self._matches_event(e):
                     # nils don't count
                     return i
 
