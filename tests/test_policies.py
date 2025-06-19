@@ -39,10 +39,11 @@ With-Reject {
 order = specification.export("Order")
 from Order import C, S, Buy, Deliver, BuyAck, BuyReminder, Extra
 
+agents = {"C": ("localhost", 8001), "S": ("localhost", 8001)}
+
 systems = {
     0: {
         "protocol": order,
-        "agents": {"C": ("localhost", 8001), "S": ("localhost", 8001)},
         "roles": {C: "C", S: "S"},
     }
 }
@@ -61,7 +62,7 @@ async def test_remind_until_received():
     assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
-    a = Adapter("C", systems, emitter=MockEmitter())
+    a = Adapter("C", systems, agents, emitter=MockEmitter())
     a.add_policies(r)
     assert a.reactors[Buy]
 
@@ -87,7 +88,7 @@ async def test_remind_until_conjunction():
     assert r.expectations  # reactors for handling reception
 
     # Buy without Deliver should be resent
-    a = Adapter("C", systems, emitter=MockEmitter())
+    a = Adapter("C", systems, agents, emitter=MockEmitter())
     a.add_policies(r)
     assert a.reactors[Buy]
     m = Buy(item="shoe", system=0)

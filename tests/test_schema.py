@@ -26,6 +26,8 @@ from RFQ import C, S, req, quote
 
 
 def test_instantiate():
-    i = instantiate(Adapter("C", {0: {"protocol": rfq, "roles": {}, "agents": {}}}))
+    agents = {"C": ("localhost", 8000)}
+    systems = {0: {"protocol": rfq, "roles": {}}}
+    i = instantiate(Adapter("C", systems, agents))
     assert i(req, item="ball").payload == {"item": "ball"}
     assert i(req, "ball").payload == {"item": "ball"}
