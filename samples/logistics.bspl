@@ -1,6 +1,6 @@
 Logistics  {
  roles M, W, P, L, S, C // Merchant, Warehouse, Packer, Loader, Scanner, Courier
- parameters in ID key, out order, out delivery
+ parameters out ID key, out order, out delivery
  private tag, package, route
 
  M $\mo$ W: NotifyOrder[out ID key, out order]
@@ -23,7 +23,7 @@ Pack {
 
 Load {
   roles W, L, S, C // Warehouse, Loader, Scanner, Courier
-  parameters out ID key, in order, in tag, out route
+  parameters in ID key, in order, in tag, out route
   private type, vehicle, tag, find, found, package, loaded
 
   W $\mo$ L: Load[in ID key, in order, in tag]

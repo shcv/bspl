@@ -1,6 +1,6 @@
 Pack {
   roles W, P, S // Warehouse, Packer, Scanner
-  parameters out ID key, in order, out tag, out package
+  parameters in ID key, in order, out tag, out package
   private data, written
 
   W $\mo$ P: Pack[in ID key, in order]

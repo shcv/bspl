@@ -1,6 +1,6 @@
 Load {
   roles W, L, S, C // Warehouse, Loader, Scanner, Courier
-  parameters out ID key, in order, in tag, out route
+  parameters in ID key, in order, in tag, out route
   private type, vehicle, tag, found, loaded, find, package
 
   W $\mo$ L: Load[in ID key, in order, in tag]
