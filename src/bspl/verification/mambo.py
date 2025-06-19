@@ -142,7 +142,11 @@ def match_role(role, event):
     if isinstance(event, Emission):
         return role == event.sender or role == event.sender.name
     if isinstance(event, Reception):
-        return role == event.recipient or role == event.recipient.name
+        if hasattr(event, 'recipient') and event.recipient:
+            return role == event.recipient or role == event.recipient.name
+        else:
+            # Fallback for backward compatibility
+            return role in event.recipients or role in [r.name for r in event.recipients]
     return False
 
 

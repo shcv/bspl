@@ -24,7 +24,9 @@ references = { message | ref } ;
 
 ref = type:`protocol` name:spacename '(' ~ [roles:roles '|'] params:params ')' ;
 
-message = type:`message` sender:word ('->'|'→'|'↦') ~ recipient:word [':'] name:word ('[' parameters:message_params ']' | ());
+message = type:`message` sender:word ('->'|'→'|'↦') ~ recipients:recipient_list [':'] name:word ('[' parameters:message_params ']' | ());
+
+recipient_list = ','.{word};
 
 word = /[\w@>-]+/ ;
 spacename = /[ \w@-]+/ ;

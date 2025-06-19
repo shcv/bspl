@@ -617,7 +617,7 @@ class Langshaw:
                     parent=protocol,
                     name=action.name,
                     sender=action.actor,
-                    recipient=Role(r),
+                    recipients=[Role(r)],
                     parameters=parameters,
                     validate=False,
                 )
@@ -638,7 +638,7 @@ class Langshaw:
                         name=f"{p}-{alt}",
                         parent=protocol,
                         sender=s,
-                        recipient=r,
+                        recipients=[r],
                         parameters=[Parameter(k, "in", "key") for k in keys]
                         + [Parameter(p, "in"), Parameter(alt, "out")],
                         validate=False,

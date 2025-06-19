@@ -26,7 +26,12 @@ from ..parsers.bspl import load_protocols
 
 @wrap(name)
 def observes(role, event):
-    return var(role + ":" + event)
+    # Handle both message objects and strings
+    if hasattr(event, 'qualified_name'):
+        event_name = event.qualified_name
+    else:
+        event_name = str(event)
+    return var(str(role) + ":" + event_name)
 
 
 send = observes
@@ -58,7 +63,7 @@ def minimality(role, protocol):
 
     outgoing = set()
     for m in role.messages(protocol).values():
-        if m.recipient == role:
+        if role in m.recipients:
             for p in m.ins.union(m.outs):
                 add(m, p)
         else:
@@ -290,7 +295,11 @@ def sent(m):
 
 
 def received(m):
-    return recv(m.recipient, m.qualified_name)
+    # For multiple recipients, message is received if ALL recipients receive it
+    if len(m.recipients) == 1:
+        return recv(m.recipients[0], m.qualified_name)
+    else:
+        return and_(*[recv(r, m.qualified_name) for r in m.recipients])
 
 
 def blocked(msg):
@@ -324,14 +333,20 @@ def emission(msg):
     return and_(*(ins + nils + outs))
 
 
+def received_by(recipient, msg):
+    """Check if a specific recipient received a message"""
+    return recv(recipient, msg.qualified_name)
+
+
 def reception(msg):
     "Each message reception is accompanied by the observation of its parameters; either they are observed, or the message is not"
     clauses = [
         impl(
-            received(msg),
-            or_(sequential(p, received(msg)), simultaneous(p, received(msg))),
+            received_by(recipient, msg),
+            or_(sequential(p, received_by(recipient, msg)), simultaneous(p, received_by(recipient, msg))),
         )
-        for p in map(partial(observes, msg.recipient), msg.ins | msg.outs)
+        for recipient in msg.recipients
+        for p in map(partial(observes, recipient), msg.ins | msg.outs)
     ]
     return and_(*clauses)
 

@@ -48,7 +48,7 @@ def known(path, keys, R):
         if set(instance.msg.parameters).intersection(set(keys)) and (
             isinstance(instance, Emission)
             and instance.sender.name == R.name
-            or (isinstance(instance, Reception) and instance.recipient.name == R.name)
+            or (isinstance(instance, Reception) and R.name in [r.name for r in instance.recipients])
         ):
             k.update(instance.ins)
             k.update(instance.outs)
@@ -158,7 +158,7 @@ def disables(a, b):
             if p in b.parameters and b.parameters[p].adornment in ["out", "nil"]:
                 return True
 
-    if isinstance(a, Reception) and isinstance(b, Emission) and a.recipient == b.sender:
+    if isinstance(a, Reception) and isinstance(b, Emission) and b.sender in a.recipients:
         for p in a.outs.union(a.ins):
             # out or in disables out or nil
             if p in b.parameters and b.parameters[p].adornment in ["out", "nil"]:
@@ -217,7 +217,11 @@ class Tangle:
         default_kwargs = {"debug": False}
         kwargs = {**default_kwargs, **kwargs}
         self.emissions = {Emission(m) for m in messages}
-        self.receptions = {Reception(e) for e in self.emissions}
+        # Create separate reception events for each recipient
+        self.receptions = set()
+        for emission in self.emissions:
+            for recipient in emission.recipients:
+                self.receptions.add(Reception(emission, recipient))
         self.events = self.emissions.union(self.receptions)
 
         # setup extra conflicts between parameters
@@ -248,7 +252,8 @@ class Tangle:
                     isinstance(e, Emission)
                     and e.sender != R
                     or isinstance(e, Reception)
-                    and e.recipient != R
+                    and getattr(e, 'recipient', None) != R
+                    and R not in e.recipients
                 ):
                     continue
 
@@ -379,9 +384,9 @@ class UoD:
                 # generate messages that provide p to each sender
                 msg = Message(
                     f"external->{r.name}",
-                    External,
-                    r,
-                    [Parameter(k, "in", True, parent=protocol) for k in keys]
+                    sender=External,
+                    recipients=[r],
+                    parameters=[Parameter(k, "in", True, parent=protocol) for k in keys]
                     + [
                         Parameter(p, "in", parent=protocol)
                         for p in protocol.ins.difference(keys)
@@ -402,24 +407,44 @@ class UoD:
 
 
 class Reception:
-    def __init__(self, emission):
+    def __init__(self, emission, recipient=None):
         self.emission = emission
         self.msg = emission.msg
+        self._recipient = recipient
+
+    @property
+    def recipient(self):
+        """Return the specific recipient - explicit if set, otherwise fall back to emission's first recipient"""
+        if self._recipient is not None:
+            return self._recipient
+        # Fall back to first recipient for backward compatibility
+        return self.emission.recipients[0] if self.emission.recipients else None
+
+    @property
+    def recipients(self):
+        """Return recipients - single recipient if specified, otherwise all from emission"""
+        if self._recipient is not None:
+            return [self._recipient]
+        return self.emission.recipients
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self.msg == other.msg
+            return self.msg == other.msg and self.recipient == other.recipient
         else:
             return False
 
     def __hash__(self):
-        return hash(self.msg)
+        return hash((self.msg, self.recipient))
 
     def __getattr__(self, attr):
         return getattr(self.emission, attr)
 
     def __repr__(self):
-        return f"{self.recipient.name}?{self.msg.name}"
+        if self.recipient is not None:
+            return f"{self.recipient.name}?{self.msg.name}"
+        else:
+            recipients_str = ",".join([r.name for r in self.recipients])
+            return f"{recipients_str}?{self.msg.name}"
 
 
 def emissions(path):
@@ -439,7 +464,21 @@ def possibilities(U, path):
             # default messages to unreceived, progressively receive them later
             inst = Emission(msg)
             b.add(inst)
-    ps = b.union(Reception(e) for e in unreceived(path))
+    # Generate separate reception events for each recipient
+    receptions = set()
+    for emission in unreceived(path):
+        for recipient in emission.recipients:
+            # Check if this specific recipient already received this emission
+            already_received = any(
+                isinstance(r, Reception) and 
+                r.emission == emission and 
+                getattr(r, 'recipient', None) == recipient
+                for r in path
+            )
+            if not already_received:
+                receptions.add(Reception(emission, recipient))
+    
+    ps = b.union(receptions)
     return ps
 
 

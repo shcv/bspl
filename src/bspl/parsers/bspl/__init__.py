@@ -76,10 +76,15 @@ def ast_parameter(ast, parent):
 
 
 def ast_message(ast, parent):
-    msg = Message(ast["name"], ast["sender"], ast["recipient"], parent=parent)
-    parameters = [ast_parameter(p, msg) for p in ast.get("parameters") or []]
-    msg.set_parameters(parameters)
-    return msg
+    try:
+        msg = Message(ast["name"], ast["sender"], ast["recipients"], parent=parent)
+        parameters = [ast_parameter(p, msg) for p in ast.get("parameters") or []]
+        msg.set_parameters(parameters)
+        return msg
+    except LookupError as e:
+        # Convert LookupError to a more user-friendly error message
+        from ...utils import abort
+        abort(str(e))
 
 
 def ast_protocol(ast, parent):

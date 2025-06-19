@@ -92,7 +92,12 @@ class Adapter:
         self.logger.handlers.clear()
         self.logger.addHandler(handler)
         # Check for environment variable to enable debug mode
-        env_debug = os.environ.get("BSPL_ADAPTER_DEBUG", "").lower() in ("1", "true", "yes", "on")
+        env_debug = os.environ.get("BSPL_ADAPTER_DEBUG", "").lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
         if debug or env_debug:
             logging.getLogger("bspl").setLevel(logging.DEBUG)
 
@@ -171,18 +176,46 @@ class Adapter:
 
     async def send(self, *messages):
         def prep(message):
-            if not message.dest:
-                system = self.systems[message.system]
-                r = self.agents[system["roles"][message.schema.recipient]]
-                # recipient could have more than one endpoint
-                if isinstance(r, list):
-                    # randomly select from available endpoints
-                    message.dest = random.choice(r)
-                else:
-                    message.dest = r
-            return message
+            # Handle multiple recipients by creating copies for each destination
+            prepared_messages = []
 
-        emissions = set(prep(m) for m in messages if not self.history.is_duplicate(m))
+            if hasattr(message, "_dest") and message._dest:
+                # Backwards compatibility: single dest already set
+                prepared_messages.append(message)
+            else:
+                system = self.systems[message.system]
+                # Create a copy for each recipient
+                for recipient_role in message.schema.recipients:
+                    recipient_agent = system["roles"][recipient_role]
+                    agent_endpoints = self.agents[recipient_agent]
+
+                    # Handle multiple endpoints per agent
+                    if isinstance(agent_endpoints, list):
+                        endpoint = random.choice(agent_endpoints)
+                    else:
+                        endpoint = agent_endpoints
+
+                    # Create message copy with specific destination
+                    msg_copy = Message(
+                        message.schema,
+                        message.payload.copy(),
+                        message.meta.copy(),
+                        message.acknowledged,
+                        endpoint,
+                        message.adapter,
+                        message.system,
+                    )
+                    prepared_messages.append(msg_copy)
+
+            return prepared_messages
+
+        # Flatten the list of message copies from prep
+        all_prepared = []
+        for m in messages:
+            if not self.history.is_duplicate(m):
+                prepared = prep(m)
+                all_prepared.extend(prepared)
+        emissions = set(all_prepared)
         if len(emissions) < len(messages):
             self.info(
                 f"Skipped {len(messages) - len(emissions)} duplicate messages: {set(messages).difference(emissions)}"
@@ -502,7 +535,11 @@ class Adapter:
                         emissions.extend(instances)
                     elif result:
                         # Handle both single messages and lists/collections
-                        if hasattr(result, '__iter__') and not isinstance(result, (str, dict)) and not hasattr(result, 'schema'):
+                        if (
+                            hasattr(result, "__iter__")
+                            and not isinstance(result, (str, dict))
+                            and not hasattr(result, "schema")
+                        ):
                             emissions.extend(result)
                         else:
                             emissions.append(result)

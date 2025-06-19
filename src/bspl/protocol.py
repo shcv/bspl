@@ -105,14 +105,14 @@ class Role(Base):
         return {
             m.name: m
             for m in protocol.messages.values()
-            if m.sender == self or m.recipient == self
+            if m.sender == self or self in m.recipients
         }
 
     def emissions(self, protocol):
         return [m for m in protocol.messages.values() if m.sender == self]
 
     def receptions(self, protocol):
-        return [m for m in protocol.messages.values() if m.recipient == self]
+        return [m for m in protocol.messages.values() if self in m.recipients]
 
     def observations(self, protocol):
         return self.emissions(protocol) + self.receptions(protocol)
@@ -425,7 +425,7 @@ class Message(Protocol):
         self,
         name,
         sender=None,
-        recipient=None,
+        recipients=None,
         parameters=None,
         parent=None,
         idx=1,
@@ -435,23 +435,38 @@ class Message(Protocol):
         self.validate = validate
         self.msg = self
 
-        if sender and recipient:
+        if sender and recipients:
+            # Handle both single recipient (backwards compatibility) and multiple recipients
+            if isinstance(recipients, str):
+                recipients = [recipients]
+            all_roles = [sender] + recipients
             super().__init__(
-                name, roles=[sender, recipient], parent=parent, type="message"
+                name, roles=all_roles, parent=parent, type="message"
             )
-            self.configure(sender, recipient, parameters, parent)
+            self.configure(sender, recipients, parameters, parent)
         else:
             super().__init__(name, parent=parent, type="message")
 
-    def configure(self, sender=None, recipient=None, parameters=None, parent=None):
+    def configure(self, sender=None, recipients=None, parameters=None, parent=None):
         parent = parent or getattr(self, "parent", None)
+        
+        # Handle backwards compatibility: single recipient as string
+        if isinstance(recipients, str):
+            recipients = [recipients]
+        elif recipients is None:
+            recipients = []
+            
         if parent:
             self.sender = parent.roles.get(sender) or parent.roles.get(
                 getattr(sender, "name", None)
             )
-            self.recipient = parent.roles.get(recipient) or parent.roles.get(
-                getattr(recipient, "name", None)
-            )
+            self.recipients = []
+            for recipient in recipients:
+                resolved_recipient = parent.roles.get(recipient) or parent.roles.get(
+                    getattr(recipient, "name", None)
+                )
+                if resolved_recipient:
+                    self.recipients.append(resolved_recipient)
             for p in parameters or []:
                 if self.validate and p.name not in parent.parameters:
                     raise LookupError(
@@ -461,18 +476,63 @@ class Message(Protocol):
                     p.key = True
         else:
             self.sender = sender if isinstance(sender, Role) else Role(sender, self)
-            self.recipient = (
-                recipient if isinstance(recipient, Role) else Role(recipient, self)
-            )
+            self.recipients = []
+            for recipient in recipients:
+                if isinstance(recipient, Role):
+                    self.recipients.append(recipient)
+                else:
+                    self.recipients.append(Role(recipient, self))
 
         if self.validate:
             if not self.sender:
-                raise LookupError("Role not found", sender, self.name, parent)
-            if not self.recipient:
-                raise LookupError("Role not found", recipient, self.name, parent)
+                available_roles = list(parent.roles.keys()) if parent and hasattr(parent, 'roles') else []
+                error_msg = ""
+                if parent:
+                    error_msg += f"In protocol '{parent.name}':\n"
+                error_msg += f"Message '{self.name}' references unknown sender '{sender}'"
+                if available_roles:
+                    error_msg += f"\nAvailable roles: {', '.join(available_roles)}"
+                    # Fuzzy matching using difflib
+                    import difflib
+                    similar = difflib.get_close_matches(str(sender), available_roles, n=3, cutoff=0.6)
+                    if similar:
+                        if len(similar) == 1:
+                            error_msg += f"\nDid you mean '{similar[0]}' instead of '{sender}'?"
+                        else:
+                            error_msg += f"\nDid you mean one of: {', '.join(similar)}?"
+                    else:
+                        error_msg += f"\nIf '{sender}' is a new role, add it to the roles declaration."
+                raise LookupError(error_msg)
+            
+            if not self.recipients:
+                available_roles = list(parent.roles.keys()) if parent and hasattr(parent, 'roles') else []
+                error_msg = ""
+                if parent:
+                    error_msg += f"In protocol '{parent.name}':\n"
+                error_msg += f"Message '{self.name}' references unknown recipient(s): {recipients}"
+                if available_roles:
+                    error_msg += f"\nAvailable roles: {', '.join(available_roles)}"
+                    # Fuzzy matching for each recipient
+                    import difflib
+                    suggestions_found = False
+                    for recipient in recipients:
+                        similar = difflib.get_close_matches(str(recipient), available_roles, n=3, cutoff=0.6)
+                        if similar:
+                            if len(similar) == 1:
+                                error_msg += f"\nDid you mean '{similar[0]}' instead of '{recipient}'?"
+                            else:
+                                error_msg += f"\nFor '{recipient}', did you mean one of: {', '.join(similar)}?"
+                            suggestions_found = True
+                    if not suggestions_found:
+                        unknown_recipients = [str(r) for r in recipients]
+                        if len(unknown_recipients) == 1:
+                            error_msg += f"\nIf '{unknown_recipients[0]}' is a new role, add it to the roles declaration."
+                        else:
+                            error_msg += f"\nIf {', '.join(unknown_recipients)} are new roles, add them to the roles declaration."
+                raise LookupError(error_msg)
 
         super().configure(
-            roles=[self.sender, self.recipient],
+            roles=[self.sender] + self.recipients,
             public_parameters=parameters,
             parent=parent,
         )
@@ -480,6 +540,11 @@ class Message(Protocol):
     @property
     def qualified_name(self):
         return self.parent.name + "/" + self.name
+    
+    @property 
+    def recipient(self):
+        """Backwards compatibility property - returns first recipient"""
+        return self.recipients[0] if self.recipients else None
 
     @property
     def name(self):
@@ -498,7 +563,7 @@ class Message(Protocol):
         msg = Message(
             self.raw_name,
             self.sender,
-            self.recipient,
+            self.recipients,
             self.parameters.values(),
             idx=self.idx,
             parent=parent,
@@ -519,16 +584,17 @@ class Message(Protocol):
         return {self.name: self}
 
     def format(self, ref=False):
+        recipients_str = ",".join([r.name for r in self.recipients])
         return "{} -> {}: {}[{}]".format(
             self.sender.name,
-            self.recipient.name,
+            recipients_str,
             self.raw_name,
             ", ".join([p.format() for p in self.parameters.values()]),
         )
 
     def to_dict(self):
         data = super(Message, self).to_dict()
-        data["to"] = self.recipient.name
+        data["to"] = [r.name for r in self.recipients]
         data["from"] = self.sender.name
         return data
 
@@ -543,14 +609,43 @@ class Message(Protocol):
         try:
             return self.parent.messages[name]
         except KeyError:
-            m = Message(
-                "@" + self.raw_name, self.recipient, self.sender, parent=self.parent
-            )
-            m.set_parameters(
-                [Parameter(k, "in", key=True, parent=m) for k in self.keys]
-                + [Parameter("$ack", "out", key=True, parent=m)]
-            )
-            return m
+            # For multiple recipients, create separate acknowledgment messages from each recipient to sender
+            if len(self.recipients) == 1:
+                # Single recipient - use original behavior
+                m = Message(
+                    "@" + self.raw_name, 
+                    sender=self.recipients[0], 
+                    recipients=[self.sender], 
+                    parent=self.parent
+                )
+                m.set_parameters(
+                    [Parameter(k, "in", key=True, parent=m) for k in self.keys]
+                    + [Parameter("$ack", "out", key=True, parent=m)]
+                )
+                return m
+            else:
+                # Multiple recipients - create separate ack messages with unique parameters
+                # Return the first one for backward compatibility, but all should be generated
+                ack_messages = []
+                for i, recipient in enumerate(self.recipients):
+                    ack_name = f"@{self.raw_name}_{recipient.name}"
+                    m = Message(
+                        ack_name,
+                        sender=recipient,
+                        recipients=[self.sender],
+                        parent=self.parent
+                    )
+                    # Each ack gets unique out parameter to avoid conflicts
+                    ack_param_name = f"$ack_{recipient.name}"
+                    m.set_parameters(
+                        [Parameter(k, "in", key=True, parent=m) for k in self.keys]
+                        + [Parameter(ack_param_name, "out", key=True, parent=m)]
+                    )
+                    ack_messages.append(m)
+                
+                # For backward compatibility, return first message
+                # TODO: Consider changing return type to list in future
+                return ack_messages[0]
 
     def validate(self, payload):
         return set(payload) == set(self.parameters.keys())

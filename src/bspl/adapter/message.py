@@ -15,7 +15,7 @@ class Message:
     schema = None
     payload = {}
     acknowledged = False
-    dest = None
+    _dest = None
     adapter = None
     meta = {}
     key = None
@@ -33,7 +33,7 @@ class Message:
         self.schema = schema
         self.payload = payload or {}
         self.acknowledged = acknowledged
-        self.dest = dest
+        self._dest = dest  # Use private attribute for backwards compatibility
         self.adapter = adapter
         self.meta = {"system": system, **meta}
 
@@ -46,9 +46,35 @@ class Message:
         return self.meta["system"]
 
     @property
-    def recipient(self):
+    def recipients(self):
         s = self.adapter.systems[self.system]
-        return s["roles"][self.schema.recipient]
+        return [s["roles"][r] for r in self.schema.recipients]
+
+    @property
+    def recipient(self):
+        """Backwards compatibility property - returns first recipient"""
+        recipients = self.recipients
+        return recipients[0] if recipients else None
+
+    @property
+    def dests(self):
+        """List of destination endpoints for multiple recipients"""
+        return [
+            self.adapter.agents.get(r)
+            for r in self.recipients
+            if self.adapter.agents.get(r)
+        ]
+
+    @property
+    def dest(self):
+        """Backwards compatibility property - returns first destination"""
+        dests = self.dests
+        return dests[0] if dests else self._dest
+
+    @dest.setter
+    def dest(self, value):
+        """Backwards compatibility setter for dest"""
+        self._dest = value
 
     def __repr__(self):
         payload = ",".join("{0}={1!r}".format(k, v) for k, v in self.payload.items())
@@ -117,12 +143,13 @@ class Message:
     def term(self):
         functor = camel_to_snake(self.schema.name)
         parameters = self.schema.order_params(self.payload, default=agentspeak.Var)
+
         return Literal(
             functor,
             (
                 self.system,
                 self.schema.sender.name,
-                self.schema.recipient.name,
+                *[r.name for r in self.schema.recipients],
                 *parameters,
             ),
         )
@@ -134,7 +161,7 @@ class Message:
             (
                 self.system,
                 self.schema.sender.name,
-                self.schema.recipient.name,
+                *[r.name for r in self.schema.recipients],
                 *parameters,
             ),
         )
@@ -143,8 +170,11 @@ class Message:
     def resolve(self, term, scope, memo={}):
         system = term.args[0]
         sender = term.args[1]
-        recipient = term.args[2]
-        payload = self.schema.zip_params(*term.args[3:])
+        # Extract recipients (number determined by schema)
+        num_recipients = len(self.schema.recipients)
+        recipients = term.args[2:2+num_recipients]
+        # Parameters start after all recipients
+        payload = self.schema.zip_params(*term.args[2+num_recipients:])
         for p, v in payload.items():
             if isinstance(v, agentspeak.Var):
                 val = agentspeak.deref(memo.get(v, v), scope)
@@ -176,14 +206,14 @@ class Partial(Message):
         self.adapter = message.adapter
         # the base bindings that are used to initialize each instance
         self.bindings = self.payload = message.payload.copy()
-        self.dest = None
+        self._dest = None
 
         self.instances = []
         self.meta = message.meta.copy()
 
     def bind(self, **kwargs):
         inst = Message(
-            self.schema, self.bindings.copy(), dest=self.dest, system=self.system
+            self.schema, self.bindings.copy(), dest=self._dest, system=self.system
         )
         for k, v in kwargs.items():
             inst[k] = v
