@@ -36,14 +36,22 @@ def net_usage(dev):
 
 def cpu_usage():
     """CPU usage of the current cgroup in ns"""
-    cpu = open("/sys/fs/cgroup/cpuacct/cpuacct.usage")
-    return int(cpu.readline())
+    try:
+        cpu = open("/sys/fs/cgroup/cpuacct/cpuacct.usage")
+        return int(cpu.readline())
+    except FileNotFoundError:
+        # Fallback: return 0 if cgroup files not available
+        return 0
 
 
 def mem_usage():
     """Memory usage of the current cgroup in bytes"""
-    mem = open("/sys/fs/cgroup/memory/memory.usage_in_bytes")
-    return int(mem.readline())
+    try:
+        mem = open("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+        return int(mem.readline())
+    except FileNotFoundError:
+        # Fallback: return 0 if cgroup files not available
+        return 0
 
 
 def update(dev="eth0"):
