@@ -101,6 +101,8 @@ def generate_covers(protocol, role, uod=None, ps=None):
     """
     u = uod or UoD.from_protocol(protocol, external=True)
     ps = ps or max_paths(u)
+    # Convert generator to list to avoid consumption issue
+    ps = list(ps)
     covers = {}
     for e in role.emissions(protocol):
         covers[e] = []
