@@ -1,4 +1,10 @@
 import pytest
+# TODO: Replace boolexpr with modern SAT solver (PySAT) for Python 3.11+ compatibility
+# Quick fix for collections.Sequence deprecation
+import collections.abc
+import collections
+collections.Sequence = collections.abc.Sequence
+
 from boolexpr import and_, not_, impl
 from bspl.verification.precedence import (
     transitivity,

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# TODO: Replace boolexpr with modern SAT solver (PySAT) for Python 3.11+ compatibility
+# and better long-term maintainability. boolexpr has collections.Sequence issues.
 from ttictoc import Timer
 import boolexpr as bx
 from boolexpr import and_, impl, or_, onehot, and_s

@@ -16,6 +16,7 @@ E.x.:
 [{"A":a}, {"B":b}]
 """
 
+# TODO: Replace boolexpr with modern SAT solver (PySAT) for Python 3.11+ compatibility
 import boolexpr as bx
 from boolexpr import *
 from itertools import combinations, permutations, chain
