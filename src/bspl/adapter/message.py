@@ -16,6 +16,7 @@ class Message:
     payload = {}
     acknowledged = False
     _dest = None
+    _dests = None
     adapter = None
     meta = {}
     key = None
@@ -34,6 +35,7 @@ class Message:
         self.payload = payload or {}
         self.acknowledged = acknowledged
         self._dest = dest  # Use private attribute for backwards compatibility
+        self._dests = None  # Initialize multiple destinations
         self.adapter = adapter
         self.meta = {"system": system, **meta}
 
@@ -52,29 +54,52 @@ class Message:
 
     @property
     def recipient(self):
-        """Backwards compatibility property - returns first recipient"""
+        """Single recipient role - convenience for single recipient case"""
         recipients = self.recipients
         return recipients[0] if recipients else None
 
     @property
     def dests(self):
-        """List of destination endpoints for multiple recipients"""
-        return [
-            self.adapter.agents.get(r)
-            for r in self.recipients
-            if self.adapter.agents.get(r)
-        ]
+        """List of destination endpoints - can be set as override"""
+        if self._dests is not None:
+            return self._dests
+        elif self._dest is not None:
+            return [self._dest]
+        else:
+            return []
+
+    @dests.setter
+    def dests(self, value):
+        """Set multiple destination endpoints - clears dest"""
+        if value is not None:
+            if not isinstance(value, list):
+                raise ValueError("dests must be a list of (host, port) tuples")
+            for endpoint in value:
+                if not (isinstance(endpoint, tuple) and len(endpoint) == 2):
+                    raise ValueError(f"Invalid endpoint {endpoint}: must be (host, port) tuple")
+                host, port = endpoint
+                if not isinstance(host, str) or not isinstance(port, int):
+                    raise ValueError(f"Invalid endpoint {endpoint}: host must be string, port must be int")
+        self._dests = value
+        self._dest = None  # Clear single dest when setting multiple
 
     @property
     def dest(self):
-        """Backwards compatibility property - returns first destination"""
+        """Single destination endpoint - convenience for single recipient case"""
         dests = self.dests
         return dests[0] if dests else self._dest
 
     @dest.setter
     def dest(self, value):
-        """Backwards compatibility setter for dest"""
+        """Set single destination endpoint - clears dests"""
+        if value is not None:
+            if not (isinstance(value, tuple) and len(value) == 2):
+                raise ValueError(f"Invalid endpoint {value}: must be (host, port) tuple")
+            host, port = value
+            if not isinstance(host, str) or not isinstance(port, int):
+                raise ValueError(f"Invalid endpoint {value}: host must be string, port must be int")
         self._dest = value
+        self._dests = None  # Clear multiple dests when setting single
 
     def __repr__(self):
         payload = ",".join("{0}={1!r}".format(k, v) for k, v in self.payload.items())

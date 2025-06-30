@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import asyncio
-import logging
 import pytest
 from bspl.parsers.bspl import parse
-from bspl.adapter.message import Message
+from bspl.protocol import Message
 
 specification = parse(
     """

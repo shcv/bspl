@@ -1,5 +1,5 @@
 import pytest
-from bspl.parsers.bspl import load_file
+from bspl.parsers.bspl import load_file, load
 from bspl.protocol import *
 
 
@@ -71,3 +71,34 @@ def test_message_construct(Bid):
         "bidID": "b",
         "bid": "c",
     }
+
+
+# Multi-recipient protocol tests
+
+
+def test_multi_recipient_parsing():
+    """Test multi-recipient syntax parsing and backwards compatibility"""
+    spec = load(
+        "MultiTest { roles A, B, C parameters out data A -> B,C: multi[out data] A -> B: single[out data] }"
+    )
+    protocol = spec.protocols["MultiTest"]
+
+    # Multi-recipient message
+    multi_msg = protocol.messages["multi"]
+    assert len(multi_msg.recipients) == 2
+    assert [r.name for r in multi_msg.recipients] == ["B", "C"]
+    assert multi_msg.recipient.name == "B"  # backwards compatibility
+
+    # Single-recipient message
+    single_msg = protocol.messages["single"]
+    assert len(single_msg.recipients) == 1
+    assert single_msg.recipient.name == "B"
+
+
+def test_multi_recipient_format():
+    """Test multi-recipient message formatting"""
+    spec = load(
+        "FormatTest { roles A, B, C parameters out data A -> B,C: multi[out data] }"
+    )
+    msg = spec.protocols["FormatTest"].messages["multi"]
+    assert "A -> B,C: multi[out data]" in msg.format()

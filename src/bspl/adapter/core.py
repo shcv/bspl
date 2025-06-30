@@ -48,6 +48,32 @@ COLORS = [
 ]
 
 
+def select_endpoint(agent_endpoints, system_name):
+    """
+    Select one endpoint from a list of agent endpoints using deterministic hash-based selection.
+
+    This function provides session affinity - the same system will always connect to the same
+    endpoint when multiple endpoints are available. This deterministic behavior aids in debugging
+    and ensures consistent message routing.
+
+    Args:
+        agent_endpoints: Either a single endpoint tuple (host, port) or a list of such tuples
+        system_name: Name of the system, used as hash input for deterministic selection
+
+    Returns:
+        A single endpoint tuple (host, port)
+    """
+    if isinstance(agent_endpoints, list):
+        if len(agent_endpoints) == 1:
+            return agent_endpoints[0]
+        # Use hash of system name for deterministic selection
+        index = hash(system_name) % len(agent_endpoints)
+        return agent_endpoints[index]
+    else:
+        # Single endpoint (tuple)
+        return agent_endpoints
+
+
 class Adapter:
     def __init__(
         self,
@@ -189,11 +215,8 @@ class Adapter:
                     recipient_agent = system["roles"][recipient_role]
                     agent_endpoints = self.agents[recipient_agent]
 
-                    # Handle multiple endpoints per agent
-                    if isinstance(agent_endpoints, list):
-                        endpoint = random.choice(agent_endpoints)
-                    else:
-                        endpoint = agent_endpoints
+                    # Handle multiple endpoints per agent using deterministic selection
+                    endpoint = select_endpoint(agent_endpoints, message.system)
 
                     # Create message copy with specific destination
                     msg_copy = Message(
