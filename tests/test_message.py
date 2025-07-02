@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import pytest
+import logging
 from bspl.parsers.bspl import parse
-from bspl.protocol import Message
+from bspl.adapter.message import Message
 
 specification = parse(
     """

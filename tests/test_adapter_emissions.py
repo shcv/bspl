@@ -6,7 +6,7 @@ from bspl.adapter import Adapter
 from bspl.adapter.message import Message
 from bspl.adapter.emitter import Emitter, MockEmitter
 from bspl.adapter.receiver import Receiver, MockReceiver
-from bspl.adapter.event import InitEvent
+from bspl.adapter.event import InitEvent, ReceptionEvent
 
 # Set pytest-asyncio default fixture loop scope to avoid deprecation warning
 pytest_plugins = ["pytest_asyncio"]
@@ -376,3 +376,112 @@ async def test_message_dest_dests_properties():
     msg.dests = []
     assert msg.dests == []
     assert msg.dest is None
+
+
+async def test_multi_protocol_conflicting_message_names():
+    """Test that messages with the same name from different protocols are handled correctly using qualified names"""
+    # Create two protocols with a conflicting message name "Give"
+    buy_protocol = bspl.parsers.bspl.parse(
+        """
+Buy {
+  roles Buyer, Seller
+  parameters out item key, out price
+
+  Buyer -> Seller: Request[out item]
+  Seller -> Buyer: Give[in item, out price]
+  Buyer -> Seller: Pay[in item, in price]
+}
+"""
+    ).protocols["Buy"]
+
+    negotiate_protocol = bspl.parsers.bspl.parse(
+        """
+Negotiate {
+  roles Client, Vendor
+  parameters out product key, out cost
+
+  Client -> Vendor: Inquire[out product]
+  Vendor -> Client: Give[in product, out cost]
+}
+"""
+    ).protocols["Negotiate"]
+
+    # Set up systems
+    systems = {
+        "buy_system": {
+            "protocol": buy_protocol,
+            "roles": {
+                buy_protocol.roles["Buyer"]: "alice",
+                buy_protocol.roles["Seller"]: "bob",
+            },
+        },
+        "negotiate_system": {
+            "protocol": negotiate_protocol,
+            "roles": {
+                negotiate_protocol.roles["Client"]: "alice",
+                negotiate_protocol.roles["Vendor"]: "bob",
+            },
+        },
+    }
+
+    agents = {"alice": [("localhost", 7001)], "bob": [("localhost", 7002)]}
+
+    # Create adapter that participates in both protocols
+    adapter = Adapter(
+        "bob", systems, agents, emitter=MockEmitter(), receiver=MockReceiver()
+    )
+
+    # Verify messages are stored with qualified names
+    assert "Buy/Give" in adapter.messages
+    assert "Negotiate/Give" in adapter.messages
+
+    # Test message serialization uses qualified names
+    buy_give_msg = Message(
+        buy_protocol.messages["Give"],
+        {"item": "apple", "price": 10},
+        system="buy_system",
+    )
+    buy_give_msg.adapter = adapter
+
+    negotiate_give_msg = Message(
+        negotiate_protocol.messages["Give"],
+        {"product": "banana", "cost": 20},
+        system="negotiate_system",
+    )
+    negotiate_give_msg.adapter = adapter
+
+    assert buy_give_msg.serialize()["schema"] == "Buy/Give"
+    assert negotiate_give_msg.serialize()["schema"] == "Negotiate/Give"
+
+    # Test reception of messages with qualified names
+    # Track which handlers get called
+    buy_handler_called = False
+    negotiate_handler_called = False
+
+    @adapter.reaction(buy_protocol.messages["Give"])
+    async def handle_buy_give(message):
+        nonlocal buy_handler_called
+        buy_handler_called = True
+        assert message.schema.qualified_name == "Buy/Give"
+        assert message["item"] == "apple"
+        assert message["price"] == 10
+
+    @adapter.reaction(negotiate_protocol.messages["Give"])
+    async def handle_negotiate_give(message):
+        nonlocal negotiate_handler_called
+        negotiate_handler_called = True
+        assert message.schema.qualified_name == "Negotiate/Give"
+        assert message["product"] == "banana"
+        assert message["cost"] == 20
+
+    # Process Buy.Give message
+    buy_give_event = ReceptionEvent(buy_give_msg)
+    await adapter.process(buy_give_event)
+
+    # Process Negotiate.Give message
+    negotiate_give_event = ReceptionEvent(negotiate_give_msg)
+    await adapter.process(negotiate_give_event)
+
+    # Verify both handlers were called with correct messages
+    assert buy_handler_called, "Buy handler should have been called"
+    assert negotiate_handler_called, "Negotiate handler should have been called"

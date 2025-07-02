@@ -222,7 +222,7 @@ class Message:
         return Partial(self)
 
     def serialize(self):
-        return {"schema": self.schema.name, "payload": self.payload, "meta": self.meta}
+        return {"schema": self.schema.qualified_name, "payload": self.payload, "meta": self.meta}
 
 
 class Partial(Message):

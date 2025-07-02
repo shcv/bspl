@@ -146,7 +146,7 @@ class Adapter:
                 self.receivers.append(Receiver(addr))
         self.schedulers = []
         self.messages = {
-            name: message
+            message.qualified_name: message
             for p in self.protocols
             for name, message in p.messages.items()
         }
