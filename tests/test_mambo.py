@@ -16,27 +16,27 @@ from bspl.generators.mambo import unsafe, nonlive
 
 @pytest.fixture(scope="module")
 def CreateOrder():
-    return bspl.load_file("samples/merged-lab-order.bspl").protocols["CreateOrder"]
+    return bspl.load_file("samples/lab-order/merged-lab-order.bspl").protocols["CreateOrder"]
 
 
 @pytest.fixture(scope="module")
 def Purchase():
-    return bspl.load_file("samples/purchase.bspl").protocols["Purchase"]
+    return bspl.load_file("samples/trade-finance/purchase.bspl").protocols["Purchase"]
 
 
 @pytest.fixture(scope="module")
 def NetBill():
-    return bspl.load_file("samples/netbill.bspl").protocols["NetBill"]
+    return bspl.load_file("samples/trade-finance/netbill.bspl").protocols["NetBill"]
 
 
 @pytest.fixture(scope="module")
 def Ebusiness():
-    return bspl.load_file("samples/ebusiness.bspl").protocols["Ebusiness"]
+    return bspl.load_file("samples/trade-finance/ebusiness.bspl").protocols["Ebusiness"]
 
 
 @pytest.fixture(scope="module")
 def Sale():
-    return bspl.load_file("samples/sale.bspl").protocols["Sale"]
+    return bspl.load_file("samples/trade-finance/sale.bspl").protocols["Sale"]
 
 
 def test_occurs(NetBill):
@@ -155,7 +155,7 @@ def test_enactable():
     result = list(match_paths(U, q))
     assert result
 
-    P = bspl.load_file("samples/tests/nonlive-dependent").protocols["Dependent"]
+    P = bspl.load_file("samples/tests/dependent-nonlive.bspl").protocols["Dependent"]
     q = precedence.parse("not a", semantics=QuerySemantics())
     U = UoD.from_protocol(P, external=False)
     result = list(match_paths(U, q))
@@ -178,7 +178,7 @@ def test_liveness(Ebusiness):
     # print(result)
     # assert result
 
-    P = bspl.load_file("samples/tests/nonlive-indirect").protocols["IndirectNonlive"]
+    P = bspl.load_file("samples/tests/indirect-nonlive.bspl").protocols["IndirectNonlive"]
     q = nonlive(P)
     U = UoD.from_protocol(P, conflicts=q.conflicts)
     print(q)

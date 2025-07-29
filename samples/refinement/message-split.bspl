@@ -1,13 +1,13 @@
 RFQ {
-  $\role$ B, S
-  $\param$ out ID key, out item
-  B $\mo$ S: Rfq[out ID key, out item]
+  roles B, S
+  parameters out ID key, out item
+  B → S: Rfq[out ID key, out item]
 }
 
 
 Refined-RFQ {
-  $\role$ B, S
-  $\param$ out ID key, out item
-  B $\mapsto$ S: Introduction[out ID key]
-  B $\mapsto$ S: Request[in ID key, out item]
+  roles B, S
+  parameters out ID key, out item
+  B → S: Introduction[out ID key]
+  B → S: Request[in ID key, out item]
 }

@@ -1,0 +1,9 @@
+Cancer_diagnosis {
+ roles Pat, Phy, Rad
+ parameters out pat_id key, out outcome
+
+ Pat → Phy: Visit [out pat_id]
+ Phy → Pat: AllGood [in pat_id, out outcome]
+ Phy → Rad: Consult [in pat_id]
+ Rad → Phy: CleanChit [in pat_id, out outcome]
+}

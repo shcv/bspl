@@ -1,0 +1,17 @@
+AccessData {
+  roles R, C // researcher, clinic
+  parameters in ID key, in record, out req key, out data, nil revoked
+
+  R → C: Request[in ID, in record, out req, nil revoked]
+  C → R: Provide[in ID, in record, in req, out data, nil revoked]
+}
+
+ShareHealthRecords {
+  roles P, R, C // patient, researcher, clinic
+  parameters out ID key, out record, out revoked
+  private req, data
+
+  P → C: Authorize[out ID, out record]
+  AccessData(R, C, in ID, in record, out req, out data, nil revoked)
+  P → C: Revoke[in ID, out revoked]
+}

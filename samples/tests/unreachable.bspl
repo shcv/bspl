@@ -1,0 +1,10 @@
+UnsafeProtocol {
+  roles Pat, Phy, Rad, Path, TB
+  parameters out pat_id key, out outcome
+  private examine, pathoRep
+
+  Pat → Phy: Visit[out pat_id]
+  Phy → Rad: Consult[in pat_id, out examine]
+  Rad → Phy: CleanChit[in pat_id, in examine, out outcome]
+  Path → Phy: Agree[in pat_id, out pathoRep, out outcome]
+}

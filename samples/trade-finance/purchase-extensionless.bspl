@@ -1,0 +1,10 @@
+Purchase {
+  roles B, S // Buyer, Seller
+  parameters out order key, out filled
+  private payment
+
+  B → S: PlaceOrder[out order]
+  B → S: Debit[in order, out payment]
+  B → S: Credit[in order, out payment]
+  S → B: FillOrder[in order, in payment, out filled]
+}

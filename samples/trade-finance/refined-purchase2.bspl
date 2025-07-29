@@ -1,0 +1,25 @@
+RefinedPurchase {
+  roles B, S // Buyer, Seller
+  parameters out order key, out payment, out product
+  B → S: PlaceOrder[out order]
+  RefinedTransfer(B, S, in order, out payment)
+  RefinedCredit(B, S, in order, out payment)
+  S → B: FillOrder[in order, in payment, out product]
+}
+RefinedTransfer {
+  roles B, S
+  parameters in order key, out payment
+  private transferOffer, transferAccepted
+  B → S: OfferTransfer[in order, out transferOffer]
+  S → B: AcceptTransfer[in order, in transferOffer, out transferAccepted]
+  B → S: InitiateTransfer[in order, in transferAccepted, out payment]
+}
+RefinedCredit {
+  roles B, S
+  parameters in order key, out payment
+  private creditOffer, accept
+
+  B → S: OfferCredit[in order, out creditOffer]
+  S → B: AcceptCredit[in order, in creditOffer, out accept]
+  B → S: PayCredit[in order, in accept, out payment]
+}

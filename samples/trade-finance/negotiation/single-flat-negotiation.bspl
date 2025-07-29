@@ -1,0 +1,28 @@
+SingleFlatLoanNegotiation {
+  roles Borrower, Lender
+  parameters out eID key, out product, out quantity, opt contract, opt Borrower_exited, opt Lender_exited, out final
+  private  fee, Borrower_accept, Lender_accept, Borrower_reject, Lender_reject
+
+  // INITIATION: Two alternative ways to start negotiation
+  // Option 1: Borrower requests terms from Lender
+  Borrower -> Lender: Request[out eID key, out product, out quantity]
+  Lender -> Borrower: RequestOffer[in eID key, in product, in quantity, out fee, out Lender_accept]
+
+  // Option 2: Borrower proposes specific terms
+  Borrower -> Lender: Propose[out eID key, out product, out quantity, out fee, out Borrower_accept]
+
+  // RESPONSES: Unified accept/reject for any proposal or counter-proposal
+  Borrower -> Lender: B_Accept[in eID key, in product, in quantity, in fee, in Lender_accept, out contract, nil Borrower_reject]
+  Lender -> Borrower: L_Accept[in eID key, in product, in quantity, in fee, in Borrower_accept, out contract, nil Lender_reject]
+
+  Borrower -> Lender: B_Reject[in eID key, in product, in quantity, in fee, out Borrower_reject, nil contract]
+  Lender -> Borrower: L_Reject[in eID key, in product, in quantity, in fee, out Lender_reject, nil contract]
+
+  // EXITS: Either party can exit at any time after initial exchange
+  Borrower -> Lender: B_Exit[in eID key, out Borrower_exited]
+  Lender -> Borrower: L_Exit[in eID key, out Lender_exited, out final]
+
+  // FINALIZATION: Lender concludes based on outcome
+  Lender -> Borrower: Finalize-contract[in eID key, in product, in quantity, in contract, out final]
+  Lender -> Borrower: Finalize-borrower-exit[in eID key, in product, in quantity, in Borrower_exited, out final]
+}

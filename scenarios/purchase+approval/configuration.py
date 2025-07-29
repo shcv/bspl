@@ -1,6 +1,6 @@
 import bspl
 
-purchase = bspl.load_file("purchase.bspl").export("Purchase")
+purchase = bspl.load_file("../../samples/trade-finance/purchase.bspl").export("Purchase")
 approval = bspl.load_file("approval.bspl").export("Approval")
 from Purchase import Buyer, Seller
 from Approval import Requester, Approver

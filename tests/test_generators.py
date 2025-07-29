@@ -7,7 +7,7 @@ from bspl.generators.asl import *
 
 @pytest.fixture(scope="module")
 def Logistics():
-    return load_file("samples/logistics2.bspl").protocols["Logistics"]
+    return load_file("samples/logistics/logistics2.bspl").protocols["Logistics"]
 
 
 @pytest.fixture(scope="module")

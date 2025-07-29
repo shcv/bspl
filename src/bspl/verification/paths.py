@@ -831,35 +831,45 @@ def handle_all(
       reduction: Enable reduction (default True); use --noreduction to disable
       safe: If reduction is enabled, use heuristic to avoid branching on events assumed to be safe (default True); use --nosafe to disable
     """
-    for protocol in load_protocols(files):
-        print(f"{protocol.name} ({protocol.path}): ")
+    for file in files:
         try:
-            print(
-                verify(
-                    protocol,
-                    safety,
-                    max_paths,
-                    verbose=verbose,
-                    debug=debug,
-                    external=external,
-                    safe=safe,
-                    reduction=reduction,
-                )
-            )
-            print(
-                verify(
-                    protocol,
-                    liveness,
-                    max_paths,
-                    verbose=verbose,
-                    debug=debug,
-                    external=external,
-                    safe=safe,
-                    reduction=reduction,
-                )
-            )
+            protocols = list(load_protocols([file]))
+        except ValueError as e:
+            print(f"{file}: Validation error - {e}")
+            continue
         except Exception as e:
-            if debug:
-                raise
-            print(f"Verification error: {e}")
-            print("(Use --debug flag to see full traceback)")
+            print(f"{file}: Parse error - {e}")
+            continue
+            
+        for protocol in protocols:
+            print(f"{protocol.name} ({protocol.path}): ")
+            try:
+                print(
+                    verify(
+                        protocol,
+                        safety,
+                        max_paths,
+                        verbose=verbose,
+                        debug=debug,
+                        external=external,
+                        safe=safe,
+                        reduction=reduction,
+                    )
+                )
+                print(
+                    verify(
+                        protocol,
+                        liveness,
+                        max_paths,
+                        verbose=verbose,
+                        debug=debug,
+                        external=external,
+                        safe=safe,
+                        reduction=reduction,
+                    )
+                )
+            except Exception as e:
+                if debug:
+                    raise
+                print(f"Verification error: {e}")
+                print("(Use --debug flag to see full traceback)")

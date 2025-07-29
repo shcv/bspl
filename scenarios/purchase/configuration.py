@@ -1,6 +1,6 @@
 import bspl
 
-logistics = bspl.load_file("purchase.bspl").export("Purchase")
+logistics = bspl.load_file("../../samples/trade-finance/purchase.bspl").export("Purchase")
 from Purchase import Buyer, Seller, Shipper
 
 config = {

@@ -1,0 +1,30 @@
+Participate {
+  roles A, B
+  parameters in eID key, out rID key, in product, in quantity, in B_accept, out fee, opt A_accept, opt contract, opt A_reject, opt A_exited
+  A -> B: CounterPropose[in eID key, out rID key, in product, in quantity, out fee, out A_accept]
+  A -> B: Accept[in eID key, in rID key, in product, in quantity, in fee, in B_accept, out contract, nil A_reject]
+  A -> B: Reject[in eID key, in rID key, in product, in quantity, in fee, out A_reject, nil contract]
+  A -> B: Exit[in eID key, out A_exited]
+}
+
+TemplateLoanNegotiation {
+  roles Borrower, Lender
+  parameters out eID key, out product, out quantity, opt contract, opt Borrower_exited, opt Lender_exited, out final
+  private rID key, fee, Borrower_accept, Lender_accept, Borrower_reject, Lender_reject
+
+  // INITIATION: Two alternative ways to start negotiation
+  // Option 1: Borrower requests terms from Lender
+  Borrower -> Lender: Request[out eID key, out product, out quantity]
+  Lender -> Borrower: RequestOffer[in eID key, out rID key, in product, in quantity, out fee, out Lender_accept]
+
+  // Option 2: Borrower proposes specific terms
+  Borrower -> Lender: Propose[out eID key, out rID key, out product, out quantity, out fee, out Borrower_accept]
+
+  Participate(Borrower, Lender, in eID key, out rID key, in product, in quantity, in Lender_accept, out fee, opt Borrower_accept, opt contract, opt Borrower_reject, opt Borrower_exited)
+  Participate(Lender, Borrower, in eID key, out rID key, in product, in quantity, in Borrower_accept, out fee, opt Lender_accept, opt contract, opt Lender_reject, opt Lender_exited)
+
+  // FINALIZATION: Lender concludes based on outcome
+  Lender -> Borrower: Finalize-contract[in eID key, in product, in quantity, in contract, out final]
+  Lender -> Borrower: Finalize-borrower-exit[in eID key, in product, in quantity, in Borrower_exited, out final]
+  Lender -> Borrower: Finalize-lender-exit[in eID key, in product, in quantity, in Lender_exited, out final]
+}

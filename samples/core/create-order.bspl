@@ -1,0 +1,28 @@
+CreateOrder {
+  roles Patient, Provider, Collector, Laboratory
+  parameters out ID key, out complaint, out report
+  private order, collection, specimen, unsuitable, received, results, results-id, co-location, contact, query, request, order-query, order-response
+
+  Patient -> Provider: Complain[out ID, out complaint]
+  Provider -> Laboratory: EnterRequest[in ID, in complaint, out order]
+
+  Provider -> Laboratory: Ship[in ID, in order, out collection, out specimen]
+  Provider -> Collector: NonProviderCollect[in ID, in order, out collection, out co-location]
+  Provider -> Patient: NeedAppointment[in ID, in order, out collection, out contact]
+
+  Patient -> Collector: Schedule[in ID, in contact, out co-location, nil specimen]
+  Collector -> Provider: OrderQuery[in ID, in co-location, nil order, out order-query]
+  Provider -> Collector: OrderResponse[in ID, in order-query, in order, out order-response]
+  Collector -> Laboratory: CollectSpecimen[in ID, in order, in co-location, out specimen]
+
+  Laboratory -> Collector: NotifyUnsuitable[in ID, in order, in specimen, out unsuitable]
+  Laboratory -> Collector: NotifyReceived[in ID, in order, in specimen, out received]
+
+  Laboratory -> Provider: Results[in ID, in order, in specimen, out results]
+  Laboratory -> Provider: ResultsAvailable[in ID, in order, in specimen, out results-id]
+
+  Provider -> Laboratory: Query[in ID, in results-id, out query]
+  Laboratory -> Provider: SendResults[in ID, in results-id, in query, out results]
+
+  Provider -> Patient: AllReceived[in ID, in results, out report]
+}

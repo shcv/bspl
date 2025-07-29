@@ -1,6 +1,6 @@
 import bspl
 
-grading = bspl.load_file("grading.bspl").export("Grading")
+grading = bspl.load_file("../../samples/domain-specific/grading.bspl").export("Grading")
 from Grading import Prof, Student, TA
 
 agents = {

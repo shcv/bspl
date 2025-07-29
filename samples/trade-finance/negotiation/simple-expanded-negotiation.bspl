@@ -1,0 +1,32 @@
+// Simplified Expanded Loan Negotiation - Just one Counter Round for testing
+
+SimpleExpandedNegotiation {
+  roles Borrower, Lender
+  parameters out eID key, out product, out quantity, opt contract, opt Borrower_exited, opt Lender_exited, out final
+  private rID1 key, rID2 key, rID3 key, done1, done2, done3, fee1, fee2, fee3, Borrower_accept2, Lender_accept1, Lender_accept3, Lender_reject1, Lender_reject2, Borrower_reject3
+
+  // REQUEST ROUND (Borrower -> Lender): Alternative start #1
+  Borrower -> Lender: Request[out eID key, out product, out quantity]
+  Lender -> Borrower: RequestOffer[in eID key, out rID1 key, in product, in quantity, out fee1, out Lender_accept1]
+  Borrower -> Lender: RequestAccept[in eID key, in rID1 key, in product, in quantity, in fee1, in Lender_accept1, out contract, out done1]
+  Borrower -> Lender: RequestReject[in eID key, in rID1 key, in product, in quantity, in fee1, out Lender_reject1, out done1]
+
+  // PROPOSAL ROUND (Borrower -> Lender): Alternative start #2  
+  Borrower -> Lender: Propose[out eID key, out rID2 key, out product, out quantity, out fee2, out Borrower_accept2]
+  Lender -> Borrower: ProposalAccept[in eID key, in rID2 key, in product, in quantity, in fee2, in Borrower_accept2, out contract, out done2]
+  Lender -> Borrower: ProposalReject[in eID key, in rID2 key, in product, in quantity, in fee2, out Lender_reject2, out done2]
+
+  // COUNTER ROUND (Lender -> Borrower): After Request or Proposal
+  Lender -> Borrower: CounterPropose[in eID key, out rID3 key, in product, in quantity, out fee3, out Lender_accept3]
+  Borrower -> Lender: CounterAccept[in eID key, in rID3 key, in product, in quantity, in fee3, in Lender_accept3, out contract, out done3]
+  Borrower -> Lender: CounterReject[in eID key, in rID3 key, in product, in quantity, in fee3, out Borrower_reject3, out done3]
+
+  // EXITS: Either role can exit at any time after initial message
+  Borrower -> Lender: Exit[in eID key, out Borrower_exited]
+  Lender -> Borrower: Exit2[in eID key, out Lender_exited]
+
+  // FINALIZATION: Lender finalizes based on different outcomes
+  Lender -> Borrower: Finalize-agreement[in eID key, in product, in quantity, in contract, out final]
+  Lender -> Borrower: Finalize-Borrower-exit[in eID key, in Borrower_exited, out final] 
+  Lender -> Borrower: Finalize-Lender-exit[in eID key, in Lender_exited, out final]
+}

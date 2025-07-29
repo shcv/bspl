@@ -113,7 +113,7 @@ def test_sources(P):
 
 
 def test_liveness():
-    files = [f for f in glob.glob("samples/*.bspl") if os.path.isfile(f)]
+    files = [f for f in glob.glob("samples/**/*.bspl", recursive=True) if os.path.isfile(f)]
     for f in files:
         print(f)
         spec = load_file(f)

@@ -10,10 +10,10 @@ Commerce {
 }
 
 Either-Starts {
-  $\role$ B, S
-  $\param$ out ID key, out item
-  B $\mapsto$ S: rfq[out ID key, out item]
-  S $\mapsto$ B: recommend[out ID key, out item]
+  roles B, S
+  parameters out ID key, out item
+  B → S: rfq[out ID key, out item]
+  S → B: recommend[out ID key, out item]
 }
 
 Lookup-Prices {
@@ -24,11 +24,11 @@ Lookup-Prices {
 }
 
 Flexible-Payment {
- $\role$ B, S
- $\param$ in ID key, in item, in price, out payment, out shipped
+ roles B, S
+ parameters in ID key, in item, in price, out payment, out shipped
 
- B $\mo$ S: pay[in ID key, in item, in price, out payment]
- S $\mo$ B: ship[in ID key, in item, in price, out shipped]
+ B → S: pay[in ID key, in item, in price, out payment]
+ S → B: ship[in ID key, in item, in price, out shipped]
 }
 
 Refined-Commerce {
@@ -43,9 +43,9 @@ Refined-Commerce {
 }
 
 Buyer-Starts {
-  $\role$ B, S
-  $\param$ out ID key, out item
-  B $\mapsto$ S: rfq[out ID key, out item]
+  roles B, S
+  parameters out ID key, out item
+  B → S: rfq[out ID key, out item]
 }
 
 Single-Lookup {
@@ -56,9 +56,9 @@ Single-Lookup {
 }
 
 Pay-First {
-  $\role$ B, S
-  $\param$ in ID key, in item, in price, out payment, out shipped
+  roles B, S
+  parameters in ID key, in item, in price, out payment, out shipped
 
-  B $\mo$ S: pay[in ID key, in item, in price, out payment]
-  S $\mo$ B: ship[in ID key, in item, in payment, out shipped]
+  B → S: pay[in ID key, in item, in price, out payment]
+  S → B: ship[in ID key, in item, in payment, out shipped]
 }

@@ -1,0 +1,63 @@
+// Loan Negotiation
+// Borrower leads and has the option to request a proposal or make a proposal.
+// The role that proposes also accepts the terms (product, quantity, fee) as part of the proposal.
+
+LoanNegotiationV1 {
+  roles Borrower, Lender
+  parameters out eID key, out product, out quantity, opt contract, opt Borrower_exited, opt Lender_exited, out final
+  private rID key, rID2 key, rID3 key, rID4 key, done, Lender_reject, Borrower_reject
+
+  Request Round ( Borrower, Lender, out eID, out product, out quantity,  out rID key, opt contract, opt Lender_reject, out done )
+  Proposal Round ( Borrower, Lender, out eID, out product, out quantity, out rID2 key, opt contract, opt Lender_reject, out done )
+
+  Counter Round ( Lender, Borrower, in eID, in product, in quantity, out rID3 key, opt contract, opt Borrower_reject, out done)
+  Counter Round ( Borrower, Lender, in eID, in product, in quantity, out rID4 key, opt contract, opt Lender_reject, out done )
+
+  // Either Role can exit the enactment at any time after the initial request or proposal sent by the Borrower
+  Borrower → Lender: Exit [ in eID, out Borrower_exited ]
+  Lender → Borrower: Exit [ in eID, out Lender_exited ]
+
+  // Using multiple mutual exclusive messages and not using the disjunction
+  Lender → Borrower: Finalize-agreement [ in eID key, in product, in quantity, in contract, out final ]
+  Lender → Borrower: Finalize-Borrower-exit [ in eID, in Borrower_exited, out final ]
+  Lender → Borrower: Finalize-Lender-exit [ in eID, in Lender_exited, out final ]
+
+}
+
+// Round Protocols
+// Request Round
+// The initiating party (A) sends a request that provides context, but not the price; the other party makes an offer which can be accepted or rejected.
+
+Request Round {
+  roles A, B
+  parameters out eID key, out product, out quantity, out rID key, opt contract, opt A_reject, out done
+  private fee, B_accept
+   A → B: Request [ out eID, out product, out quantity ]
+   B → A: Offer [ in eID, out rID, in product, in quantity, out fee, out B_accept]
+   A → B: Accept [ in eID, in rID, in product, in quantity, in fee, in B_accept, out contract, out done ]
+   A → B: Reject [ in eID, in rID, in product, in quantity, in fee, out A_reject, out done ]
+}
+
+// Proposal Round
+// The initiating party (A) sends a proposal which offers a price and creates all of the context at the same time. This is the same as Initial Round.
+
+Proposal Round {
+  roles A, B
+  parameters out eID key, out product, out quantity, out rID key, opt contract, opt B_reject, out done
+  private fee, A_accept
+   A → B: Propose [ out eID, out rID, out product, out quantity, out fee, out A_accept ]
+   B → A: Accept [ in eID, in rID, in product, in quantity, in fee, in A_accept, out contract, out done ]
+   B → A: Reject [ in eID, in rID, in product, in quantity, in fee, out B_reject, out done ]
+}
+
+// Counter Round
+// This round assumes some context, and allows one party to propose a new price and the other to accept or reject it.
+
+Counter Round {
+  roles A, B
+  parameters in eID key, in product, in quantity, out rID key, opt contract, opt B_reject, out done
+  private fee, A_accept
+   A → B: Propose [ in eID, out rID, in product, in quantity, out fee, out A_accept ]
+   B → A: Accept [ in eID, in rID, in product, in quantity, in fee, in A_accept, out contract, out done ]
+   B → A: Reject [ in eID, in rID, in product, in quantity, in fee, out B_reject, out done ]
+}

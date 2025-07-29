@@ -1,0 +1,31 @@
+* Core Protocol Patterns
+
+This directory contains fundamental BSPL protocol patterns that demonstrate core concepts.
+
+** Protocols
+
+*** basic.bspl
+Minimal protocol demonstrating basic message exchange.
+- Status: Safe and live
+- Key concepts: Simple parameter flow, key bindings
+
+*** create-order.bspl
+Order creation and management protocol.
+- Status: Safe and live
+- Key concepts: Order lifecycle, parameter initialization
+
+** Note
+
+Most purchase, sale, and e-business protocols have been moved to the =trade-finance/= directory as they represent domain-specific implementations rather than core patterns.
+
+** Usage Examples
+
+Verify a basic protocol:
+#+begin_src bash
+bspl verify core/basic.bspl
+#+end_src
+
+For purchase/sale examples, see:
+#+begin_src bash
+ls ../trade-finance/purchase*.bspl
+#+end_src

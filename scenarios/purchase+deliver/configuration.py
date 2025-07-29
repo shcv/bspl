@@ -1,6 +1,6 @@
 import bspl
 
-purchase = bspl.load_file("purchase.bspl").export("Purchase")
+purchase = bspl.load_file("../../samples/trade-finance/purchase.bspl").export("Purchase")
 deliver = bspl.load_file("deliver.bspl").export("Deliver")
 from Purchase import Buyer, Seller
 from Deliver import Sender, Shipper, Recipient

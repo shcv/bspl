@@ -1,0 +1,22 @@
+MultiFlatArbitratedLoanNegotiation {
+  roles Borrower, Lender, Arbitrator
+  parameters out eID key, out product, out quantity, opt contract, opt Borrower_cancelled, opt Lender_cancelled, out final
+  private rID key, fee, Borrower_accepted, Lender_accepted
+
+  Borrower -> Lender: Propose [out eID key, out rID key, out product, out quantity, out fee, out Borrower_accepted]
+
+  Borrower -> Lender: Request [out eID key, out product, out quantity]
+
+  Lender -> Borrower: Offer [in eID key, out rID key, in product, in quantity, out fee, out Lender_accepted]
+  Borrower -> Lender: Counter [in eID key, out rID key, in product, in quantity, out fee, out Borrower_accepted]
+
+  Borrower -> Lender, Arbitrator: BorrowerAccept [in eID key, in rID key, in product, in quantity, in fee, in Lender_accepted, out contract]
+  Lender -> Borrower, Arbitrator: LenderAccept [in eID key, in rID key, in product, in quantity, in fee, in Borrower_accepted, out contract]
+
+  Borrower -> Lender, Arbitrator: BorrowerCancel [in eID key, out Borrower_cancelled, nil contract]
+  Lender -> Borrower, Arbitrator: LenderCancel [in eID key, out Lender_cancelled, nil contract]
+
+  Arbitrator -> Borrower, Lender: Finalize-completed [in eID key, in contract, out final]
+  Arbitrator -> Borrower, Lender: Finalize-borrower-cancelled [in eID key, nil contract, in Borrower_cancelled, out final]
+  Arbitrator -> Borrower, Lender: Finalize-lender-cancelled [in eID key, nil contract, in Lender_cancelled, out final]
+}

@@ -1,0 +1,12 @@
+Purchase Unsafe {
+roles B, S, Shipper
+parameters out ID key, out item, out price, out outcome
+private address, resp
+
+B → S: rfq [ out ID , out item ]
+S → B: quote [ in ID, in item, out price ]
+B → S: accept [ in ID, in item, in price, out address ]
+B → S: reject [ in ID, in item, in price, out outcome ]
+S → Shipper: ship [ in ID, in item, in address ]
+Shipper → B: deliver [ in ID, in item, in address, out outcome ]
+}

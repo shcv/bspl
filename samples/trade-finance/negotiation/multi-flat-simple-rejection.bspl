@@ -1,0 +1,20 @@
+MultiFlatLoanNegotiation {
+  roles Borrower, Lender
+  parameters out eID key, out product, out quantity, opt contract, opt Borrower_rejected, opt Lender_rejected, out final
+  private rID key, fee, Borrower_accepted, Lender_accepted
+
+  Borrower -> Lender: Request[out eID key, out product, out quantity]
+  Borrower -> Lender: Propose[out eID key, out rID key, out product, out quantity, out fee, out Borrower_accepted]
+
+  Lender -> Borrower: Offer[in eID key, out rID key, in product, in quantity, out fee, out Lender_accepted]
+  Borrower -> Lender: Ask[in eID key, out rID key, in product, in quantity, out fee, out Borrower_accepted]
+
+  Borrower -> Lender: B_Accept[in eID key, in rID key, in product, in quantity, in fee, in Lender_accepted, out contract]
+  Lender -> Borrower: L_Accept[in eID key, in rID key, in product, in quantity, in fee, in Borrower_accepted, out contract]
+
+  Borrower -> Lender: B_Reject[in eID key, out Borrower_rejected, nil contract]
+
+  Lender -> Borrower: Finalize-contract[in eID key, in contract, out final]
+  Lender -> Borrower: Finalize-borrower-reject[in eID key, in Borrower_rejected, nil contract, out final]
+  Lender -> Borrower: Finalize-lender-reject[in eID key, out Lender_rejected, nil contract, out final]
+}
